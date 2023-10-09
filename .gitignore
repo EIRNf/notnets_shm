@@ -1,0 +1,4 @@
+#ignore generated directories and their content
+bin
+obj
+debug
