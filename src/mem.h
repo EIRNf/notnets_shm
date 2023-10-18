@@ -9,7 +9,7 @@
 #include <sys/shm.h>
 
 //Definitions
-const int create_flag = IPC_CREAT;
+const int create_flag = IPC_CREAT | 0644 ;
 const int only_read_flag = SHM_RDONLY;
 
 class shared_memory_region {
@@ -39,22 +39,22 @@ int shared_memory_region::create(){
         perror("shmget: shmget failed");
         exit(1);
     } else {
-        this->shmid;
+        this->shmid = shmid;
         return shmid;
     }
 }
 
 void* shared_memory_region::attach(int shmid){
     if(this->shmid != shmid){
-        perror("shm attach: attach to different id from  object");
+        perror("shm attach: attach to different id from object");
         exit(1);
     }
     void* shmaddr;
-    if ((shmaddr = shmat(shmid, NULL,NULL)) == (void *)-1){
+    if ((shmaddr = shmat(shmid, NULL, 0 )) == (void *)-1){
         perror("shmat: shmat failed");
         exit(1);
     } else {
-        this->shmaddr;
+        this->shmaddr = shmaddr;
         return shmaddr;
     }
 }
@@ -68,7 +68,7 @@ void shared_memory_region::detach(void* shmaddr){
 }
 
 void shared_memory_region::remove(){
-    if (this->shmid == NULL){
+    if (this->shmid == (int)NULL){
         perror("remove: nothing to remove");
         exit(1);
     }

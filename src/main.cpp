@@ -12,6 +12,7 @@ int main() {
 	int shmid = test_region.create();
 	void* shmaddr = test_region.attach(shmid);
 
+	test_region.remove();
 
 	//ENQUEUE SOMETHING TO IT
 
