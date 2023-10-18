@@ -10,7 +10,7 @@ LDFLAGS   := -shared
 BIN_PATH := bin
 OBJ_PATH := obj
 SRC_PATH := src
-LIB_PATH := lib
+# LIB_PATH := lib
 #TEST_PATH := test
 DBG_PATH := debug
 
@@ -55,8 +55,8 @@ $(TARGET_DEBUG): $(OBJ_DEBUG)
 
 #gcc -shared bin/shared/add.o bin/shared/answer.o -o bin/shared/libtq84.so
 
-$(LIB_PATH): $(OBJ)
-	$(CXX) -c -fPIC -o $@ $(OBJ) $(CXXFLAGS)
+# $(LIB_PATH): $(OBJ)
+# 	$(CXX) -c -fPIC -o $@ $(OBJ) $(CXXFLAGS)
 
 # phony rules
 .PHONY: makedir

@@ -24,60 +24,74 @@ typedef struct spsc_queue_header {
     int total_count;
     bool stop_producer_polling;
     bool stop_consumer_polling;
-    char* message_array[];
+    void* message_array[];
 } spsc_queue_header;
 
 //Abstract queue class to handler variable queues, type corresponds to message
-template <typename T>
-class queue {
-    public:
-        int create(shared_memory_region shm);
-        int destroy();
-        int push(T message);
-        T pop();
-        T peek();
+// template <class T>
+// class queue {
+//     public:
+//         queue();
+//         ~queue();
+//         virtual int create(shared_memory_region shm) = 0;
+//         virtual int destroy();
+//         virtual int push(T message);
+//         virtual T pop();
+//         virtual T peek();
 
 
-    private:
-        shared_memory_region shm;
-};
+//     private:
+//         shared_memory_region shm;
+// };
 
 
 //SPSC queue implementation, type corresponds to message
-template <typename T>
-class spsc_queue: public queue<T> {
+template <class T>
+class spsc_queue {
     public:
-        spsc_queue<T>();
-        ~spsc_queue<T>();
+        spsc_queue();
 
-        int create(shared_memory_region shm);
+        int create(shared_memory_region *shm);
+        int attach(shared_memory_region *shm);
         int destroy();
         int push(T message);
         T pop();
         T peek();
 
     private:
-        shared_memory_region shm;
+        shared_memory_region *shm;
 
-        spsc_queue_header* getQueueHeader(void *);
+        spsc_queue_header* getQueueHeader(void* shmaddr);
         bool isFull(spsc_queue_header *header);
         bool isEmpty(spsc_queue_header *header);
         int enqueue(spsc_queue_header *queue_header, T message);
-        T* dequeue(spsc_queue_header *queue_header);
+        T dequeue(spsc_queue_header *queue_header);
 
 };
 
-template <typename T>
-int spsc_queue<T>::create(shared_memory_region shm){
+template <class T>
+spsc_queue<T>::spsc_queue(){}
+
+
+template <class T>
+spsc_queue_header* spsc_queue<T>::getQueueHeader(void* shmaddr){
+    spsc_queue_header* header = (spsc_queue_header*)(shmaddr);
+    return header;
+} 
+
+template <class T>
+int spsc_queue<T>::create(shared_memory_region *shm){
     //do check to verify memory region size and how big to make array considering message size
-    if(sizeof(T) + sizeof(spsc_queue_header) > shm.size) {
+    if(sizeof(T) + sizeof(spsc_queue_header) > shm->size) {
         perror("Message size type too large for allocated shm");
         exit(1);
     }
 
+    this->shm = shm;
+
     //Calculate size of array
-    int num_elements = (shm.size - sizeof(spsc_queue_header)) / sizeof(T);
-    int leftover_bytes = (shm.size - sizeof(spsc_queue_header)) % sizeof(T);
+    int num_elements = (shm->size - sizeof(spsc_queue_header)) / sizeof(T);
+    int leftover_bytes = (shm->size - sizeof(spsc_queue_header)) % sizeof(T);
 
 
     spsc_queue_header header;
@@ -88,29 +102,25 @@ int spsc_queue<T>::create(shared_memory_region shm){
     header.total_count = 0;
     header.stop_consumer_polling = false;
     header.stop_producer_polling = false;
-    header.message_array = new T[num_elements];
+    header.message_array; // We can't dynamically allocate an array here, instead use as pointer to beginning of array and be careful with pointer math
 
     //Need to do a memcpy? TODO
-    spsc_queue_header* header_ptr = getQueueHeader(shm.shmaddr);
+    spsc_queue_header* header_ptr = getQueueHeader(shm->shmaddr);
     *header_ptr = header;
 }
 
 
-spsc_queue_header* getQueueHeader(void* shmaddr){
-    spsc_queue_header* header = (spsc_queue_header*)(shmaddr);
-    return header;
-} 
 
 //0 out all data in the shared memory region?
-template <typename T>
+template <class T>
 int spsc_queue<T>::destroy(){
 
 }
 
 //Polling push, will wait until it can push
-template <typename T>
+template <class T>
 int spsc_queue<T>::push(T message){
-    spsc_queue_header* header = getQueueHeader(this->shm.shmaddr);
+    spsc_queue_header* header = getQueueHeader(this->shm->shmaddr);
 
     while(true){
         if(header->stop_producer_polling){
@@ -121,7 +131,7 @@ int spsc_queue<T>::push(T message){
             continue;
         }
         else {
-            message = enqueue(header, message);
+            enqueue(header, message);
             break;
         }
         
@@ -129,16 +139,19 @@ int spsc_queue<T>::push(T message){
     return 0;
 }
 
-bool isFull(spsc_queue_header *queue_header){
+template <class T>
+bool spsc_queue<T>::isFull(spsc_queue_header *queue_header){
     return (queue_header->head+1)%queue_header->queue_size == queue_header->head;
 
 }
 
 
-template <typename T>
-int enqueue(spsc_queue_header *queue_header, T message){
+template <class T>
+int spsc_queue<T>::enqueue(spsc_queue_header *queue_header, T message){
+    T (*template_array)[queue_header->queue_size] = (T (*)[queue_header->queue_size]) queue_header->message_array;
+    (*template_array)[queue_header->tail] = message;
     //Need to do a memcpy? TODO
-    queue_header->message_array[queue_header->tail] = message;
+    // (T(*)[queue_header->queue_size]) queue_header->message_array[queue_header->tail] = message;
     queue_header->current_count++;
     queue_header->total_count++;
 
@@ -146,9 +159,9 @@ int enqueue(spsc_queue_header *queue_header, T message){
 }
 
 //Polling pop, will wait until it can pop
-template <typename T>
+template <class T>
 T spsc_queue<T>::pop(){
-    spsc_queue_header* header = getQueueHeader(this->shm.shmaddr);
+    spsc_queue_header* header = getQueueHeader(this->shm->shmaddr);
     T message;
 
     while(true){
@@ -168,21 +181,22 @@ T spsc_queue<T>::pop(){
     return message;
 }
 
-bool isEmpty(spsc_queue_header *queue_header){
+template <class T>
+bool spsc_queue<T>::isEmpty(spsc_queue_header *queue_header){
     return queue_header->head == queue_header->tail;
 }
 
 
-template <typename T>
-T* dequeue(spsc_queue_header *queue_header){
-    //Need to do a memcpy? TODO
-    T message = queue_header->message_array[queue_header->head];
+template <class T>
+T spsc_queue<T>::dequeue(spsc_queue_header *queue_header){
+
+    T (*template_array)[queue_header->queue_size] = (T (*)[queue_header->queue_size]) queue_header->message_array;
+    T message =  (*template_array)[queue_header->head];
     queue_header->head = (queue_header->head +1 ) % queue_header->queue_size;
     queue_header->current_count--;
     return message;
-\
 }
-template <typename T>
+template <class T>
 T spsc_queue<T>::peek(){
 
 }

@@ -14,6 +14,9 @@ const int only_read_flag = SHM_RDONLY;
 
 class shared_memory_region {
     public:
+        int size;
+        void* shmaddr;
+
         shared_memory_region(key_t key, int size, int shmflg){
             this->key = key;
             this->size = size;
@@ -27,8 +30,6 @@ class shared_memory_region {
     private:
         key_t key;
         int shmid;
-        void* shmaddr;
-        int size;
         int shm_get_flg; //IPC_CREAT, IPC_EXCL, SHM_HUGETLB, ...
     
     };
