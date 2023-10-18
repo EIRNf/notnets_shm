@@ -1,13 +1,16 @@
 # tool macros
 CXX := g++ 
-CXXFLAGS := 
+CXXFLAGS := -fPIC
 DBGFLAGS := -g
 COBJFLAGS := $(CXXFLAGS) -c
+LDFLAGS   := -shared
+
 
 # path macros
 BIN_PATH := bin
 OBJ_PATH := obj
 SRC_PATH := src
+LIB_PATH := lib
 #TEST_PATH := test
 DBG_PATH := debug
 
@@ -50,6 +53,11 @@ $(DBG_PATH)/%.o: $(SRC_PATH)/%.c*
 $(TARGET_DEBUG): $(OBJ_DEBUG)
 	$(CXX) $(CXXFLAGS) $(DBGFLAGS) $(OBJ_DEBUG) -o $@
 
+#gcc -shared bin/shared/add.o bin/shared/answer.o -o bin/shared/libtq84.so
+
+$(LIB_PATH): $(OBJ)
+	$(CXX) -c -fPIC -o $@ $(OBJ) $(CXXFLAGS)
+
 # phony rules
 .PHONY: makedir
 makedir:
@@ -60,6 +68,11 @@ all: $(TARGET)
 
 .PHONY: debug
 debug: $(TARGET_DEBUG)
+
+.PHONY: lib
+lib: 
+	@mkdir -p $(LIB_PATH)
+	$(LIB_PATH)
 
 .PHONY: clean
 clean:

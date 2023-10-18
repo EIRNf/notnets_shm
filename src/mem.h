@@ -80,6 +80,6 @@ void shared_memory_region::remove(){
 
 }
 
-void HashShmKeys(char* fullServiceName);
+// void HashShmKeys(char* fullServiceName);
 
 #endif
