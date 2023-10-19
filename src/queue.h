@@ -5,6 +5,8 @@
 
 //Includes
 #include "mem.h"
+// #include <boost/any.hpp>
+
 
 //Definitions
 // struct queue_meta {
@@ -27,17 +29,18 @@ typedef struct spsc_queue_header {
     void* message_array[];
 } spsc_queue_header;
 
-//Abstract queue class to handler variable queues, type corresponds to message
+// Abstract queue class to handler variable queues, type corresponds to message
 // template <class T>
 // class queue {
 //     public:
 //         queue();
-//         ~queue();
-//         virtual int create(shared_memory_region shm) = 0;
-//         virtual int destroy();
-//         virtual int push(T message);
-//         virtual T pop();
-//         virtual T peek();
+
+//         virtual int create(shared_memory_region *shm) = 0;
+//         int attach(shared_memory_region *shm);
+//         int destroy();
+//         int push(T message) = 0;
+//         T pop() = 0 ;
+//         T peek() = 0;
 
 
 //     private:
@@ -47,14 +50,15 @@ typedef struct spsc_queue_header {
 
 //SPSC queue implementation, type corresponds to message
 template <class T>
-class spsc_queue {
+class spsc_queue{
     public:
         spsc_queue();
-
         int create(shared_memory_region *shm);
         int attach(shared_memory_region *shm);
         int destroy();
         int push(T message);
+        int stop_producer_polling();
+        int stop_consumer_polling();
         T pop();
         T peek();
 
@@ -109,6 +113,19 @@ int spsc_queue<T>::create(shared_memory_region *shm){
     *header_ptr = header;
 }
 
+
+template <class T>
+int spsc_queue<T>::attach(shared_memory_region *shm){
+    //do check to verify memory region size and how big to make array considering message size
+    if(sizeof(T) + sizeof(spsc_queue_header) > shm->size) {
+        perror("Message size type too large for allocated shm");
+        exit(1);
+    }
+    this->shm = shm;
+    
+    //Need to do a memcpy? TODO
+    spsc_queue_header* header_ptr = getQueueHeader(shm->shmaddr);
+}
 
 
 //0 out all data in the shared memory region?
