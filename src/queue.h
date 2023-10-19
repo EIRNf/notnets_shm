@@ -12,8 +12,6 @@
 // struct queue_meta {
 //     int size;
 //     int payload_size;
-
-
 // };
 
 
@@ -158,8 +156,7 @@ int spsc_queue<T>::push(T message){
 
 template <class T>
 bool spsc_queue<T>::isFull(spsc_queue_header *queue_header){
-    return (queue_header->head+1)%queue_header->queue_size == queue_header->head;
-
+    return (queue_header->tail+1)%queue_header->queue_size == queue_header->head;
 }
 
 
