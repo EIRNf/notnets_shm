@@ -1,6 +1,6 @@
 # tool macros
 CXX := clang++ 
-CXXFLAGS := -fpermissive -fPIE -pie -g -fPIC  #-fsanitize=thread -fPIE -pie -g -fPIC 
+CXXFLAGS := -fsanitize=thread -fPIE -pie -g -fPIC 
 DBGFLAGS := -g
 COBJFLAGS := $(CXXFLAGS) -c
 # LDFLAGS   := -L/ #-shared
