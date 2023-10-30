@@ -1,7 +1,6 @@
 #ifndef __MEM_H
 #define __MEM_H
 
-
 //Includes
 #include <string>
 #include <sys/types.h>
