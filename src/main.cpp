@@ -5,7 +5,6 @@
 #include "coord.h"
 
 
-
 void child_process_test(){
 
 		//Forking to test multiprocess functionality
@@ -15,7 +14,7 @@ void child_process_test(){
         perror("fork"); 
         exit(EXIT_FAILURE); 
     } 
-    else if (c_pid > 0) {  //PARENT PROCESS
+	else if (c_pid > 0)  {  //PARENT PROCESS
 		//ALLOCATE MEMORY REGION
 		shared_memory_region test_region(1, 200, create_flag);
 		int shmid = test_region.create();
@@ -35,7 +34,7 @@ void child_process_test(){
 		for(int i = 0; i < 10; i++){
 			std::cout << "push:" << i << "\n";
 			test_queue.push(i);
-			sleep(1);    
+			// sleep(1);    
 		}
 
 		test_region.remove();
@@ -61,9 +60,11 @@ void child_process_test(){
 		for(int i = 0; i < 10; i++){
 			int message = test_queue.pop();
 			std::cout << "pop:" <<message << "\n";
-			sleep(1);    
+			// sleep(1);    
 		}
-    } 
+    }
+ 
+
 }
 
 

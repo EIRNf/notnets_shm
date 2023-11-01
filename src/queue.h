@@ -50,7 +50,10 @@ typedef struct spsc_queue_header {
 template <class T>
 class spsc_queue{
     public:
+
+        // template <std::size_t region_size>
         spsc_queue();
+
         int create(shared_memory_region *shm); //ensure shared_memory size is big enough to handle (shm->size - sizeof(spsc_queue_header)) / sizeof(T)
         int attach(shared_memory_region *shm); //doesnt make sense as a call?
         int destroy();
@@ -62,8 +65,8 @@ class spsc_queue{
 
     private:
         shared_memory_region *shm;
-        // int num_elements = (shm->size - sizeof(spsc_queue_header)) / sizeof(T);
 
+        constexpr int get_array_size();
         spsc_queue_header* get_queue_header(void* shmaddr);
         bool is_full(spsc_queue_header *header);
         bool is_empty(spsc_queue_header *header);
@@ -73,8 +76,8 @@ class spsc_queue{
 };
 
 template <class T>
-spsc_queue<T>::spsc_queue(){}
-
+spsc_queue<T>::spsc_queue(){
+}
 
 template <class T>
 spsc_queue_header* spsc_queue<T>::get_queue_header(void* shmaddr){
@@ -105,7 +108,8 @@ int spsc_queue<T>::create(shared_memory_region *shm){
     header.total_count = 0;
     header.stop_consumer_polling = false;
     header.stop_producer_polling = false;
-    // header.message_array; // We can't dynamically allocate an array here, instead use as pointer to beginning of array and be careful with pointer math
+    char* temp_addr = (char*) this->shm->shmaddr ;
+    header.message_array = temp_addr + sizeof(spsc_queue_header);
 
     //Need to do a memcpy? TODO
     spsc_queue_header* header_ptr = get_queue_header(this->shm->shmaddr);
@@ -170,9 +174,10 @@ int spsc_queue<T>::enqueue(spsc_queue_header *queue_header, T message){
     // (*template_array)[queue_header->tail] = message;
     
     //byte addressing to assign templated message type to address location
-    int type_size = sizeof(T);
-    char *element_pointer = static_cast<char *> (queue_header->message_array) + (type_size * queue_header->tail);
-    *element_pointer = message;
+    T* array_start = reinterpret_cast<T*> (queue_header->message_array);
+    // T* element_pointer =  array_start + queue_header->tail;
+    array_start[queue_header->tail] = message;
+    // *element_pointer = message;
 
 
     //Need to do a memcpy? TODO
@@ -202,7 +207,7 @@ T spsc_queue<T>::pop(){
             message = dequeue(header);
             break; 
         }
-        
+
     }
     return message;
 }
@@ -216,13 +221,13 @@ bool spsc_queue<T>::is_empty(spsc_queue_header *queue_header){
 template <class T>
 T spsc_queue<T>::dequeue(spsc_queue_header *queue_header){
 
-    // //
-
     // T (*template_array)[queue_header->queue_size] = (T (*)[queue_header->queue_size]) queue_header->message_array; // compile time issue
     // T message =  (*template_array)[queue_header->head];
-    int type_size = sizeof(T);
-    char *element_pointer = static_cast<char *> (queue_header->message_array) + (type_size * queue_header->head);
-    T message = *element_pointer;
+
+    T* array_start = reinterpret_cast<T*> (queue_header->message_array);
+    // T* element_pointer =  array_start + queue_header->head;
+    T message = array_start[queue_header->head];
+    // T message = *element_pointer;
 
 
     queue_header->head = (queue_header->head +1 ) % queue_header->queue_size;
