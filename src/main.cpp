@@ -68,18 +68,18 @@ void child_process_test(){
 }
 
 
-void *Thread1(void *x) {
+// void *Thread1(void *x) {
 
 
-  return NULL;
-}
+//   return NULL;
+// }
 
 
-void *Thread2(void *x) {
+// void *Thread2(void *x) {
 
 
-  return NULL;
-}
+//   return NULL;
+// }
 
 
 void data_race_test(){
@@ -161,8 +161,9 @@ void coord_test(){
     } 
     else if (c_pid > 0) {  //PARENT PROCESS
 
-		shared_memory_region coord_region(1, 200, create_flag);
-		coord_region.create();
+		shared_memory_region coord_region(1, 1000, create_flag);
+		int shmid = coord_region.create();
+		void* shmaddr = coord_region.attach(shmid);
 
 		coord test_coord;
 		test_coord.create(&coord_region);
@@ -173,24 +174,30 @@ void coord_test(){
 
 		key_pair* keys = test_coord.query_handled_requests();
 
+		std::cout << "server:\n";
 		for (int i=0;i<10;i++)
 		{
-			std::cout << keys[i].request_shm_key << '\n';
-			std::cout << keys[i].response_shm_key << '\n';
+			std::cout << "coord slot: "<< i << "\n";
+			std::cout << "request:" << keys[i].request_shm_key << '\n';
+			std::cout << "request:" << keys[i].response_shm_key << '\n';
 		}
+
+		coord_region.remove();
 
     } 
     else { //CHILD PROCESS
-
-		shared_memory_region coord_region(1, 200, create_flag);
-		coord_region.create();
+		
+		shared_memory_region coord_region(1, 1000, create_flag);
+		int shmid = coord_region.create();
+		void* shmaddr = coord_region.attach(shmid);
 
 		coord test_coord;
 		test_coord.attach(&coord_region);
 
 		key_pair keys = test_coord.try_request_keys(c_pid);
-		std::cout << keys.request_shm_key << '\n';
-		std::cout << keys.response_shm_key << '\n';
+
+		std::cout << "client:" << keys.request_shm_key << '\n';
+		std::cout << "client:" << keys.response_shm_key << '\n';
 
 
 		// key_pair* keys = test_coord.query_handled_requests();
@@ -201,7 +208,8 @@ void coord_test(){
 		// 	std::cout << keys[i].response_shm_key << '\n';
 		// }
 
-		
+		coord_region.remove();
+
     } 
 
 }

@@ -56,7 +56,7 @@ class spsc_queue{
 
         int create(shared_memory_region *shm); //ensure shared_memory size is big enough to handle (shm->size - sizeof(spsc_queue_header)) / sizeof(T)
         int attach(shared_memory_region *shm); //doesnt make sense as a call?
-        int destroy();
+        void destroy();
         int push(T message);
         int stop_producer_polling();
         int stop_consumer_polling();
@@ -88,7 +88,7 @@ spsc_queue_header* spsc_queue<T>::get_queue_header(void* shmaddr){
 template <class T>
 int spsc_queue<T>::create(shared_memory_region *shm){
     //do check to verify memory region size and how big to make array considering message size
-    if(sizeof(T) + sizeof(spsc_queue_header) > shm->size) {
+    if(sizeof(T) + sizeof(spsc_queue_header) > (u_long) shm->size) {
         perror("Message size type + Header data too large for allocated shm");
         exit(1);
     }
@@ -97,7 +97,7 @@ int spsc_queue<T>::create(shared_memory_region *shm){
 
     //Calculate size of array
     int num_elements = (shm->size - sizeof(spsc_queue_header)) / sizeof(T);
-    int leftover_bytes = (shm->size - sizeof(spsc_queue_header)) % sizeof(T);
+    // int leftover_bytes = (shm->size - sizeof(spsc_queue_header)) % sizeof(T);
 
 
     spsc_queue_header header;
@@ -121,22 +121,22 @@ int spsc_queue<T>::create(shared_memory_region *shm){
 template <class T>
 int spsc_queue<T>::attach(shared_memory_region *shm){
     //do check to verify memory region size and how big to make array considering message size
-    if(sizeof(T) + sizeof(spsc_queue_header) > shm->size) {
+    if(sizeof(T) + sizeof(spsc_queue_header) > (u_long) shm->size) {
         perror("Message size type too large for allocated shm");
         exit(1);
     }
     this->shm = shm;
     
     //Need to do a memcpy? TODO
-    spsc_queue_header* header_ptr = get_queue_header(shm->shmaddr);
-        return 0;
+    // spsc_queue_header* header_ptr = get_queue_header(shm->shmaddr);
+    return 0;
 
 }
 
 
 //0 out all data in the shared memory region?
 template <class T>
-int spsc_queue<T>::destroy(){
+void spsc_queue<T>::destroy(){
 
 }
 
