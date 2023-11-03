@@ -63,6 +63,16 @@ class spsc_queue{
         T pop();
         T peek();
 
+        ssize_t create(void* shm_addr, size_t shm_size, size_t message)
+        // ssize_t attach(void* shm_addr, )
+        ssize_t push(const void* buf, size_t buf_size);
+        //preallocate do data copy
+        void* pop(ssize_t *size);
+        //get a pointer 
+        void* peek(ssize_t *size); 
+
+
+
     private:
         shared_memory_region *shm;
 
@@ -97,7 +107,7 @@ int spsc_queue<T>::create(shared_memory_region *shm){
 
     //Calculate size of array
     int num_elements = (shm->size - sizeof(spsc_queue_header)) / sizeof(T);
-    // int leftover_bytes = (shm->size - sizeof(spsc_queue_header)) % sizeof(T);
+    int leftover_bytes = (shm->size - sizeof(spsc_queue_header)) % sizeof(T);
 
 
     spsc_queue_header header;
@@ -184,6 +194,7 @@ int spsc_queue<T>::enqueue(spsc_queue_header *queue_header, T message){
     queue_header->current_count++;
     queue_header->total_count++;
 
+    //fence
     queue_header->tail = (queue_header->tail + 1) % queue_header->queue_size;
         return 0;
 
@@ -230,6 +241,7 @@ T spsc_queue<T>::dequeue(spsc_queue_header *queue_header){
     // T message = *element_pointer;
 
 
+    //fence
     queue_header->head = (queue_header->head +1 ) % queue_header->queue_size;
     queue_header->current_count--;
     return message;

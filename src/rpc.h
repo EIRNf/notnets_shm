@@ -78,16 +78,13 @@ ssize_t notnets_conn_write(const void *buf, size_t size, connection* conn);
  * 2. Make a really really big buffer that makes queue pressure unlikely?
  * 3. Shm memory allocator and only pointers are passed in the queue, once the read has occurred
  * we can confidently dequeue it, however we still have to manage the other allocated function.
- * This is (kinda) the design approach taken by the paper.  Partial Failure Resilient Memory Management System
- * for (CXL-based) Distributed Shared Memory. It requires a change of interface and garbage collecting.
+ * This is (kinda) the design approach taken by the paper.  Partial Failure Resilient Memory Management System for (CXL-based) Distributed Shared Memory. It requires a change of interface and garbage collecting.
  * 4. Unsure of how CXL work but maybe, could you get a handle to the nic's packet buffers of the wire
  * and map them to the process's address space. The nic would have to have a way of recognizing a
  * particular message, and separate them from the usual buffers and pass the responsibility for freeing
  * those buffers to the notnets process? This is how TCP zero copy kinda works but the memory mapping
  * introduces overhead. If you could have a set region so that you had a single mapping it might not be so bad.
- * 5. Transformation function? Pass a function into the read that ensures that overwritten would not be a problem. 
- * I'm imagining this to be a serialization function that would carry out the read and the subsequent necessary
- * data transformation. This might be quite difficult to implement in certain frameworks, and is def a bit of a hack. 
+ * 5. Transformation function? Pass a function into the read that ensures that overwritten would not be a problem. I'm imagining this to be a serialization function that would carry out the read and the subsequent necessary data transformation. This might be quite difficult to implement in certain frameworks, and is def a bit of a hack. 
  * - Alternative, ensure this function only gets called when transformed? Very framework dependent
  * 6. Allocate at enqueue in common page, pass by reference in actual queue. Flush at timeout? 
  * 
