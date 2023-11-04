@@ -2,84 +2,80 @@
 #define __MEM_H
 
 //Includes
-#include <string>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <stdio.h>
+
 
 //Definitions
 const int create_flag = IPC_CREAT | 0644 ;
 const int only_read_flag = SHM_RDONLY;
 
-class shared_memory_region {
-    public:
-        int size;
-        void* shmaddr;
-
-        shared_memory_region(key_t key, int size, int shmflg){
-            this->key = key;
-            this->size = size;
-            this->shm_get_flg = shmflg;
-        };
-        int create();
-        void* attach(int shmid);
-        void detach(void* shmaddr);
-        void remove();
-
-    private:
-        key_t key;
-        int shmid;
-        int shm_get_flg; //IPC_CREAT, IPC_EXCL, SHM_HUGETLB, ...
-    
-    };
-
-int shared_memory_region::create(){
+/**
+ * @brief shmget wrapper. Handles errors.
+ * Creates shared memory region that can
+ * be attached to 
+ * 
+ * @param key unique key to creat shm region
+ * @param size size of shm region
+ * @param shmflg creation flags
+ * @return int shmid to attach
+ */
+int shm_create(key_t key, int size, int shmflg){
     int shmid;
-    if ((shmid = shmget(this->key, this->size, this->shm_get_flg)) == -1){
+    if ((shmid = shmget(key, size, shmflg)) == -1){
         perror("shmget: shmget failed");
-        exit(1);
-    } else {
-        this->shmid = shmid;
-        return shmid;
-    }
+        fprintf(stderr,"Error creating shm: %d \n", shmid );
+    } 
+    return shmid;
 }
 
-void* shared_memory_region::attach(int shmid){
-    if(this->shmid != shmid){
-        perror("shm attach: attach to different id from object");
-        exit(1);
-    }
+/**
+ * @brief shmat wrapper. Handles errors.
+ * Attaches local process to previously created
+ * shm region.
+ * 
+ * @param shmid shmid from create/shmget
+ * @return void* shmaddr to access shm
+ */
+void* shm_attach(int shmid){
     void* shmaddr;
     if ((shmaddr = shmat(shmid, NULL, 0 )) == (void *)-1){
         perror("shmat: shmat failed");
-        exit(1);
-    } else {
-        this->shmaddr = shmaddr;
-        return shmaddr;
-    }
+        fprintf(stderr,"Error attaching to shm: %p \n", shmaddr );
+    } 
+    return shmaddr;
 }
-
-void shared_memory_region::detach(void* shmaddr){
-    int err;
+/**
+ * @brief shmdt wrapper. Handlers errors.
+ * Detaches local process from shm region
+ * 
+ * @param shmaddr shm address
+ * @return int error codes
+ */
+int shm_detach(void* shmaddr){
+    int err = 0;
     if ((err = shmdt(shmaddr)) ==  -1){
         perror("shmdt: shmdt failed");
-        exit(1);
+        fprintf(stderr,"Error detaching shm: %d \n", err );
     }
+    return err;
 }
-
-void shared_memory_region::remove(){
-    if (this->shmid == (int)NULL){
-        perror("remove: nothing to remove");
-        exit(1);
-    }
-    int err;
-    if ((err = shmctl(this->shmid, IPC_RMID, NULL)) ==  -1){
+/**
+ * @brief shmctl wrapper. Handles errors. 
+ * Removes shared region from IPC namespace
+ * 
+ * @param shmid shmid from create/shmget
+ * @return int error codes
+ */
+int shm_remove(int shmid){
+    int err = 0;
+    if ((err = shmctl(shmid, IPC_RMID, NULL)) ==  -1){
         perror("shmctl: shmctl failed");
-        exit(1);
+        fprintf(stderr,"Error removing shm: %d \n", err );
     }
-
+    return err;
 }
-
-// void HashShmKeys(char* fullServiceName);
 
 #endif
