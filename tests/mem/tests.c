@@ -8,7 +8,7 @@ void test_failed_print(const char *message) {
     printf("FAILED:%s\n", message);
 }
 
-void test_basic_queue_multiprocess(){
+void test_basic_create_delete(){
     int shmid = shm_create(1, 10, create_flag);
     int err =shm_remove(shmid);
 
@@ -21,6 +21,6 @@ void test_basic_queue_multiprocess(){
 }
 
 void tests_run_all(void){
-    test_basic_queue_multiprocess();
+    test_basic_create_delete();
 
 }

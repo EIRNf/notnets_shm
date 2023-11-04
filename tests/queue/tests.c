@@ -69,6 +69,7 @@ void test_basic_queue_multiprocess(){
  
 
     //CONDITION TO VERIFY
+    int err=0;
     if(err != 0){
         test_failed_print(__func__);
     }

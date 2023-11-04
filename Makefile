@@ -1,9 +1,9 @@
 # tool macros
 CXX := clang-17
-CXXFLAGS := -pthread  -lstdc++  #-Wall -Wextra -Werror -lstdc++ #-fPIC -shared
+CXXFLAGS :=# -pthread  -lstdc++  #-Wall -Wextra -Werror -lstdc++ #-fPIC -shared
 #-fsanitize=thread -fPIE -pie -g -fPIC 
 DBGFLAGS := -g
-COBJFLAGS := $(CXXFLAGS) -c
+COBJFLAGS := $(CXXFLAGS) -Wall -Wextra -Werror
 LDFLAGS  := 
 
 # path macros
@@ -71,6 +71,11 @@ all: $(TARGET)
 .PHONY: debug
 debug: $(TARGET_DEBUG)
 
+.PHONY: test
+test: 
+	(cd tests;./runner.sh "$(CXX) $(COBJFLAGS)")
+
+	
 # .PHONY: lib
 # lib: $(LIB)
 # 	@mkdir -p $(LIB_PATH)
