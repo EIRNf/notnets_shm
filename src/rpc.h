@@ -35,6 +35,8 @@ struct connection_handler {
     client_queue* client_queues; //Queues used to by live client connection. TODO: Fixed array
     queue_ref* free_queues; //Available queues to be assigned to new clients.  TODO: Fixed array
 };
+
+
 //NOTE ON ERROR HANDLING
 // As this is a low level C library we should use the global 
 // errno on failure. A lot of potential issues that can occur 
@@ -71,7 +73,14 @@ ssize_t notnets_conn_write(const void *buf, size_t size, connection* conn);
 /**
   * @brief Client reads from response queue in given connection.
  * TODO: Question: Should read be preallocated? Message size will be determined
- * by the server writing the response. This will be the message in the response queue.  
+ * by the server writing the response. This will be the message in the response queue. 
+ * 
+ * TODO: Issue. Current queue design assumes that a read by a consumer of the 
+ * queue will update the flag that permits the producer to keep on writing. 
+ * Changing this might add significant complexity to the queue. However, if 
+ * in order to avoid a data copy our read only returns a reference to the 
+ * message in the queue we cannot ensure that the message is dereferenced 
+ * before it is overwritten. A brainstorm of potential solutions follows below.  
  * 
  * This is complicated and worth of discussion. Many different design decisions:
  * 1. Incur a data copy, server allocates and copies of the shm queue 
@@ -86,7 +95,6 @@ ssize_t notnets_conn_write(const void *buf, size_t size, connection* conn);
  * introduces overhead. If you could have a set region so that you had a single mapping it might not be so bad.
  * 5. Transformation function? Pass a function into the read that ensures that overwritten would not be a problem. I'm imagining this to be a serialization function that would carry out the read and the subsequent necessary data transformation. This might be quite difficult to implement in certain frameworks, and is def a bit of a hack. 
  * - Alternative, ensure this function only gets called when transformed? Very framework dependent
- * 6. Allocate at enqueue in common page, pass by reference in actual queue. Flush at timeout? 
  * 
  * @param size[OUT] 
  * @param conn[IN] 
@@ -162,8 +170,13 @@ ssize_t handler_read_single_conn(void *buf, size_t *size,  client_queue* client)
  * for whatever consuming system that uses this.
  * TODO: Question: Should read be preallocated? Message size will be determined
  * by the client.
- * TODO: What is the correct way to read incoming messages? 
- * - Round robin
+ * TODO: What is the correct way to read incoming messages? There could be 
+ * a variety of queuing algorithms we could choose. There is an interesting 
+ * opportunity for per connection load balancing at the server level to occur.
+ * But for not an algorithm that ensures fairness would be best. Round robin seems
+ * like the best and easiest for now, as other algorithms would require greater visibility
+ * into the state of the queues. Round robin represents different behavior than how
+ * a typical socket read would work, as sockets order messages by delivery (i think). 
  * 
  * @param buf [OUT] data buf for data to be read into
  * @param size [OUT] size of read to be performed
