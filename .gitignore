@@ -2,3 +2,6 @@
 bin
 obj
 debug
+
+tests/test_output.txt
+tests/*/test
