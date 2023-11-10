@@ -10,7 +10,7 @@ void test_failed_print(const char *message) {
 
 void test_basic_create_delete(){
     int shmid = shm_create(1, 10, create_flag);
-    int err =shm_remove(shmid);
+    int err = shm_remove(shmid);
 
 
     //CONDITION TO VERIFY
