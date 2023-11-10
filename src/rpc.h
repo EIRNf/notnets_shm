@@ -57,7 +57,7 @@ queue_pair* open(char* source_addr, char* destination_addr);
  * @param size[IN] size of buf
  * @return ssize_t -1 for error, >0 for bytes written
  */
-ssize_t send_rpc(queue_pair* conn, const void *buf, size_t size);
+int send_rpc(queue_pair* conn, const void *buf, size_t size); //TODO
 
 
 /**
@@ -72,7 +72,7 @@ ssize_t send_rpc(queue_pair* conn, const void *buf, size_t size);
  * @param size [IN] size of buf
  * @return ssize_t How much read, if 0 EOF. Only removed from queue once fully read. 
  */
-ssize_t receive_buf(queue_pair* conn, void** buf, size_t size);
+ssize_t receive_buf(queue_pair* conn, void* buf, size_t size);
 
 
 /**
@@ -147,7 +147,7 @@ queue_pair* accept(server_context* handler);
  * @param size[IN] size of buf
  * @return ssize_t  -1 for error, >0 for bytes written
  */
-ssize_t send_rpc(queue_pair* client, const void *buf, size_t size);
+int send_rpc(queue_pair* client, const void *buf, size_t size);
 
 /**
  * @brief Buffer provided by user. Called until all data has been read from 
@@ -160,7 +160,7 @@ ssize_t send_rpc(queue_pair* client, const void *buf, size_t size);
  * @param size [IN] size of buf
  * @return ssize_t How much read, if 0 EOF. Only removed from queue once fully read. 
  */
-ssize_t receive_buf(queue_pair* client, void** buf, size_t size);
+ssize_t receive_buf(queue_pair* client, void* buf, size_t size);
 
 
 /**
