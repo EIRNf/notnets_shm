@@ -7,11 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-// TODO: will not be 24 bytes now, since we also store message_size--is that fine?
 typedef struct spsc_queue_header {
     int head;
     int tail;
     size_t message_size;
+    int message_offset;
     int queue_size;
     int current_count;
     int total_count;
@@ -57,6 +57,7 @@ ssize_t create(void* shmaddr,
     header.head = 0;
     header.tail = 0;
     header.message_size = message_size;
+    header.message_offset = 0;
     header.queue_size = num_elements;
     header.current_count = 0;
     header.total_count = 0;
@@ -97,7 +98,7 @@ void enqueue(spsc_queue_header* header, const void* buf, size_t buf_size) {
     int tail = header->tail;
 
     // add buf to queue one char byte at a time
-    for (int i = 0; i < buf_size; ++i) {
+    for (size_t i = 0; i < buf_size; ++i) {
         array_start[tail*message_size + i] = char_buf[i];
     }
 
@@ -155,20 +156,26 @@ bool is_empty(spsc_queue_header *header) {
  * @param header pointer to queue header
  * @returns dequeued message in a malloced buffer
  */
-void* dequeue(spsc_queue_header* header) {
+void dequeue(spsc_queue_header* header, void* buf, ssize_t* buf_size) {
     int message_size = header->message_size;
     int queue_head = header->head;
+    int offset = header->message_offset;
 
-    // incur a data copy
-    void* message = malloc(sizeof(char) * message_size);
-    void* array_start = (void*) header->message_array;
+    void* array_start = header->message_array;
 
-    memcpy(message, array_start + queue_head*message_size, message_size);
+    // handle offset math
+    if (*buf_size + offset > message_size) {
+        *buf_size = message_size - offset;
+    }
 
-    header->head = (header->head + 1) % header->queue_size;
-    header->current_count--;
+    memcpy(buf, array_start + queue_head*message_size + offset, *buf_size);
+    offset += *buf_size;
 
-    return message;
+    if (offset == message_size) {
+        header->head = (header->head + 1) % header->queue_size;
+        header->current_count--;
+        header->message_offset = 0;
+    }
 }
 
 /*
@@ -179,26 +186,21 @@ void* dequeue(spsc_queue_header* header) {
  *                 of returned messaged
  * @return message buffer popped from queue
  */
-void* pop(void* shmaddr, ssize_t *buf_size) {
+void pop(void* shmaddr, void* buf, ssize_t* buf_size) {
     spsc_queue_header* header = get_queue_header(shmaddr);
-
-    void* message;
 
     while (true) {
         if (header->stop_consumer_polling) {
-            return NULL;
+            return;
         }
 
         if (is_empty(header)) {
             continue;
         } else {
-            message = dequeue(header);
+            dequeue(header, buf, buf_size);
             break;
         }
     }
-
-    *buf_size = header->message_size;
-    return message;
 }
 
 /*
@@ -219,3 +221,5 @@ const void* peek(void* shmaddr, ssize_t *size) {
     *size = header->message_size;
     return (const void*) (array_start + queue_head*message_size);
 }
+
+#endif
