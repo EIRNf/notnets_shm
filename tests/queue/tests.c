@@ -13,6 +13,70 @@ void test_failed_print(const char *message) {
     printf("FAILED:%s\n", message);
 }
 
+void test_queue_partial_buffer() {
+    // create shm and attach to it
+    int err = 0;
+    key_t key = 1;
+    int shm_size = 1024;
+    int shmid = shm_create(key, shm_size, create_flag);
+
+    while (shmid == -1) {
+        shmid = shm_create(key, shm_size, create_flag);
+    }
+
+    void* shmaddr = shm_attach(shmid);
+
+    // create queue
+    // message size of 4 ints
+    int num_char = 4;
+    int message_size = num_char*sizeof(char);
+    create(shmaddr, shm_size, message_size);
+
+    char *buf = malloc(message_size);
+    buf[0] = 'b';
+    buf[1] = 'i';
+    buf[2] = 'r';
+    buf[3] = 'd';
+
+    char*other_buf = malloc(message_size);
+    other_buf[0] = 'a';
+
+    push(shmaddr, buf, message_size);
+    push(shmaddr, other_buf, message_size);
+
+    size_t* pop_size = malloc(sizeof(size_t));
+
+    // pop buffer can only store 1 character at a time
+    *pop_size = sizeof(char);
+    char* pop_buf = malloc(*pop_size);
+
+    for (int i = 0; i < num_char; i++) {
+        pop(shmaddr, pop_buf, pop_size);
+        if (*pop_buf != buf[i]) {
+            err = 1;
+        }
+    }
+
+    pop(shmaddr, pop_buf, pop_size);
+    if (*pop_buf != 'a') {
+        err = 1;
+    }
+
+    // cleanup
+    free(buf);
+    free(pop_buf);
+    free(pop_size);
+    shm_detach(shmaddr);
+    shm_remove(shmid);
+
+    //CONDITION TO VERIFY
+    if(err != 0){
+        test_failed_print(__func__);
+    } else {
+        test_success_print(__func__);
+    }
+}
+
 void test_basic_queue_multiprocess(){
     int err = 0;
     key_t key = 1;
@@ -76,7 +140,7 @@ void test_basic_queue_multiprocess(){
         // client pops from queue
         // assume the pop buffer can take in a full message
 
-        ssize_t* pop_size = malloc(sizeof(ssize_t));
+        size_t* pop_size = malloc(sizeof(ssize_t));
         *pop_size = message_size;
         int* pop_buf = malloc(*pop_size);
 
@@ -138,7 +202,7 @@ void test_basic_queue_single_process(){
 
     free(buf);
 
-    ssize_t* pop_size = malloc(sizeof(ssize_t));
+    size_t* pop_size = malloc(sizeof(ssize_t));
     *pop_size = message_size;
     int* pop_buf = malloc(*pop_size);
 
@@ -165,4 +229,5 @@ void test_basic_queue_single_process(){
 void tests_run_all() {
     test_basic_queue_multiprocess();
     test_basic_queue_single_process();
+    test_queue_partial_buffer();
 }
