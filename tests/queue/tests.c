@@ -64,6 +64,7 @@ void test_queue_partial_buffer() {
 
     // cleanup
     free(buf);
+    free(other_buf);
     free(pop_buf);
     free(pop_size);
     shm_detach(shmaddr);
