@@ -156,22 +156,22 @@ bool is_empty(spsc_queue_header *header) {
  * @param header pointer to queue header
  * @returns dequeued message in a malloced buffer
  */
-void dequeue(spsc_queue_header* header, void* buf, ssize_t* buf_size) {
-    int message_size = header->message_size;
-    int queue_head = header->head;
-    int offset = header->message_offset;
-
+void dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
     void* array_start = header->message_array;
 
     // handle offset math
-    if (*buf_size + offset > message_size) {
-        *buf_size = message_size - offset;
+    if (*buf_size + header->message_offset > header->message_size) {
+        *buf_size = header->message_size - header->message_offset;
     }
 
-    memcpy(buf, array_start + queue_head*message_size + offset, *buf_size);
-    offset += *buf_size;
+    memcpy(
+        buf,
+        array_start + header->head*header->message_size + header->message_offset,
+        *buf_size
+    );
+    header->message_offset += *buf_size;
 
-    if (offset == message_size) {
+    if ((size_t) header->message_offset == header->message_size) {
         header->head = (header->head + 1) % header->queue_size;
         header->current_count--;
         header->message_offset = 0;
@@ -186,7 +186,7 @@ void dequeue(spsc_queue_header* header, void* buf, ssize_t* buf_size) {
  *                 of returned messaged
  * @return message buffer popped from queue
  */
-void pop(void* shmaddr, void* buf, ssize_t* buf_size) {
+void pop(void* shmaddr, void* buf, size_t* buf_size) {
     spsc_queue_header* header = get_queue_header(shmaddr);
 
     while (true) {
