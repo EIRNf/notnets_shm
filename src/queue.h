@@ -91,16 +91,12 @@ bool is_full(spsc_queue_header *header) {
  * @param buf_size size of the buf in bytes
   */
 void enqueue(spsc_queue_header* header, const void* buf, size_t buf_size) {
-    const char* char_buf = (const char*) buf;
-    char* array_start = (char*) header->message_array;
+    void* array_start = header->message_array;
 
     int message_size = header->message_size;
     int tail = header->tail;
 
-    // add buf to queue one char byte at a time
-    for (size_t i = 0; i < buf_size; ++i) {
-        array_start[tail*message_size + i] = char_buf[i];
-    }
+    memcpy(array_start + tail*message_size, buf, buf_size);
 
     header->current_count++;
     header->total_count++;
@@ -216,7 +212,7 @@ const void* peek(void* shmaddr, ssize_t *size) {
     int message_size = header->message_size;
     int queue_head = header->head;
 
-    void* array_start = (char*) header->message_array;
+    void* array_start = header->message_array;
 
     *size = header->message_size;
     return (const void*) (array_start + queue_head*message_size);
