@@ -10,6 +10,7 @@
 
 //Definitions
 const int create_flag = IPC_CREAT | 0644 ;
+const int attach_flag = 0644;
 const int only_read_flag = SHM_RDONLY;
 
 /**
