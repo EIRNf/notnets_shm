@@ -25,7 +25,7 @@ key_pair fake_allocater(){
 
 
 key_pair coord_test_queue_allocation(int key_seed){
-	// key_pair keys = coord_test_name_keys(key_seed);
+	key_pair keys = coord_test_name_keys(key_seed);
 
 	// //ALLOCATE MEMORY REGIONS
 	// shared_memory_region request_test_region(keys.request_shm_key, 200, create_flag);
@@ -44,10 +44,12 @@ key_pair coord_test_queue_allocation(int key_seed){
 
 	// spsc_queue<int> response_queue;
 	// response_queue.create(&response_test_region);
-    key_pair keys = {key_seed,key_seed+1};
+    // key_pair keys = {key_seed,key_seed+1};
 	return keys;
 }
 
+
+//does not test close
 void test_single_client_get_keys(){
     // Forking to test multiprocess functionality
     pid_t c_pid = fork(); 
@@ -56,6 +58,8 @@ void test_single_client_get_keys(){
         perror("fork"); 
     } 
     else if (c_pid > 0) {  //PARENT PROCESS
+
+
         coord_header* coord_region = create("common_name");
         int err = -1;
         while (err == -1) {
@@ -87,7 +91,6 @@ void test_single_client_get_keys(){
     } 
   
 }
-
 
 
 void tests_run_all(void){

@@ -11,7 +11,6 @@
 
 typedef struct reserve_pair {
     bool client_request;
-    bool server_handled;
 }reserve_pair; 
 
 typedef struct key_pair {
@@ -22,7 +21,7 @@ typedef struct key_pair {
 //Modify to be templatable, permit 
 typedef struct coord_row {
     int client_id; //Only written to by Client, how do we even know id?
-    bool shm_created;  //Only written to by Server //If false server creates it and adds keys to
+    bool shm_created;  //Only written to by Server 
     key_pair keys;
     bool detach;  //Only written to by Client
 }coord_row;
@@ -69,17 +68,18 @@ void detach(coord_header* header){
     shm_detach(header);
 }
 
-
-
 //Client
 // Returns reserved slot to check back against, if -1 failed to get a slot
+
+
 int request_keys(coord_header* header, int client_id){
 
     // ///try to reserve a slot, if not available wait and try again
     pthread_mutex_lock((pthread_mutex_t*) header->mutex);
     for(int i = 0; i < SLOT_NUM; i++){
-        if ((header->available_slots[i].client_request == false) && (header->available_slots[i].server_handled == false) ){
+        if (header->available_slots[i].client_request == false){
             header->available_slots[i].client_request = true;
+            
             header->slots[i].client_id = client_id;
             header->slots[i].detach = false;
             header->slots[i].keys.request_shm_key = -1;
@@ -96,10 +96,14 @@ int request_keys(coord_header* header, int client_id){
 //if null request 
 key_pair check_slot(coord_header* header, int slot){
     key_pair keys = {};
-    keys.request_shm_key = header->slots[slot].keys.request_shm_key;
-    keys.response_shm_key = header->slots[slot].keys.response_shm_key;
+    if (header->slots[slot].shm_created == true ){
+        keys.request_shm_key = header->slots[slot].keys.request_shm_key;
+        keys.response_shm_key = header->slots[slot].keys.response_shm_key;
+        return keys;
+    }
     return keys;
 }
+
 
 
 //Server
@@ -119,7 +123,6 @@ coord_header* create(char* coord_address){
     header->counter = 0;
     for(int i = 0; i < SLOT_NUM; i++){
         header->available_slots[i].client_request = false;
-        header->available_slots[i].server_handled = false;
     }
 
     // header->slots[SLOT_NUM] = {0};
@@ -143,27 +146,25 @@ coord_header* create(char* coord_address){
     return header;
 }
 
-
+//return the client id
 int service_keys(coord_header* header, int slot, key_pair (*allocation)()){
 
-        if ((header->available_slots[slot].client_request == true) && (header->available_slots[slot].server_handled == false) ){
-            //Begin handling request, what does this look like?
-            //Use passed function that returns keys
-
+        //Check for the presence of a valid request by reading cliend_id value ie. non zero
+        if (header->slots[slot].client_id > 0 ){
             //Call Allocation Function
             key_pair keys = (*allocation)();
             
             header->slots[slot].keys.request_shm_key = keys.request_shm_key;
             header->slots[slot].keys.response_shm_key = keys.response_shm_key;
             header->slots[slot].shm_created = true;
-            header->available_slots[slot].server_handled = true;
 
-            return 0; 
+            return header->slots[slot].client_id; 
         }
     
         return -1;
-        // this->sem.release();
 } 
+
+
 
 
 
