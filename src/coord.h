@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <sys/sem.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 typedef struct reserve_pair {
     bool client_request;
@@ -30,7 +31,7 @@ typedef struct coord_row {
 typedef struct coord_header {
     int shmid; // for later deletion, to avoid process state
 	int counter; //How many are being used right now
-    void *mutex;
+    pthread_mutex_t mutex;
 	reserve_pair available_slots[SLOT_NUM] ;// This needs to be thread safe
     coord_row slots[SLOT_NUM];
 } coord_header;
@@ -73,7 +74,7 @@ void detach(coord_header* header){
 
 int request_keys(coord_header* header, int client_id){
     // ///try to reserve a slot, if not available wait and try again
-    pthread_mutex_lock((pthread_mutex_t*) header->mutex);
+    pthread_mutex_lock(&header->mutex);
     for(int i = 0; i < SLOT_NUM; i++){
         if (header->available_slots[i].client_request == false){
             header->available_slots[i].client_request = true;
@@ -84,23 +85,23 @@ int request_keys(coord_header* header, int client_id){
             header->slots[i].keys.response_shm_key = -1;
             header->slots[i].shm_created = false;
 
-            pthread_mutex_unlock((pthread_mutex_t*) header->mutex);
+            pthread_mutex_unlock(&header->mutex);
             return i;
         }
     }
-    pthread_mutex_unlock((pthread_mutex_t*) header->mutex);
+    pthread_mutex_unlock(&header->mutex);
     return -1;
 }
 
 //if null request
 key_pair check_slot(coord_header* header, int slot){
     key_pair keys = {};
-    pthread_mutex_lock((pthread_mutex_t*) header->mutex);
+    pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true ){
         keys.request_shm_key = header->slots[slot].keys.request_shm_key;
         keys.response_shm_key = header->slots[slot].keys.response_shm_key;
     }
-    pthread_mutex_unlock((pthread_mutex_t*) header->mutex);
+    pthread_mutex_unlock(&header->mutex);
     return keys;
 }
 
@@ -131,22 +132,21 @@ coord_header* create(char* coord_address){
     pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
 
-    pthread_mutex_t mu_handle;
+    // pthread_mutex_t* mu_handle = malloc(sizeof(pthread_mutex_t));
 
     //Instantiate the mutex
-    if (pthread_mutex_init(&mu_handle, &attr) == -1) {
+    if (pthread_mutex_init(&header->mutex, &attr) == -1) {
         perror("error creating mutex");
     }
 
     //Store in shm
-    header->mutex = &mu_handle;
     return header;
 }
 
 //return the client id
 int service_keys(coord_header* header, int slot, key_pair (*allocation)()){
 
-//    pthread_mutex_lock((pthread_mutex_t*) header->mutex);
+    pthread_mutex_lock(&header->mutex);
     int client_id = header->slots[slot].client_id;
     //Check for the presence of a valid request by reading cliend_id value ie. non zero
     if (client_id > 0 ){
@@ -159,11 +159,11 @@ int service_keys(coord_header* header, int slot, key_pair (*allocation)()){
         header->slots[slot].keys.response_shm_key = keys.response_shm_key;
         header->slots[slot].shm_created = true;
 
-//        pthread_mutex_unlock((pthread_mutex_t*) header->mutex);
+       pthread_mutex_unlock(&header->mutex);
         return client_id;
     }
 
-//    pthread_mutex_unlock((pthread_mutex_t*) header->mutex);
+   pthread_mutex_unlock(&header->mutex);
     return -1;
 }
 

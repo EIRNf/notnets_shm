@@ -57,27 +57,21 @@ void test_single_client_get_keys(){
     if (c_pid == -1) { 
         perror("fork"); 
     } 
-    else if (c_pid > 0) {  //PARENT PROCESS
-
-
-        coord_header* coord_region = create("common_name");
-        int err = -1;
-        while (err == -1) {
-            err = service_keys(coord_region, 0, &fake_allocater);        
-        }
-        sleep(2);
-		delete(coord_region);
-    } 
-    else { //CHILD PROCESS
+    else if (c_pid > 0) {  
+         //CHILD PROCESS
         coord_header* coord_region = attach("common_name");
 
         int client_id = 4;
         int reserved_slot = request_keys(coord_region, client_id);
-        sleep(1);
-        key_pair keys = check_slot(coord_region, reserved_slot);
-
+        
+        key_pair keys =  {0, 0};
+        while (keys.request_shm_key == 0 && keys.response_shm_key == 0 ){
+            keys = check_slot(coord_region, reserved_slot);
+        }
+        
         //dont actually detach as it is a child process and will detach the parents shared memory as well
         // detach(coord_region);
+
 
         //CONDITION TO VERIFY
         if(keys.request_shm_key != coord_test_name_keys(SIMPLE_KEY).request_shm_key &&
@@ -88,6 +82,16 @@ void test_single_client_get_keys(){
         else{
             test_success_print(__func__);
         }
+    } 
+    else { 
+        //PARENT PROCESS
+        coord_header* coord_region = create("common_name");
+        int err = -1;
+        while (err == -1) {
+            err = service_keys(coord_region, 0, &fake_allocater);        
+        }
+        sleep(2);
+		delete(coord_region); 
     } 
   
 }
