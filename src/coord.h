@@ -11,17 +11,17 @@
 
 typedef struct reserve_pair {
     bool client_request;
-}reserve_pair; 
+}reserve_pair;
 
 typedef struct key_pair {
     int request_shm_key; //Only written to by Server // if -1 then that means it hasnt been created?
     int response_shm_key; //Only written to by Server  // if -1 then that means it hasnt been created?
 } key_pair;
 
-//Modify to be templatable, permit 
+//Modify to be templatable, permit
 typedef struct coord_row {
     int client_id; //Only written to by Client, how do we even know id?
-    bool shm_created;  //Only written to by Server 
+    bool shm_created;  //Only written to by Server
     key_pair keys;
     bool detach;  //Only written to by Client
 }coord_row;
@@ -31,7 +31,6 @@ typedef struct coord_header {
     int shmid; // for later deletion, to avoid process state
 	int counter; //How many are being used right now
     void *mutex;
-	// int lock; //Use shared_mutex for now 
 	reserve_pair available_slots[SLOT_NUM] ;// This needs to be thread safe
     coord_row slots[SLOT_NUM];
 } coord_header;
@@ -51,7 +50,7 @@ unsigned long hash(unsigned char *str){
 //Client
 //Checks creation, does shm stuff to get handle to it
 coord_header* attach(char* coord_address){
-    
+
     //attach shm region
     int key = (int) hash((unsigned char*)coord_address);
     int size = sizeof(coord_header);
@@ -73,42 +72,40 @@ void detach(coord_header* header){
 
 
 int request_keys(coord_header* header, int client_id){
-
     // ///try to reserve a slot, if not available wait and try again
     pthread_mutex_lock((pthread_mutex_t*) header->mutex);
     for(int i = 0; i < SLOT_NUM; i++){
         if (header->available_slots[i].client_request == false){
             header->available_slots[i].client_request = true;
-            
+
             header->slots[i].client_id = client_id;
             header->slots[i].detach = false;
             header->slots[i].keys.request_shm_key = -1;
             header->slots[i].keys.response_shm_key = -1;
             header->slots[i].shm_created = false;
 
-            return 0;
-        } 
+            pthread_mutex_unlock((pthread_mutex_t*) header->mutex);
+            return i;
+        }
     }
     pthread_mutex_unlock((pthread_mutex_t*) header->mutex);
     return -1;
 }
 
-//if null request 
+//if null request
 key_pair check_slot(coord_header* header, int slot){
     key_pair keys = {};
+    pthread_mutex_lock((pthread_mutex_t*) header->mutex);
     if (header->slots[slot].shm_created == true ){
         keys.request_shm_key = header->slots[slot].keys.request_shm_key;
         keys.response_shm_key = header->slots[slot].keys.response_shm_key;
-        return keys;
     }
+    pthread_mutex_unlock((pthread_mutex_t*) header->mutex);
     return keys;
 }
 
-
-
 //Server
 coord_header* create(char* coord_address){
-    
     //Create shm region
     int key = (int) hash((unsigned char*)coord_address);
     int size = sizeof(coord_header);
@@ -149,24 +146,26 @@ coord_header* create(char* coord_address){
 //return the client id
 int service_keys(coord_header* header, int slot, key_pair (*allocation)()){
 
-        //Check for the presence of a valid request by reading cliend_id value ie. non zero
-        if (header->slots[slot].client_id > 0 ){
-            //Call Allocation Function
-            key_pair keys = (*allocation)();
-            
-            header->slots[slot].keys.request_shm_key = keys.request_shm_key;
-            header->slots[slot].keys.response_shm_key = keys.response_shm_key;
-            header->slots[slot].shm_created = true;
+//    pthread_mutex_lock((pthread_mutex_t*) header->mutex);
+    int client_id = header->slots[slot].client_id;
+    //Check for the presence of a valid request by reading cliend_id value ie. non zero
+    if (client_id > 0 ){
+        //Call Allocation Function
+//        key_pair old_keys = (*allocation)();
+//        key_pair keys = old_keys;
+        key_pair keys = (*allocation)();
 
-            return header->slots[slot].client_id; 
-        }
-    
-        return -1;
-} 
+        header->slots[slot].keys.request_shm_key = keys.request_shm_key;
+        header->slots[slot].keys.response_shm_key = keys.response_shm_key;
+        header->slots[slot].shm_created = true;
 
+//        pthread_mutex_unlock((pthread_mutex_t*) header->mutex);
+        return client_id;
+    }
 
-
-
+//    pthread_mutex_unlock((pthread_mutex_t*) header->mutex);
+    return -1;
+}
 
 void delete(coord_header* header){
     int shmid = header->shmid;
