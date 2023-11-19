@@ -41,9 +41,7 @@ spsc_queue_header* get_queue_header(void* shmaddr) {
  * size for this queue
  * @return size of usable shm region space
  **/
-ssize_t create(void* shmaddr,
-               size_t shm_size,
-               size_t message_size) {
+ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
     if (message_size + sizeof(spsc_queue_header) > (u_long) shm_size) {
         perror("Message size type + Header data too large for allocated shm");
         exit(1);

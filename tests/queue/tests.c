@@ -30,7 +30,7 @@ void test_queue_partial_buffer() {
     // message size of 4 ints
     int num_char = 4;
     int message_size = num_char*sizeof(char);
-    create(shmaddr, shm_size, message_size);
+    queue_create(shmaddr, shm_size, message_size);
 
     char *buf = malloc(message_size);
     buf[0] = 'b';
@@ -102,7 +102,7 @@ void test_basic_queue_multiprocess(){
         void* shmaddr = shm_attach(shmid);
 
         // create queue
-        create(shmaddr, shm_size, message_size);
+        queue_create(shmaddr, shm_size, message_size);
 
         // let child know parent has finished creating queue
         *((int *) ipc_shmaddr) = 1;
@@ -189,7 +189,7 @@ void test_basic_queue_single_process(){
 
     // create queue
     int message_size = sizeof(int);
-    create(shmaddr, shm_size, message_size);
+    queue_create(shmaddr, shm_size, message_size);
 
     // push and pop functionality
     int *buf = malloc(message_size);
