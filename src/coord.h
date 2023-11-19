@@ -73,7 +73,7 @@ void detach(coord_header* header){
 
 
 int request_keys(coord_header* header, int client_id){
-    // ///try to reserve a slot, if not available wait and try again
+    // try to reserve a slot, if not available wait and try again
     pthread_mutex_lock(&header->mutex);
     for(int i = 0; i < SLOT_NUM; i++){
         if (header->available_slots[i].client_request == false){
@@ -97,7 +97,7 @@ int request_keys(coord_header* header, int client_id){
 key_pair check_slot(coord_header* header, int slot){
     key_pair keys = {};
     pthread_mutex_lock(&header->mutex);
-    if (header->slots[slot].shm_created == true ){
+    if (header->slots[slot].shm_created == true) {
         keys.request_shm_key = header->slots[slot].keys.request_shm_key;
         keys.response_shm_key = header->slots[slot].keys.response_shm_key;
     }
@@ -148,11 +148,9 @@ int service_keys(coord_header* header, int slot, key_pair (*allocation)()){
 
     pthread_mutex_lock(&header->mutex);
     int client_id = header->slots[slot].client_id;
-    //Check for the presence of a valid request by reading cliend_id value ie. non zero
+    // check for the presence of a valid request by reading cliend_id value ie. non zero
     if (client_id > 0 ){
-        //Call Allocation Function
-//        key_pair old_keys = (*allocation)();
-//        key_pair keys = old_keys;
+        // call Allocation Function
         key_pair keys = (*allocation)();
 
         header->slots[slot].keys.request_shm_key = keys.request_shm_key;
