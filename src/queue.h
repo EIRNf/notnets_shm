@@ -24,13 +24,12 @@ typedef struct spsc_queue_header {
  * @brief Casts beginning of provided shmaddr as a spsc header, and returns it.
  *
  * @param shmaddr pointer to shm region
- * @return pointer to header struct (first 24 bytes) of shm region
+ * @return pointer to header struct of shm region
   */
 spsc_queue_header* get_queue_header(void* shmaddr) {
     spsc_queue_header* header = (spsc_queue_header*) shmaddr;
     return header;
 }
-
 
 /**
  * @brief spsc queue creator. Verifies size limits of shm, sets up header.

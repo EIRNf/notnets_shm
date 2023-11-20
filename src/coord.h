@@ -3,7 +3,6 @@
 
 #define SLOT_NUM 10
 #define QUEUE_SIZE 1024
-#define MESSAGE_SIZE 4
 
 #include "mem.h"
 #include "queue.h"
@@ -18,16 +17,15 @@ typedef struct reserve_pair {
     bool client_request;
 } reserve_pair;
 
-typedef struct key_pair {
-    int request_shm_key;
-    int response_shm_key;
-} key_pair;
-
 typedef struct shm_info {
     int key;
     int shmid;
-    void* addr;
 } shm_info;
+
+typedef struct shm_addr_pair {
+    void* request_addr;
+    void* response_addr;
+} shm_addr_pair;
 
 typedef struct shm_pair {
     shm_info request_shm;
@@ -66,13 +64,13 @@ unsigned long hash(unsigned char *str){
 // client
 // checks creation, does shm stuff to get handle to it
 coord_header* attach(char* coord_address){
-    //attach shm region
+    // attach shm region
     int key = (int) hash((unsigned char*)coord_address);
     int size = sizeof(coord_header);
-    int shmid = shm_create(key, size,create_flag);
+    int shmid = shm_create(key, size, create_flag);
     void* shmaddr = shm_attach(shmid);
 
-    //get header
+    // get header
     coord_header* header = (coord_header*) shmaddr;
 
     return header;
@@ -103,15 +101,19 @@ int request_slot(coord_header* header, int client_id){
     return -1;
 }
 
-shm_pair check_slot(coord_header* header, int slot){
-    shm_pair shms = {};
+shm_addr_pair check_slot(coord_header* header, int slot){
+    shm_addr_pair shm_addrs = {};
     pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
-        shms.request_shm = header->slots[slot].shms.request_shm;
-        shms.response_shm = header->slots[slot].shms.response_shm;
+        shm_addrs.request_addr = shm_attach(
+            header->slots[slot].shms.request_shm.shmid
+        );
+        shm_addrs.response_addr = shm_attach(
+            header->slots[slot].shms.response_shm.shmid
+        );
     }
     pthread_mutex_unlock(&header->mutex);
-    return shms;
+    return shm_addrs;
 }
 
 //Server
@@ -147,36 +149,16 @@ coord_header* coord_create(char* coord_address){
     return header;
 }
 
-int service_slot(coord_header* header, int slot, key_pair (*allocation)()){
-
+int service_slot(coord_header* header, int slot, shm_pair (*allocation)()){
     pthread_mutex_lock(&header->mutex);
     int client_id = header->slots[slot].client_id;
-    // check for the presence of a valid request by reading cliend_id value ie. non zero
-    if (client_id > 0 ){
+    // check for the presence of a valid request by reading client_id value
+    // ie. non zero
+    if (client_id > 0) {
         // call allocation Function
-        key_pair keys = (*allocation)();
+        shm_pair shms = (*allocation)();
 
-        // allocate shm
-        int request_shmid = shm_create(keys.request_shm_key,
-                                       QUEUE_SIZE,
-                                       create_flag);
-        void* request_shmaddr = shm_attach(request_shmid);
-        int response_shmid = shm_create(keys.response_shm_key,
-                                        QUEUE_SIZE,
-                                        create_flag);
-        void* response_shmaddr = shm_attach(response_shmid);
-        shm_info request_shm = {keys.request_shm_key,
-                                request_shmid,
-                                request_shmaddr};
-        shm_info response_shm = {keys.response_shm_key,
-                                 response_shmid,
-                                 response_shmaddr};
-        // set up shm regions as queues
-        queue_create(request_shmaddr, QUEUE_SIZE, MESSAGE_SIZE);
-        queue_create(response_shmaddr, QUEUE_SIZE, MESSAGE_SIZE);
-
-        header->slots[slot].shms.request_shm = request_shm;
-        header->slots[slot].shms.response_shm = response_shm;
+        header->slots[slot].shms = shms;
         header->slots[slot].shm_created = true;
 
         pthread_mutex_unlock(&header->mutex);
@@ -185,6 +167,14 @@ int service_slot(coord_header* header, int slot, key_pair (*allocation)()){
 
     pthread_mutex_unlock(&header->mutex);
     return -1;
+}
+
+shm_pair get_shm_pair(coord_header* header, int slot) {
+    pthread_mutex_lock(&header->mutex);
+    shm_pair shms = header->slots[slot].shms;
+    pthread_mutex_unlock(&header->mutex);
+
+    return shms;
 }
 
 void coord_delete(coord_header* header){
@@ -198,8 +188,6 @@ void force_clear_slot(coord_header* header, int slot){
     shm_info request_shm = header->slots[slot].shms.request_shm;
     shm_info response_shm = header->slots[slot].shms.response_shm;
 
-    shm_detach(request_shm.addr);
-    shm_detach(response_shm.addr);
     shm_remove(request_shm.shmid);
     shm_remove(response_shm.shmid);
 
