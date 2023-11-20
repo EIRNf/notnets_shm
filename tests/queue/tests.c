@@ -32,6 +32,7 @@ void test_queue_partial_buffer() {
     int message_size = num_char*sizeof(char);
     queue_create(shmaddr, shm_size, message_size);
 
+
     char *buf = malloc(message_size);
     buf[0] = 'b';
     buf[1] = 'i';
@@ -190,6 +191,7 @@ void test_basic_queue_single_process(){
     // create queue
     int message_size = sizeof(int);
     queue_create(shmaddr, shm_size, message_size);
+
 
     // push and pop functionality
     int *buf = malloc(message_size);
