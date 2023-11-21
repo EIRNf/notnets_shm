@@ -20,9 +20,8 @@
 // there value in keeping all three
 // pairs of keys, shmid, and ref? in case of an issue where reconnect might be attempted?
 typedef struct queue_pair {
-    uint64_t id;
-    void* shm_request_shmaddr;
-    void* shm_response_shmaddr;
+    void* request_shmaddr;
+    void* response_shmaddr;
 } queue_pair;
 
 typedef struct server_context {
@@ -58,8 +57,30 @@ typedef struct server_context {
  * usually IP/Port pair
  * @return connection* If NULL, no connection was achieved
  */
-queue_pair* open(char* source_addr, char* destination_addr);
+queue_pair* client_open(char* source_addr, char* destination_addr) {
+    coord_header* ch = coord_attach(destination_addr);
 
+    int client_id = (int) hash((unsigned char*) source_addr);
+    int slot = request_slot(ch, client_id);
+
+    // keep on trying to reserve slot
+    while (slot == -1) {
+        slot = request_slot(ch, client_id);
+    }
+
+    shm_pair shms = check_slot(ch, slot);
+    // keep on checking slot until receive shms
+    while (shms.request_shm.key <= 0 || shms.response_shm.key <= 0) {
+        shms = check_slot(ch, slot);
+    }
+
+    queue_pair* qp = malloc(sizeof(queue_pair));
+
+    qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
+    qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
+
+    return qp;
+}
 
 /**
  * @brief Client writes to the request queue in given connection.
@@ -104,10 +125,29 @@ ssize_t receive_buf(queue_pair* conn, void* buf, size_t size);
  * @param source_addr[IN] source_addr: Client Address + Nonce.
  * @param destination_addr[IN] Unique string to identify server address,
  * usually IP/Port pair
+ * @return -1 if did not successfully close, 0 otherwise
 */
-void rpc_close(char* source_addr, char* destination_addr);
+int client_close(char* source_addr, char* destination_addr) {
+    int client_id = (int) hash((unsigned char*) source_addr);
+    coord_header* ch = coord_attach(destination_addr);
 
+    pthread_mutex_lock(&ch->mutex);
+    for (int i = 0; i < SLOT_NUM; ++i) {
+        if (ch->slots[i].client_id == client_id) {
+            ch->slots[i].detach = true;
 
+            pthread_mutex_unlock(&ch->mutex);
+            coord_detach(ch);
+
+            return 0;
+        }
+    }
+
+    pthread_mutex_unlock(&ch->mutex);
+    coord_detach(ch);
+
+    return -1;
+}
 
 //SERVER
 void shutdown(server_context* handler);
@@ -159,22 +199,8 @@ void manage_pool(server_context* handler) {
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     for (int i = 0; i < SLOT_NUM; ++i) {
-        int client_id = service_slot(ch, i, &fake_shm_allocator);
-
-        // will happen if keys already exist
-        if (client_id == -1) {
-            // cleanup
-            pthread_mutex_lock(&ch->mutex);
-            if (ch->slots[i].detach == true) {
-                // delete queues
-                shm_remove(ch->slots[i].shms.request_shm.shmid);
-                shm_remove(ch->slots[i].shms.response_shm.shmid);
-
-                memset(&ch->slots[i], 0, sizeof(coord_row));
-                ch->available_slots[i].client_request = false;
-            }
-            pthread_mutex_unlock(&ch->mutex);
-        }
+        service_slot(ch, i, &fake_shm_allocator);
+        clear_slot(ch, i);
     }
 }
 
@@ -193,7 +219,7 @@ void* _manage_pool_runner(void* handler) {
 
         manage_pool(sc);
 
-        sleep(2);
+        sleep(1);
     }
 
     return NULL;
@@ -305,5 +331,4 @@ void shutdown(server_context* handler) {
     coord_delete(ch);
     free(handler);
 }
-
 #endif

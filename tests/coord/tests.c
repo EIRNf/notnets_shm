@@ -107,7 +107,7 @@ void test_single_client_send_rcv() {
         // client
         int err = 0;
 
-        coord_header* coord_region = attach("common_name");
+        coord_header* coord_region = coord_attach("common_name");
 
         int client_id = 4;
         int reserved_slot = request_slot(coord_region, client_id);
@@ -197,7 +197,7 @@ void test_single_client_send_rcv() {
     }
 }
 
-void test_single_client_get_keys(){
+void test_single_client_get_slot(){
     // Forking to test multiprocess functionality
     pid_t wpid;
     int status = 0;
@@ -208,7 +208,7 @@ void test_single_client_get_keys(){
         perror("fork");
     } else if (c_pid == 0) {
         // CHILD PROCESS
-        coord_header* coord_region = attach("common_name");
+        coord_header* coord_region = coord_attach("common_name");
 
         int client_id = 4;
         int reserved_slot = request_slot(coord_region, client_id);
@@ -249,7 +249,7 @@ void test_single_client_get_keys(){
 }
 
 void tests_run_all(void){
-    test_single_client_get_keys();
+    test_single_client_get_slot();
     test_queue_allocation();
     test_single_client_send_rcv();
 }

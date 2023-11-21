@@ -58,7 +58,7 @@ unsigned long hash(unsigned char *str){
 
 // client
 // checks creation, does shm stuff to get handle to it
-coord_header* attach(char* coord_address){
+coord_header* coord_attach(char* coord_address){
     // attach shm region
     int key = (int) hash((unsigned char*)coord_address);
     int size = sizeof(coord_header);
@@ -71,7 +71,7 @@ coord_header* attach(char* coord_address){
     return header;
 }
 
-void detach(coord_header* header){
+void coord_detach(coord_header* header){
     shm_detach(header);
 }
 
@@ -83,7 +83,6 @@ int request_slot(coord_header* header, int client_id){
     for(int i = 0; i < SLOT_NUM; i++){
         if (header->available_slots[i].client_request == false){
             header->available_slots[i].client_request = true;
-
             header->slots[i].client_id = client_id;
             header->slots[i].detach = false;
             header->slots[i].shm_created = false;
@@ -140,9 +139,9 @@ coord_header* coord_create(char* coord_address){
 int service_slot(coord_header* header, int slot, shm_pair (*allocation)()){
     pthread_mutex_lock(&header->mutex);
     int client_id = header->slots[slot].client_id;
-    // check for the presence of a valid request by reading client_id value
-    // ie. non zero
-    if (client_id > 0) {
+
+    if (header->available_slots[slot].client_request == true &&
+            header->slots[slot].shm_created == false) {
         // call allocation Function
         shm_pair shms = (*allocation)();
 
@@ -159,7 +158,7 @@ int service_slot(coord_header* header, int slot, shm_pair (*allocation)()){
 
 void coord_delete(coord_header* header){
     int shmid = header->shmid;
-    shm_detach(header);
+    coord_detach(header);
     shm_remove(shmid);
 }
 
