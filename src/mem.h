@@ -48,6 +48,7 @@ void* shm_attach(int shmid){
     } 
     return shmaddr;
 }
+
 /**
  * @brief shmdt wrapper. Handlers errors.
  * Detaches local process from shm region
