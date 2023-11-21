@@ -24,13 +24,12 @@ typedef struct spsc_queue_header {
  * @brief Casts beginning of provided shmaddr as a spsc header, and returns it.
  *
  * @param shmaddr pointer to shm region
- * @return pointer to header struct (first 24 bytes) of shm region
+ * @return pointer to header struct of shm region
   */
 spsc_queue_header* get_queue_header(void* shmaddr) {
     spsc_queue_header* header = (spsc_queue_header*) shmaddr;
     return header;
 }
-
 
 /**
  * @brief spsc queue creator. Verifies size limits of shm, sets up header.
@@ -41,9 +40,7 @@ spsc_queue_header* get_queue_header(void* shmaddr) {
  * size for this queue
  * @return size of usable shm region space
  **/
-ssize_t create(void* shmaddr,
-               size_t shm_size,
-               size_t message_size) {
+ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
     if (message_size + sizeof(spsc_queue_header) > (u_long) shm_size) {
         perror("Message size type + Header data too large for allocated shm");
         exit(1);

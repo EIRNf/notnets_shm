@@ -103,6 +103,36 @@ void rpc_close(char* source_addr, char* destination_addr);
 //SERVER
 void shutdown(server_context* handler);
 
+shm_pair fake_shm_allocator() {
+    int fake_key = 17;
+
+    shm_pair shms = {};
+
+    int request_shmid = shm_create(fake_key,
+                                   QUEUE_SIZE,
+                                   create_flag);
+    int response_shmid = shm_create(fake_key + 1,
+                                    QUEUE_SIZE,
+                                    create_flag);
+    shm_info request_shm = {fake_key, request_shmid};
+    shm_info response_shm = {fake_key + 1, response_shmid};
+
+    // set up shm regions as queues
+    void* request_addr = shm_attach(request_shmid);
+    void* response_addr = shm_attach(response_shmid);
+    int message_size = sizeof(int);
+    queue_create(request_addr, QUEUE_SIZE, message_size);
+    queue_create(response_addr, QUEUE_SIZE, message_size);
+    // don't want to stay attached to the queue pairs
+    shm_detach(request_addr);
+    shm_detach(response_addr);
+
+    shms.request_shm = request_shm;
+    shms.response_shm = response_shm;
+
+    return shms;
+}
+
 /**
  * @brief
  *
@@ -120,7 +150,9 @@ void manage_pool(server_context* handler) {
     coord_header* ch = handler->coord_shmaddr;
 
     for (int i = 0; i < SLOT_NUM; ++i) {
-        int client_id = service_keys((coord_header*) handler->coord_shmaddr, i);
+        int client_id = service_slot((coord_header*) handler->coord_shmaddr,
+                                      i,
+                                      &fake_shm_allocator);
 
         // will happen if keys already exist
         if (client_id == -1) {
@@ -128,12 +160,11 @@ void manage_pool(server_context* handler) {
             // TODO: do we need a lock for checking detach?
             if (ch->slots[i].detach == true) {
                 // delete queues
-                shm_remove(ch->slots[i].shmids.request_shmid);
-                shm_remove(ch->slots[i].shmids.response_shmid);
+                shm_remove(ch->slots[i].shms.request_shm.shmid);
+                shm_remove(ch->slots[i].shms.response_shm.shmid);
 
                 memset(&ch->slots[i], 0, sizeof(coord_row));
                 ch->available_slots[i].client_request = false;
-                ch->available_slots[i].server_handled = false;
             }
         }
     }
