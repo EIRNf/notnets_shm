@@ -22,11 +22,6 @@ typedef struct shm_info {
     int shmid;
 } shm_info;
 
-typedef struct shm_addr_pair {
-    void* request_addr;
-    void* response_addr;
-} shm_addr_pair;
-
 typedef struct shm_pair {
     shm_info request_shm;
     shm_info response_shm;
@@ -101,19 +96,14 @@ int request_slot(coord_header* header, int client_id){
     return -1;
 }
 
-shm_addr_pair check_slot(coord_header* header, int slot){
-    shm_addr_pair shm_addrs = {};
+shm_pair check_slot(coord_header* header, int slot){
+    shm_pair shms = {};
     pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
-        shm_addrs.request_addr = shm_attach(
-            header->slots[slot].shms.request_shm.shmid
-        );
-        shm_addrs.response_addr = shm_attach(
-            header->slots[slot].shms.response_shm.shmid
-        );
+        shms = header->slots[slot].shms;
     }
     pthread_mutex_unlock(&header->mutex);
-    return shm_addrs;
+    return shms;
 }
 
 //Server
@@ -167,14 +157,6 @@ int service_slot(coord_header* header, int slot, shm_pair (*allocation)()){
 
     pthread_mutex_unlock(&header->mutex);
     return -1;
-}
-
-shm_pair get_shm_pair(coord_header* header, int slot) {
-    pthread_mutex_lock(&header->mutex);
-    shm_pair shms = header->slots[slot].shms;
-    pthread_mutex_unlock(&header->mutex);
-
-    return shms;
 }
 
 void coord_delete(coord_header* header){

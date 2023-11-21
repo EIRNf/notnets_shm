@@ -113,13 +113,13 @@ void test_single_client_send_rcv() {
         int reserved_slot = request_slot(coord_region, client_id);
         assert(reserved_slot == 0);
 
-        shm_addr_pair shm_addrs = {};
-        while (shm_addrs.request_addr == 0 && shm_addrs.response_addr == 0) {
-            shm_addrs = check_slot(coord_region, reserved_slot);
+        shm_pair shms = {};
+        while (shms.request_shm.key <= 0 && shms.response_shm.key <= 0) {
+            shms = check_slot(coord_region, reserved_slot);
         }
 
-        void* request_addr = shm_addrs.request_addr;
-        void* response_addr = shm_addrs.response_addr;
+        void* request_addr = shm_attach(shms.request_shm.shmid);
+        void* response_addr = shm_attach(shms.response_shm.shmid);
 
         int* buf = malloc(message_size);
 
@@ -164,9 +164,10 @@ void test_single_client_send_rcv() {
             err = service_slot(coord_region, 0, &fake_shm_allocator);
         }
 
-        shm_addr_pair shm_addrs = check_slot(coord_region, 0);
-        void* request_addr = shm_addrs.request_addr;
-        void* response_addr = shm_addrs.response_addr;
+        shm_pair shms = check_slot(coord_region, 0);
+
+        void* request_addr = shm_attach(shms.request_shm.shmid);
+        void* response_addr = shm_attach(shms.response_shm.shmid);
 
         size_t* pop_size = malloc(sizeof(size_t));
         *pop_size = message_size;
@@ -213,16 +214,15 @@ void test_single_client_get_keys(){
         int reserved_slot = request_slot(coord_region, client_id);
         assert(reserved_slot == 0);
 
-        shm_addr_pair shm_addrs = {};
-        while (shm_addrs.request_addr <= 0 && shm_addrs.response_addr <= 0) {
-            shm_addrs = check_slot(coord_region, reserved_slot);
+        shm_pair shms = {};
+        while (shms.request_shm.key <= 0 && shms.response_shm.key <= 0) {
+            shms = check_slot(coord_region, reserved_slot);
         }
 
         //dont actually detach as it is a child process and will detach the parents shared memory as well
         // detach(coord_region);
 
         //CONDITION TO VERIFY
-        shm_pair shms = get_shm_pair(coord_region, 0);
         err = shms.request_shm.key != SIMPLE_KEY ||
             shms.response_shm.key != SIMPLE_KEY + 1;
         if (err) {
