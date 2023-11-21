@@ -14,7 +14,7 @@
 #include <stdlib.h>
 
 typedef struct reserve_pair {
-    bool client_request;
+    bool client_reserved;
 } reserve_pair;
 
 typedef struct shm_info {
@@ -38,7 +38,7 @@ typedef struct coord_row {
 
 typedef struct coord_header {
     int shmid; // for later deletion, to avoid process state
-	int counter; // how many are being used right now
+    int accept_slot;
     pthread_mutex_t mutex; // lock when accessing slots or available_slots
 	reserve_pair available_slots[SLOT_NUM];
     coord_row slots[SLOT_NUM];
@@ -81,8 +81,8 @@ int request_slot(coord_header* header, int client_id){
     // try to reserve a slot, if not available wait and try again
     pthread_mutex_lock(&header->mutex);
     for(int i = 0; i < SLOT_NUM; i++){
-        if (header->available_slots[i].client_request == false){
-            header->available_slots[i].client_request = true;
+        if (header->available_slots[i].client_reserved == false){
+            header->available_slots[i].client_reserved = true;
             header->slots[i].client_id = client_id;
             header->slots[i].detach = false;
             header->slots[i].shm_created = false;
@@ -117,9 +117,10 @@ coord_header* coord_create(char* coord_address){
     coord_header* header = (coord_header*) shmaddr;
 
     header->shmid = shmid;
-    header->counter = 0;
+    header->accept_slot = 0;
+
     for(int i = 0; i < SLOT_NUM; i++){
-        header->available_slots[i].client_request = false;
+        header->available_slots[i].client_reserved = false;
     }
 
     // initialize mutual exclusion mechanism and store handle
@@ -140,8 +141,8 @@ int service_slot(coord_header* header, int slot, shm_pair (*allocation)()){
     pthread_mutex_lock(&header->mutex);
     int client_id = header->slots[slot].client_id;
 
-    if (header->available_slots[slot].client_request == true &&
-            header->slots[slot].shm_created == false) {
+    if (header->available_slots[slot].client_reserved &&
+            !header->slots[slot].shm_created) {
         // call allocation Function
         shm_pair shms = (*allocation)();
 
@@ -164,19 +165,23 @@ void coord_delete(coord_header* header){
 
 // SHOULD ONLY BE USED FOR TESTING PURPOSES, UNSAFE
 void force_clear_slot(coord_header* header, int slot){
-    shm_info request_shm = header->slots[slot].shms.request_shm;
-    shm_info response_shm = header->slots[slot].shms.response_shm;
+    // don't need to remove shm if server has not handled this slot yet (aka
+    // created shm regions)
+    if (header->slots[slot].shm_created) {
+        shm_info request_shm = header->slots[slot].shms.request_shm;
+        shm_info response_shm = header->slots[slot].shms.response_shm;
 
-    shm_remove(request_shm.shmid);
-    shm_remove(response_shm.shmid);
+        shm_remove(request_shm.shmid);
+        shm_remove(response_shm.shmid);
+    }
 
     memset(&header->slots[slot], 0, sizeof(coord_row));
-    header->available_slots[slot].client_request = false;
+    header->available_slots[slot].client_reserved = false;
 }
 
 void clear_slot(coord_header* header, int slot){
     pthread_mutex_lock(&header->mutex);
-    if (header->slots[slot].detach == true) {
+    if (header->slots[slot].detach) {
         force_clear_slot(header, slot);
     }
     pthread_mutex_unlock(&header->mutex);
@@ -185,24 +190,8 @@ void clear_slot(coord_header* header, int slot){
 void coord_shutdown(coord_header* header) {
     pthread_mutex_lock(&header->mutex);
     for (int i = 0; i < SLOT_NUM; ++i) {
-        // this slot is reserved by a client
-        if (header->slots[i].client_id > 0) {
             header->slots[i].detach = true;
-        }
     }
     pthread_mutex_unlock(&header->mutex);
-}
-
-bool coord_is_empty(coord_header* header) {
-    pthread_mutex_lock(&header->mutex);
-    for (int i = 0; i < SLOT_NUM; i++){
-        // client has this slot reserved
-        if (header->available_slots[i].client_request == true) {
-            pthread_mutex_unlock(&header->mutex);
-            return false;
-        }
-    }
-    pthread_mutex_unlock(&header->mutex);
-    return true;
 }
 #endif

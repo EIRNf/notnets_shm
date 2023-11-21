@@ -11,6 +11,8 @@
 #include <string.h>
 #include <sys/types.h>
 
+#define SIMPLE_KEY 17
+
 #define NOT_RUNNING 0
 #define RUNNING_NO_SHUTDOWN 1
 #define RUNNING_SHUTDOWN 2
@@ -40,9 +42,66 @@ typedef struct server_context {
 // are related to the access and management of the SHM layer
 // which we can transparently utilize.
 
-//SYNCHRONOUS
 
-//CLIENT
+// forward declaration of functions
+// ===============================================================
+// PRIVATE HELPER FUNCTIONS
+queue_pair* _create_queue_pair(coord_header* ch, int slot);
+void* _manage_pool_runner(void* handler);
+
+// CLIENT
+queue_pair* client_open(char* source_addr, char* destination_addr);
+int send_rpc(queue_pair* conn, const void* buf, size_t size);
+size_t receive_buf(queue_pair* conn, void* buf, size_t size);
+int client_close(char* source_addr, char* destination_addr);
+
+// SERVER
+void manage_pool(server_context* handler);
+server_context* register_server(char* source_addr);
+queue_pair* accept(server_context* handler);
+int send_rpc(queue_pair* client, const void *buf, size_t size);
+size_t receive_buf(queue_pair* client, void* buf, size_t size);
+void shutdown(server_context* handler);
+// ===============================================================
+
+// PRIVATE HELPER FUNCTIONS
+queue_pair* _create_queue_pair(coord_header* ch, int slot) {
+    shm_pair shms = check_slot(ch, slot);
+    // keep on checking slot until receive shms
+    while (shms.request_shm.key <= 0 || shms.response_shm.key <= 0) {
+        shms = check_slot(ch, slot);
+    }
+
+    queue_pair* qp = malloc(sizeof(queue_pair));
+
+    qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
+    qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
+
+    return qp;
+}
+
+void* _manage_pool_runner(void* handler) {
+    server_context* sc = (server_context*) handler;
+
+    while (true) {
+        // check if need to shut down
+        pthread_mutex_lock(&sc->manage_pool_mutex);
+        if (sc->manage_pool_state == RUNNING_SHUTDOWN) {
+            sc->manage_pool_state = NOT_RUNNING;
+            pthread_mutex_unlock(&sc->manage_pool_mutex);
+            return NULL;
+        }
+        pthread_mutex_unlock(&sc->manage_pool_mutex);
+
+        manage_pool(sc);
+
+        sleep(1);
+    }
+
+    return NULL;
+}
+
+// CLIENT
 /**
  * @brief Client attempts a connection to a known instantiated
  * and listening Notnets server. This process involves hashing
@@ -68,18 +127,7 @@ queue_pair* client_open(char* source_addr, char* destination_addr) {
         slot = request_slot(ch, client_id);
     }
 
-    shm_pair shms = check_slot(ch, slot);
-    // keep on checking slot until receive shms
-    while (shms.request_shm.key <= 0 || shms.response_shm.key <= 0) {
-        shms = check_slot(ch, slot);
-    }
-
-    queue_pair* qp = malloc(sizeof(queue_pair));
-
-    qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
-    qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
-
-    return qp;
+    return _create_queue_pair(ch, slot);
 }
 
 /**
@@ -93,7 +141,7 @@ queue_pair* client_open(char* source_addr, char* destination_addr) {
  * @param size[IN] size of buf
  * @return ssize_t -1 for error, >0 for bytes written
  */
-int send_rpc(queue_pair* conn, const void *buf, size_t size); //TODO
+int send_rpc(queue_pair* conn, const void *buf, size_t size);
 
 
 /**
@@ -108,7 +156,7 @@ int send_rpc(queue_pair* conn, const void *buf, size_t size); //TODO
  * @param size [IN] size of buf
  * @return ssize_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
-ssize_t receive_buf(queue_pair* conn, void* buf, size_t size);
+size_t receive_buf(queue_pair* conn, void* buf, size_t size);
 
 
 /**
@@ -150,21 +198,18 @@ int client_close(char* source_addr, char* destination_addr) {
 }
 
 //SERVER
-void shutdown(server_context* handler);
 
-shm_pair fake_shm_allocator() {
-    int fake_key = 17;
-
+shm_pair _fake_shm_allocator() {
     shm_pair shms = {};
 
-    int request_shmid = shm_create(fake_key,
+    int request_shmid = shm_create(SIMPLE_KEY,
                                    QUEUE_SIZE,
                                    create_flag);
-    int response_shmid = shm_create(fake_key + 1,
+    int response_shmid = shm_create(SIMPLE_KEY + 1,
                                     QUEUE_SIZE,
                                     create_flag);
-    shm_info request_shm = {fake_key, request_shmid};
-    shm_info response_shm = {fake_key + 1, response_shmid};
+    shm_info request_shm = {SIMPLE_KEY, request_shmid};
+    shm_info response_shm = {SIMPLE_KEY + 1, response_shmid};
 
     // set up shm regions as queues
     void* request_addr = shm_attach(request_shmid);
@@ -199,30 +244,9 @@ void manage_pool(server_context* handler) {
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     for (int i = 0; i < SLOT_NUM; ++i) {
-        service_slot(ch, i, &fake_shm_allocator);
+        service_slot(ch, i, &_fake_shm_allocator);
         clear_slot(ch, i);
     }
-}
-
-void* _manage_pool_runner(void* handler) {
-    server_context* sc = (server_context*) handler;
-
-    while (true) {
-        // check if need to shut down
-        pthread_mutex_lock(&sc->manage_pool_mutex);
-        if (sc->manage_pool_state == RUNNING_SHUTDOWN) {
-            sc->manage_pool_state = NOT_RUNNING;
-            pthread_mutex_unlock(&sc->manage_pool_mutex);
-            return NULL;
-        }
-        pthread_mutex_unlock(&sc->manage_pool_mutex);
-
-        manage_pool(sc);
-
-        sleep(1);
-    }
-
-    return NULL;
 }
 
 /**
@@ -275,7 +299,31 @@ server_context* register_server(char* source_addr) {
  * @param handler[IN/OUT] server client connection handler
  * @return queue_pair
  */
-queue_pair* accept(server_context* handler);
+queue_pair* accept(server_context* handler) {
+    coord_header* ch = (coord_header*) handler->coord_shmaddr;
+
+    int slot = ch->accept_slot;
+
+    pthread_mutex_lock(&ch->mutex);
+    for (int i = 0; i < SLOT_NUM; ++i, slot = (slot + 1) % SLOT_NUM) {
+        // if this slot is scheduled to be detached, or is not reserved,
+        // don't accept it
+        if (ch->slots[i].detach || !ch->available_slots[i].client_reserved) {
+            continue;
+        } else if (ch->slots[i].shm_created) {
+            ch->accept_slot = (slot + 1) % SLOT_NUM;
+            pthread_mutex_unlock(&ch->mutex);
+
+            return _create_queue_pair(ch, slot);
+        }
+
+        // if over here, then slot has been reserved, but has not been allocated
+        // queues yet, so we move on to next slot
+    }
+    pthread_mutex_unlock(&ch->mutex);
+
+    return NULL;
+}
 
 
 /**
@@ -299,7 +347,7 @@ int send_rpc(queue_pair* client, const void *buf, size_t size);
  * @param size [IN] size of buf
  * @return ssize_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
-ssize_t receive_buf(queue_pair* client, void* buf, size_t size);
+size_t receive_buf(queue_pair* client, void* buf, size_t size);
 
 
 /**
