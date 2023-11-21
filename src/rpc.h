@@ -11,6 +11,10 @@
 #include <string.h>
 #include <sys/types.h>
 
+#define NOT_RUNNING 0
+#define RUNNING_NO_SHUTDOWN 1
+#define RUNNING_SHUTDOWN 2
+
 // This assumes two unidirectional SPSC queues, find way to generalize
 // Unsure how much to keep in this ref, is
 // there value in keeping all three
@@ -23,7 +27,12 @@ typedef struct queue_pair {
 
 typedef struct server_context {
     void* coord_shmaddr;
-    pthread_t* manage_pool_thread;
+    pthread_t manage_pool_thread;
+    // 0 = manage pool thread not running
+    // 1 = manage pool thread running and server has not indicated shutdown
+    // 2 = manage pool thread running and server has indicated shutdown
+    int manage_pool_state;
+    pthread_mutex_t manage_pool_mutex;
 } server_context;
 
 //NOTE ON ERROR HANDLING
@@ -147,17 +156,15 @@ shm_pair fake_shm_allocator() {
  *
  */
 void manage_pool(server_context* handler) {
-    coord_header* ch = handler->coord_shmaddr;
+    coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     for (int i = 0; i < SLOT_NUM; ++i) {
-        int client_id = service_slot((coord_header*) handler->coord_shmaddr,
-                                      i,
-                                      &fake_shm_allocator);
+        int client_id = service_slot(ch, i, &fake_shm_allocator);
 
         // will happen if keys already exist
         if (client_id == -1) {
             // cleanup
-            // TODO: do we need a lock for checking detach?
+            pthread_mutex_lock(&ch->mutex);
             if (ch->slots[i].detach == true) {
                 // delete queues
                 shm_remove(ch->slots[i].shms.request_shm.shmid);
@@ -166,17 +173,26 @@ void manage_pool(server_context* handler) {
                 memset(&ch->slots[i], 0, sizeof(coord_row));
                 ch->available_slots[i].client_request = false;
             }
+            pthread_mutex_unlock(&ch->mutex);
         }
     }
 }
 
 void* _manage_pool_runner(void* handler) {
-//    while (true) {
-//        manage_pool((server_context*) handler);
-//        sleep(3);
-//    }
-    for (int i = 0; i < 3; ++i) {
-        manage_pool((server_context*) handler);
+    server_context* sc = (server_context*) handler;
+
+    while (true) {
+        // check if need to shut down
+        pthread_mutex_lock(&sc->manage_pool_mutex);
+        if (sc->manage_pool_state == RUNNING_SHUTDOWN) {
+            sc->manage_pool_state = NOT_RUNNING;
+            pthread_mutex_unlock(&sc->manage_pool_mutex);
+            return NULL;
+        }
+        pthread_mutex_unlock(&sc->manage_pool_mutex);
+
+        manage_pool(sc);
+
         sleep(2);
     }
 
@@ -199,11 +215,10 @@ server_context* register_server(char* source_addr) {
     server_context* sc = malloc(sizeof(server_context));
 
     // coord_header, at the end of the day, is just a shm region
-    sc->coord_shmaddr = (void *) ch;
-    sc->manage_pool_thread = malloc(sizeof(pthread_t));
+    sc->coord_shmaddr = (void*) ch;
 
     // start manage pool runner thread
-    int err = pthread_create(sc->manage_pool_thread,
+    int err = pthread_create(&sc->manage_pool_thread,
                              NULL,
                              _manage_pool_runner,
                              sc);
@@ -211,7 +226,13 @@ server_context* register_server(char* source_addr) {
     if (err != 0) {
         perror("pthread_create");
         shutdown(sc);
+        return NULL;
     }
+
+    if (pthread_mutex_init(&sc->manage_pool_mutex, NULL) == -1) {
+        perror("error create manage pool mutex");
+    }
+    sc->manage_pool_state = RUNNING_NO_SHUTDOWN;
 
     return sc;
 }
@@ -262,19 +283,26 @@ ssize_t receive_buf(queue_pair* client, void* buf, size_t size);
  * @param handler [IN] server client connection handler
  */
 void shutdown(server_context* handler) {
-    coord_header* ch = handler->coord_shmaddr;
-    coord_shutdown(ch);
+    coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
-    // keep on checking to see if manage pool has cleaned up all slots
-    // TODO: this can be quite slow and contentious, because
-    // coord_is_empty() acquires the lock every call, and of course
-    // we are sleeping for a second
-    while (!coord_is_empty(ch)) {
-        sleep(1);
+    // tell manage pool thread to shut down
+    pthread_mutex_lock(&handler->manage_pool_mutex);
+    handler->manage_pool_state = RUNNING_SHUTDOWN;
+    pthread_mutex_unlock(&handler->manage_pool_mutex);
+
+    // wait for manage pool thread to shut down
+    while (true) {
+        pthread_mutex_lock(&handler->manage_pool_mutex);
+        if (handler->manage_pool_state == NOT_RUNNING) {
+            pthread_mutex_unlock(&handler->manage_pool_mutex);
+            break;
+        }
+        pthread_mutex_unlock(&handler->manage_pool_mutex);
     }
-    coord_delete((coord_header*) handler->coord_shmaddr);
-    pthread_cancel(*(handler->manage_pool_thread));
-    free(handler->manage_pool_thread);
+
+    coord_shutdown(ch);
+    manage_pool(handler);
+    coord_delete(ch);
     free(handler);
 }
 

@@ -109,16 +109,15 @@ shm_pair check_slot(coord_header* header, int slot){
 // Server
 coord_header* coord_create(char* coord_address){
     //Create shm region
-    int key = (int) hash((unsigned char*)coord_address);
+    int key = (int) hash((unsigned char*) coord_address);
     int size = sizeof(coord_header);
     int shmid = shm_create(key, size, create_flag);
     void* shmaddr = shm_attach(shmid);
 
-    //initialize values
+    // initialize values
     coord_header* header = (coord_header*) shmaddr;
 
     header->shmid = shmid;
-
     header->counter = 0;
     for(int i = 0; i < SLOT_NUM; i++){
         header->available_slots[i].client_request = false;
@@ -135,7 +134,6 @@ coord_header* coord_create(char* coord_address){
         perror("error creating mutex");
     }
 
-    // store in shm
     return header;
 }
 
@@ -186,12 +184,14 @@ void clear_slot(coord_header* header, int slot){
 }
 
 void coord_shutdown(coord_header* header) {
+    pthread_mutex_lock(&header->mutex);
     for (int i = 0; i < SLOT_NUM; ++i) {
         // this slot is reserved by a client
-        if (header->slots[i].client_id != 0) {
+        if (header->slots[i].client_id > 0) {
             header->slots[i].detach = true;
         }
     }
+    pthread_mutex_unlock(&header->mutex);
 }
 
 bool coord_is_empty(coord_header* header) {

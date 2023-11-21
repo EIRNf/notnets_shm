@@ -14,7 +14,6 @@ void test_failed_print(const char *message) {
 void test_register_server_shutdown() {
     server_context* sc = register_server("common_name");
     int err = (sc == NULL);
-    sleep(4);
     shutdown(sc);
 
     if (err) {
@@ -25,5 +24,5 @@ void test_register_server_shutdown() {
 }
 
 void tests_run_all() {
-//    test_register_server_shutdown();
+    test_register_server_shutdown();
 }
