@@ -39,7 +39,7 @@ void test_open_close() {
         shutdown(sc);
     } else { // CHILD PROCESS
         // if returns, then open was successful
-        client_open("test_client_addr", "test_server_addr");
+        client_open("test_client_addr", "test_server_addr", sizeof(int));
 
         int err = client_close("test_client_addr", "test_server_addr");
 
@@ -88,7 +88,9 @@ void test_accept() {
         free(qp);
         shutdown(sc);
     } else { // CHILD PROCESS
-        queue_pair* qp = client_open("test_client_addr", "test_server_addr");
+        queue_pair* qp = client_open("test_client_addr",
+                                     "test_server_addr",
+                                     sizeof(int));
         two_ptrs[0] = qp->request_shmaddr;
         two_ptrs[1] = qp->response_shmaddr;
 
@@ -101,7 +103,7 @@ void test_accept() {
     shm_remove(ipc_shmid);
 }
 
-void test_send_rcv_rpc() {
+void test_send_rcv_rpc_int() {
     // shm for communication between parent and child process
     key_t ipc_key = 1;
     int ipc_shm_size = sizeof(void*) * 2;
@@ -138,7 +140,9 @@ void test_send_rcv_rpc() {
 
         shutdown(sc);
     } else { // CHILD PROCESS
-        queue_pair* qp = client_open("test_client_addr", "test_server_addr");
+        queue_pair* qp = client_open("test_client_addr",
+                                     "test_server_addr",
+                                     sizeof(int));
 
         // currently the shm_allocator only handles int
         int* buf = malloc(sizeof(int));
@@ -182,9 +186,92 @@ void test_send_rcv_rpc() {
     shm_remove(ipc_shmid);
 }
 
+void test_send_rcv_rpc_str() {
+    // shm for communication between parent and child process
+    key_t ipc_key = 1;
+    int ipc_shm_size = sizeof(void*) * 2;
+    int ipc_shmid = shm_create(ipc_key, ipc_shm_size, create_flag);
+    void* ipc_shmaddr = shm_attach(ipc_shmid);
+
+    pid_t pid = fork();
+
+    if (pid == -1) {
+        perror("fork");
+    } else if (pid > 0) { // PARENT PROCESS
+        server_context* sc = register_server("test_server_addr");
+
+        queue_pair* qp;
+        while ((qp = accept(sc)) == NULL);
+
+        int message_size = sizeof(char[10]);
+        char *buf = malloc(message_size);
+
+        for (int i = 0; i < 10; ++i) {
+            server_receive_buf(qp, buf, message_size);
+
+            // do work on client rpc
+            char response[10] = "Hi, ";
+            strncat(response, buf, strlen(buf));
+            server_send_rpc(qp, response, message_size);
+        }
+
+        free(buf);
+        free(qp);
+
+        // wait for client to finish reading responses
+        while (*((int*) ipc_shmaddr) != 1);
+
+        shutdown(sc);
+    } else { // CHILD PROCESS
+        int message_size = sizeof(char[10]);
+        queue_pair* qp = client_open("test_client_addr",
+                                     "test_server_addr",
+                                     message_size);
+
+        char* buf = malloc(message_size);
+
+        for (int i = 0; i < 10; ++i) {
+            snprintf(buf, 10, "%d", i);
+            client_send_rpc(qp, buf, message_size);
+        }
+
+
+        int err = 0;
+        // get server responses
+        for (int i = 0; i < 10; ++i) {
+            client_receive_buf(qp, buf, message_size);
+
+            char expected[10];
+            snprintf(expected, 10, "Hi, %d", i);
+
+            if (strcmp(buf, expected) != 0) {
+                err = 1;
+            }
+        }
+
+        if (err) {
+            test_failed_print(__func__);
+        } else {
+            test_success_print(__func__);
+        }
+
+        // usually we would close client conn, but server will shutdown in its
+        // process, which will handle deallocation of qp
+        free(buf);
+        free(qp);
+
+        *((int*) ipc_shmaddr) = 1;
+        exit(0);
+    }
+
+    // cleanup ipc shm
+    shm_detach(ipc_shmaddr);
+    shm_remove(ipc_shmid);
+}
 void tests_run_all() {
     test_register_server_shutdown();
     test_open_close();
     test_accept();
-    test_send_rcv_rpc();
+    test_send_rcv_rpc_int();
+    test_send_rcv_rpc_str();
 }

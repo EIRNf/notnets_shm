@@ -50,7 +50,9 @@ queue_pair* _create_queue_pair(coord_header* ch, int slot);
 void* _manage_pool_runner(void* handler);
 
 // CLIENT
-queue_pair* client_open(char* source_addr, char* destination_addr);
+queue_pair* client_open(char* source_addr,
+                        char* destination_addr,
+                        int message_size);
 int client_send_rpc(queue_pair* conn, const void* buf, size_t size);
 size_t client_receive_buf(queue_pair* conn, void* buf, size_t size);
 int client_close(char* source_addr, char* destination_addr);
@@ -72,7 +74,7 @@ queue_pair* _create_queue_pair(coord_header* ch, int slot) {
         shms = check_slot(ch, slot);
     }
 
-    queue_pair* qp = malloc(sizeof(queue_pair));
+    queue_pair* qp = (queue_pair*) malloc(sizeof(queue_pair));
 
     qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
     qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
@@ -116,15 +118,17 @@ void* _manage_pool_runner(void* handler) {
  * usually IP/Port pair
  * @return connection* If NULL, no connection was achieved
  */
-queue_pair* client_open(char* source_addr, char* destination_addr) {
+queue_pair* client_open(char* source_addr,
+                        char* destination_addr,
+                        int message_size) {
     coord_header* ch = coord_attach(destination_addr);
 
     int client_id = (int) hash((unsigned char*) source_addr);
-    int slot = request_slot(ch, client_id);
+    int slot = request_slot(ch, client_id, message_size);
 
     // keep on trying to reserve slot
     while (slot == -1) {
-        slot = request_slot(ch, client_id);
+        slot = request_slot(ch, client_id, message_size);
     }
 
     return _create_queue_pair(ch, slot);
@@ -204,7 +208,7 @@ int client_close(char* source_addr, char* destination_addr) {
 
 //SERVER
 
-shm_pair _fake_shm_allocator() {
+shm_pair _fake_shm_allocator(int message_size) {
     shm_pair shms = {};
 
     int request_shmid = shm_create(SIMPLE_KEY,
@@ -219,7 +223,6 @@ shm_pair _fake_shm_allocator() {
     // set up shm regions as queues
     void* request_addr = shm_attach(request_shmid);
     void* response_addr = shm_attach(response_shmid);
-    int message_size = sizeof(int);
     queue_create(request_addr, QUEUE_SIZE, message_size);
     queue_create(response_addr, QUEUE_SIZE, message_size);
     // don't want to stay attached to the queue pairs
@@ -267,7 +270,7 @@ void manage_pool(server_context* handler) {
 server_context* register_server(char* source_addr) {
     coord_header* ch = coord_create(source_addr);
 
-    server_context* sc = malloc(sizeof(server_context));
+    server_context* sc = (server_context*) malloc(sizeof(server_context));
 
     // coord_header, at the end of the day, is just a shm region
     sc->coord_shmaddr = (void*) ch;
@@ -330,7 +333,6 @@ queue_pair* accept(server_context* handler) {
     return NULL;
 }
 
-
 /**
  * @brief The client must be identified before written to.
  *
@@ -358,7 +360,6 @@ size_t server_receive_buf(queue_pair* queues, void* buf, size_t size) {
     pop(queues->request_shmaddr, buf, &size);
     return size;
 }
-
 
 /**
  * @brief Gracefully shutdown coord and all queues. Signal

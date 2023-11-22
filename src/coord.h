@@ -30,6 +30,7 @@ typedef struct shm_pair {
 //Modify to be templatable, permit
 typedef struct coord_row {
     int client_id; //Only written to by Client, how do we even know id?
+    int message_size;
     bool shm_created;  //Only written to by Server
     shm_pair shms;
     bool detach;  //Only written to by Client
@@ -77,13 +78,14 @@ void coord_detach(coord_header* header){
 
 // Client
 // Returns reserved slot to check back against, if -1 failed to get a slot
-int request_slot(coord_header* header, int client_id){
+int request_slot(coord_header* header, int client_id, int message_size){
     // try to reserve a slot, if not available wait and try again
     pthread_mutex_lock(&header->mutex);
     for(int i = 0; i < SLOT_NUM; i++){
         if (header->available_slots[i].client_reserved == false){
             header->available_slots[i].client_reserved = true;
             header->slots[i].client_id = client_id;
+            header->slots[i].message_size = message_size;
             header->slots[i].detach = false;
             header->slots[i].shm_created = false;
 
@@ -137,14 +139,16 @@ coord_header* coord_create(char* coord_address){
     return header;
 }
 
-int service_slot(coord_header* header, int slot, shm_pair (*allocation)()){
+int service_slot(coord_header* header,
+                 int slot,
+                 shm_pair (*allocation)(int)){
     pthread_mutex_lock(&header->mutex);
     int client_id = header->slots[slot].client_id;
 
     if (header->available_slots[slot].client_reserved &&
             !header->slots[slot].shm_created) {
         // call allocation Function
-        shm_pair shms = (*allocation)();
+        shm_pair shms = (*allocation)(header->slots[slot].message_size);
 
         header->slots[slot].shms = shms;
         header->slots[slot].shm_created = true;

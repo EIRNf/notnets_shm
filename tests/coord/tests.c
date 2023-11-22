@@ -17,7 +17,7 @@ void test_failed_print(const char *message) {
     fflush(stdout);
 }
 
-shm_pair fake_shm_allocator() {
+shm_pair fake_shm_allocator(int message_size) {
     shm_pair shms = {};
 
     int request_shmid = shm_create(SIMPLE_KEY,
@@ -34,7 +34,6 @@ shm_pair fake_shm_allocator() {
     // set up shm regions as queues
     void* request_addr = shm_attach(request_shmid);
     void* response_addr = shm_attach(response_shmid);
-    int message_size = sizeof(int);
     queue_create(request_addr, QUEUE_SIZE, message_size);
     queue_create(response_addr, QUEUE_SIZE, message_size);
     // don't want to stay attached to the queue pairs
@@ -52,7 +51,7 @@ void test_queue_allocation() {
     int iter = 10;
     int err = 0;
 
-    shm_pair shms = fake_shm_allocator();
+    shm_pair shms = fake_shm_allocator(message_size);
 
     void* request_queue_addr = shm_attach(shms.request_shm.shmid);
     void* response_queue_addr = shm_attach(shms.response_shm.shmid);
@@ -110,7 +109,7 @@ void test_single_client_send_rcv() {
         coord_header* coord_region = coord_attach("common_name");
 
         int client_id = 4;
-        int reserved_slot = request_slot(coord_region, client_id);
+        int reserved_slot = request_slot(coord_region, client_id, sizeof(int));
         assert(reserved_slot == 0);
 
         shm_pair shms = {};
@@ -211,7 +210,7 @@ void test_single_client_get_slot(){
         coord_header* coord_region = coord_attach("common_name");
 
         int client_id = 4;
-        int reserved_slot = request_slot(coord_region, client_id);
+        int reserved_slot = request_slot(coord_region, client_id, sizeof(int));
         assert(reserved_slot == 0);
 
         shm_pair shms = {};

@@ -93,7 +93,7 @@ void enqueue(spsc_queue_header* header, const void* buf, size_t buf_size) {
     int message_size = header->message_size;
     int tail = header->tail;
 
-    memcpy(array_start + tail*message_size, buf, buf_size);
+    memcpy((char*) array_start + tail*message_size, buf, buf_size);
 
     header->current_count++;
     header->total_count++;
@@ -159,7 +159,7 @@ void dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
 
     memcpy(
         buf,
-        array_start + header->head*header->message_size + header->message_offset,
+        (char*) array_start + header->head*header->message_size + header->message_offset,
         *buf_size
     );
     header->message_offset += *buf_size;
@@ -212,7 +212,7 @@ const void* peek(void* shmaddr, ssize_t *size) {
     void* array_start = header->message_array;
 
     *size = header->message_size;
-    return (const void*) (array_start + queue_head*message_size);
+    return (const void*) ((char*) array_start + queue_head*message_size);
 }
 
 #endif
