@@ -51,16 +51,16 @@ void* _manage_pool_runner(void* handler);
 
 // CLIENT
 queue_pair* client_open(char* source_addr, char* destination_addr);
-int send_rpc(queue_pair* conn, const void* buf, size_t size);
-size_t receive_buf(queue_pair* conn, void* buf, size_t size);
+int client_send_rpc(queue_pair* conn, const void* buf, size_t size);
+size_t client_receive_buf(queue_pair* conn, void* buf, size_t size);
 int client_close(char* source_addr, char* destination_addr);
 
 // SERVER
 void manage_pool(server_context* handler);
 server_context* register_server(char* source_addr);
 queue_pair* accept(server_context* handler);
-int send_rpc(queue_pair* client, const void *buf, size_t size);
-size_t receive_buf(queue_pair* client, void* buf, size_t size);
+int server_send_rpc(queue_pair* client, const void *buf, size_t size);
+size_t server_receive_buf(queue_pair* client, void* buf, size_t size);
 void shutdown(server_context* handler);
 // ===============================================================
 
@@ -136,12 +136,14 @@ queue_pair* client_open(char* source_addr, char* destination_addr) {
  * TODO:
  * - What if queue full? return 0 for bytes written
  *
- * @param conn[IN] queues initialized with server
+ * @param queues[IN] queues initialized with server
  * @param buf[IN] data buf to be written
  * @param size[IN] size of buf
- * @return ssize_t -1 for error, >0 for bytes written
+ * @return int -1 for error, 0 if successfully pushed
  */
-int send_rpc(queue_pair* conn, const void *buf, size_t size);
+int client_send_rpc(queue_pair* queues, const void *buf, size_t size) {
+    return push(queues->request_shmaddr, buf, size);
+}
 
 
 /**
@@ -156,7 +158,10 @@ int send_rpc(queue_pair* conn, const void *buf, size_t size);
  * @param size [IN] size of buf
  * @return ssize_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
-size_t receive_buf(queue_pair* conn, void* buf, size_t size);
+size_t client_receive_buf(queue_pair* queues, void* buf, size_t size) {
+    pop(queues->response_shmaddr, buf, &size);
+    return size;
+}
 
 
 /**
@@ -332,9 +337,11 @@ queue_pair* accept(server_context* handler) {
  * @param client[IN] queue pair
  * @param buf[IN] data buf to be written
  * @param size[IN] size of buf
- * @return ssize_t  -1 for error, >0 for bytes written
+ * @return ssize_t  -1 for error, 0 for successful push
  */
-int send_rpc(queue_pair* client, const void *buf, size_t size);
+int server_send_rpc(queue_pair* queues, const void *buf, size_t size) {
+    return push(queues->response_shmaddr, buf, size);
+}
 
 /**
  * @brief Buffer provided by user. Called until all data has been read from
@@ -345,9 +352,12 @@ int send_rpc(queue_pair* client, const void *buf, size_t size);
  * @param client [IN] queue pair
  * @param buf [IN] data buf to be copied to
  * @param size [IN] size of buf
- * @return ssize_t How much read, if 0 EOF. Only removed from queue once fully read.
+ * @return size_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
-size_t receive_buf(queue_pair* client, void* buf, size_t size);
+size_t server_receive_buf(queue_pair* queues, void* buf, size_t size) {
+    pop(queues->request_shmaddr, buf, &size);
+    return size;
+}
 
 
 /**

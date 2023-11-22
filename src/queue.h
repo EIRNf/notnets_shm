@@ -175,9 +175,9 @@ void dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
  * @brief polling pop, will wait until it can pop from queue
  *
  * @param shmaddr pointer to shm region
+ * @param buf buffer that will eventually store the popped element
  * @param buf_size pointer to a numerical value that will be populated with size
  *                 of returned messaged
- * @return message buffer popped from queue
  */
 void pop(void* shmaddr, void* buf, size_t* buf_size) {
     spsc_queue_header* header = get_queue_header(shmaddr);
