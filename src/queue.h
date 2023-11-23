@@ -17,7 +17,6 @@ typedef struct spsc_queue_header {
     int total_count;
     bool stop_producer_polling;
     bool stop_consumer_polling;
-    void* message_array;
 } spsc_queue_header;
 
 /*
@@ -29,6 +28,10 @@ typedef struct spsc_queue_header {
 spsc_queue_header* get_queue_header(void* shmaddr) {
     spsc_queue_header* header = (spsc_queue_header*) shmaddr;
     return header;
+}
+
+void* get_message_array(spsc_queue_header* header) {
+    return (char*) header + sizeof(spsc_queue_header);
 }
 
 /**
@@ -60,8 +63,6 @@ ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
     header.total_count = 0;
     header.stop_consumer_polling = false;
     header.stop_producer_polling = false;
-    char* temp_addr = (char*) shmaddr;
-    header.message_array = temp_addr + sizeof(spsc_queue_header);
 
     spsc_queue_header* header_ptr = get_queue_header(shmaddr);
     *header_ptr = header;
@@ -88,7 +89,7 @@ bool is_full(spsc_queue_header *header) {
  * @param buf_size size of the buf in bytes
   */
 void enqueue(spsc_queue_header* header, const void* buf, size_t buf_size) {
-    void* array_start = header->message_array;
+    void* array_start = get_message_array(header);
 
     int message_size = header->message_size;
     int tail = header->tail;
@@ -150,7 +151,7 @@ bool is_empty(spsc_queue_header *header) {
  * @returns dequeued message in a malloced buffer
  */
 void dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
-    void* array_start = header->message_array;
+    void* array_start = get_message_array(header);
 
     // handle offset math
     if (*buf_size + header->message_offset > header->message_size) {
@@ -209,7 +210,7 @@ const void* peek(void* shmaddr, ssize_t *size) {
     int message_size = header->message_size;
     int queue_head = header->head;
 
-    void* array_start = header->message_array;
+    void* array_start = get_message_array(header);
 
     *size = header->message_size;
     return (const void*) ((char*) array_start + queue_head*message_size);
