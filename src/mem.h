@@ -16,8 +16,8 @@ const int only_read_flag = SHM_RDONLY;
 /**
  * @brief shmget wrapper. Handles errors.
  * Creates shared memory region that can
- * be attached to 
- * 
+ * be attached to
+ *
  * @param key unique key to creat shm region
  * @param size size of shm region
  * @param shmflg creation flags
@@ -28,7 +28,7 @@ int shm_create(key_t key, int size, int shmflg){
     if ((shmid = shmget(key, size, shmflg)) == -1){
         perror("shmget: shmget failed");
         fprintf(stderr,"Error creating shm: %d \n", shmid );
-    } 
+    }
     return shmid;
 }
 
@@ -36,7 +36,7 @@ int shm_create(key_t key, int size, int shmflg){
  * @brief shmat wrapper. Handles errors.
  * Attaches local process to previously created
  * shm region.
- * 
+ *
  * @param shmid shmid from create/shmget
  * @return void* shmaddr to access shm
  */
@@ -45,14 +45,14 @@ void* shm_attach(int shmid){
     if ((shmaddr = shmat(shmid, NULL, 0 )) == (void *)-1){
         perror("shmat: shmat failed");
         fprintf(stderr,"Error attaching to shm: %p \n", shmaddr );
-    } 
+    }
     return shmaddr;
 }
 
 /**
  * @brief shmdt wrapper. Handlers errors.
  * Detaches local process from shm region
- * 
+ *
  * @param shmaddr shm address
  * @return int error codes
  */
@@ -65,9 +65,9 @@ int shm_detach(void* shmaddr){
     return err;
 }
 /**
- * @brief shmctl wrapper. Handles errors. 
+ * @brief shmctl wrapper. Handles errors.
  * Removes shared region from IPC namespace
- * 
+ *
  * @param shmid shmid from create/shmget
  * @return int error codes
  */

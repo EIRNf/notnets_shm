@@ -123,6 +123,10 @@ queue_pair* client_open(char* source_addr,
                         int message_size) {
     coord_header* ch = coord_attach(destination_addr);
 
+    if (ch == NULL) {
+        return NULL;
+    }
+
     int client_id = (int) hash((unsigned char*) source_addr);
     int slot = request_slot(ch, client_id, message_size);
 

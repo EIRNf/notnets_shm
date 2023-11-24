@@ -63,7 +63,12 @@ coord_header* coord_attach(char* coord_address){
     // attach shm region
     int key = (int) hash((unsigned char*)coord_address);
     int size = sizeof(coord_header);
-    int shmid = shm_create(key, size, create_flag);
+    int shmid = shm_create(key, size, attach_flag);
+
+    if (shmid == -1) {
+        return NULL;
+    }
+
     void* shmaddr = shm_attach(shmid);
 
     // get header
