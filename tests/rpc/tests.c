@@ -39,7 +39,15 @@ void test_open_close() {
         shutdown(sc);
     } else { // CHILD PROCESS
         // if returns, then open was successful
-        client_open("test_client_addr", "test_server_addr", sizeof(int));
+        queue_pair* qp = client_open("test_client_addr",
+                                     "test_server_addr",
+                                     sizeof(int));
+
+        while (qp == NULL) {
+            qp = client_open("test_client_addr",
+                             "test_server_addr",
+                             sizeof(int));
+        }
 
         int err = client_close("test_client_addr", "test_server_addr");
 
@@ -91,6 +99,12 @@ void test_accept() {
         queue_pair* qp = client_open("test_client_addr",
                                      "test_server_addr",
                                      sizeof(int));
+        while (qp == NULL) {
+            qp = client_open("test_client_addr",
+                             "test_server_addr",
+                             sizeof(int));
+        }
+
         two_ptrs[0] = qp->request_shmaddr;
         two_ptrs[1] = qp->response_shmaddr;
 
@@ -143,6 +157,12 @@ void test_send_rcv_rpc_int() {
         queue_pair* qp = client_open("test_client_addr",
                                      "test_server_addr",
                                      sizeof(int));
+
+        while (qp == NULL) {
+            qp = client_open("test_client_addr",
+                             "test_server_addr",
+                             sizeof(int));
+        }
 
         // currently the shm_allocator only handles int
         int* buf = malloc(sizeof(int));
@@ -227,6 +247,12 @@ void test_send_rcv_rpc_str() {
         queue_pair* qp = client_open("test_client_addr",
                                      "test_server_addr",
                                      message_size);
+
+        while (qp == NULL) {
+            qp = client_open("test_client_addr",
+                             "test_server_addr",
+                             sizeof(int));
+        }
 
         char* buf = malloc(message_size);
 

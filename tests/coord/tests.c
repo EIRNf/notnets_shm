@@ -108,6 +108,10 @@ void test_single_client_send_rcv() {
 
         coord_header* coord_region = coord_attach("common_name");
 
+        while (coord_region == NULL) {
+            coord_region = coord_attach("common_name");
+        }
+
         int client_id = 4;
         int reserved_slot = request_slot(coord_region, client_id, sizeof(int));
         assert(reserved_slot == 0);
@@ -208,6 +212,10 @@ void test_single_client_get_slot(){
     } else if (c_pid == 0) {
         // CHILD PROCESS
         coord_header* coord_region = coord_attach("common_name");
+
+        while (coord_region == NULL) {
+            coord_region = coord_attach("common_name");
+        }
 
         int client_id = 4;
         int reserved_slot = request_slot(coord_region, client_id, sizeof(int));

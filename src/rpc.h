@@ -239,6 +239,36 @@ shm_pair _fake_shm_allocator(int message_size) {
     return shms;
 }
 
+shm_pair _rand_shm_allocator(int message_size) {
+    shm_pair shms = {};
+
+    int key1 = rand();
+    int key2 = rand();
+
+    int request_shmid = shm_create(key1,
+                                   QUEUE_SIZE,
+                                   create_flag);
+    int response_shmid = shm_create(key2,
+                                    QUEUE_SIZE,
+                                    create_flag);
+    shm_info request_shm = {key1, request_shmid};
+    shm_info response_shm = {key2 + 1, response_shmid};
+
+    // set up shm regions as queues
+    void* request_addr = shm_attach(request_shmid);
+    void* response_addr = shm_attach(response_shmid);
+    queue_create(request_addr, QUEUE_SIZE, message_size);
+    queue_create(response_addr, QUEUE_SIZE, message_size);
+    // don't want to stay attached to the queue pairs
+    shm_detach(request_addr);
+    shm_detach(response_addr);
+
+    shms.request_shm = request_shm;
+    shms.response_shm = response_shm;
+
+    return shms;
+}
+
 /**
  * @brief
  *
@@ -295,6 +325,8 @@ server_context* register_server(char* source_addr) {
         perror("error create manage pool mutex");
     }
     sc->manage_pool_state = RUNNING_NO_SHUTDOWN;
+
+    srand(time(NULL));
 
     return sc;
 }
