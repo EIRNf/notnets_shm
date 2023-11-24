@@ -352,9 +352,10 @@ queue_pair* accept(server_context* handler) {
     for (int i = 0; i < SLOT_NUM; ++i, slot = (slot + 1) % SLOT_NUM) {
         // if this slot is scheduled to be detached, or is not reserved,
         // don't accept it
-        if (ch->slots[i].detach || !ch->available_slots[i].client_reserved) {
+        if (ch->slots[slot].detach ||
+                !ch->available_slots[slot].client_reserved) {
             continue;
-        } else if (ch->slots[i].shm_created) {
+        } else if (ch->slots[slot].shm_created) {
             ch->accept_slot = (slot + 1) % SLOT_NUM;
             pthread_mutex_unlock(&ch->mutex);
 
