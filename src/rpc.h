@@ -252,7 +252,7 @@ shm_pair _rand_shm_allocator(int message_size) {
                                     QUEUE_SIZE,
                                     create_flag);
     shm_info request_shm = {key1, request_shmid};
-    shm_info response_shm = {key2 + 1, response_shmid};
+    shm_info response_shm = {key2, response_shmid};
 
     // set up shm regions as queues
     void* request_addr = shm_attach(request_shmid);
