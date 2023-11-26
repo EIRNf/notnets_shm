@@ -1,199 +1,206 @@
 #ifndef __COORD_H
 #define __COORD_H
 
+#define SLOT_NUM 10
+#define QUEUE_SIZE 1024
 
 #include "mem.h"
-#include "unistd.h"
-#include <functional>
-#include <thread>
+#include "queue.h"
+
+#include <unistd.h>
 #include <pthread.h>
 #include <sys/sem.h>
-
-const int available_reserve_slots = 10;
-const int available_coord_slots = 10;
-
+#include <stdbool.h>
+#include <stdlib.h>
 
 typedef struct reserve_pair {
-    bool client_request;
-    bool server_handled;
-}reserve_pair; 
+    bool client_reserved;
+} reserve_pair;
 
-typedef struct key_pair {
-    int request_shm_key; //Only written to by Server // if -1 then that means it hasnt been created?
-    int response_shm_key; //Only written to by Server  // if -1 then that means it hasnt been created?
-} key_pair;
+typedef struct shm_info {
+    int key;
+    int shmid;
+} shm_info;
 
-//Modify to be templatable, permit 
+typedef struct shm_pair {
+    shm_info request_shm;
+    shm_info response_shm;
+} shm_pair;
+
+//Modify to be templatable, permit
 typedef struct coord_row {
     int client_id; //Only written to by Client, how do we even know id?
-    bool shm_created;  //Only written to by Server //If false server creates it and adds keys to
-    key_pair keys;
+    int message_size;
+    bool shm_created;  //Only written to by Server
+    shm_pair shms;
     bool detach;  //Only written to by Client
-}coord_row;
+} coord_row;
 
 
 typedef struct coord_header {
-	int counter;
-    void *mutex;
-	// int lock; //Use shared_mutex for now 
-	reserve_pair available_slots[available_reserve_slots] ;// This needs to be thread safe
-	coord_row coord_slots[available_coord_slots] ;
+    int shmid; // for later deletion, to avoid process state
+    int accept_slot;
+    pthread_mutex_t mutex; // lock when accessing slots or available_slots
+	reserve_pair available_slots[SLOT_NUM];
+    coord_row slots[SLOT_NUM];
 } coord_header;
 
-class coord {
 
-    public:
-        coord();
-        void create(shared_memory_region *shm); // Should only be called by Server
-        void attach(shared_memory_region *shm); // Should only be called by Clients
-        void destroy();
+// djb2, dan bernstein
+unsigned long hash(unsigned char *str){
+    unsigned long hash = 5381;
+    int c;
 
-        void service_requests(std::function<key_pair(int)> allocation, int key_seed); //Continue servicing requests, pass function as desired work to be done. 
-        key_pair* query_handled_requests(); //
-        key_pair try_request_keys(int client_id); //Wait until request is satisfied or timeout
+    while ((c = *str++))
+        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 
-    private:
-        shared_memory_region *shm;
-        // std::binary_semaphore sem{0}; //use binary semaphore for now, might be replaced by another
-        // key_t key_mutex;
-        // int mutex_id;        
-        pthread_mutex_t mu_handle;
+    return hash;
+}
 
-        key_pair queue_keys[available_reserve_slots];
+// client
+// checks creation, does shm stuff to get handle to it
+coord_header* coord_attach(char* coord_address){
+    // attach shm region
+    int key = (int) hash((unsigned char*)coord_address);
+    int size = sizeof(coord_header);
+    int shmid = shm_create(key, size, attach_flag);
 
-        coord_header* get_coord_header(void* shmaddr);
+    if (shmid == -1) {
+        return NULL;
+    }
 
-        //We want to support varying threading models, how do we surface new allocated(or reused) queues to a user of coord. 
-        
+    void* shmaddr = shm_attach(shmid);
 
-};
+    // get header
+    coord_header* header = (coord_header*) shmaddr;
 
-coord::coord() {}
-
-coord_header* coord::get_coord_header(void* shmaddr){
-    coord_header* header = (coord_header*)(shmaddr);
     return header;
 }
 
-void coord::create(shared_memory_region *shm){
-    //do check to verify memory region size
-    if(sizeof(coord_header) > (u_long) shm->size){
-        perror("Header data too large for allocated shm");
-        exit(1);
+void coord_detach(coord_header* header){
+    shm_detach(header);
+}
+
+// Client
+// Returns reserved slot to check back against, if -1 failed to get a slot
+int request_slot(coord_header* header, int client_id, int message_size){
+    // try to reserve a slot, if not available wait and try again
+    pthread_mutex_lock(&header->mutex);
+    for(int i = 0; i < SLOT_NUM; i++){
+        if (header->available_slots[i].client_reserved == false){
+            header->available_slots[i].client_reserved = true;
+            header->slots[i].client_id = client_id;
+            header->slots[i].message_size = message_size;
+            header->slots[i].detach = false;
+            header->slots[i].shm_created = false;
+
+            pthread_mutex_unlock(&header->mutex);
+            return i;
+        }
     }
-    this->shm = shm;
+    pthread_mutex_unlock(&header->mutex);
+    return -1;
+}
 
-    coord_header *header_ptr = get_coord_header(this->shm->shmaddr);
-
-    header_ptr->counter = 0;
-    for(int i = 0; i < available_coord_slots; i++){
-        header_ptr->available_slots[i].client_request = false;
-        header_ptr->available_slots[i].server_handled = false;
+shm_pair check_slot(coord_header* header, int slot){
+    shm_pair shms = {};
+    pthread_mutex_lock(&header->mutex);
+    if (header->slots[slot].shm_created == true) {
+        shms = header->slots[slot].shms;
     }
-    // header.coord_slots[available_coord_slots] = {0};
-    // this->queue_keys[available_coord_slots] = {0};
+    pthread_mutex_unlock(&header->mutex);
+    return shms;
+}
 
+// Server
+coord_header* coord_create(char* coord_address){
+    //Create shm region
+    int key = (int) hash((unsigned char*) coord_address);
+    int size = sizeof(coord_header);
+    int shmid = shm_create(key, size, create_flag);
+    void* shmaddr = shm_attach(shmid);
+
+    // initialize values
+    coord_header* header = (coord_header*) shmaddr;
+
+    header->shmid = shmid;
+    header->accept_slot = 0;
+
+    for(int i = 0; i < SLOT_NUM; i++){
+        header->available_slots[i].client_reserved = false;
+    }
+
+    // initialize mutual exclusion mechanism and store handle
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
     pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
 
-    //Instantiate the mutex
-    if (pthread_mutex_init(&mu_handle, &attr) == -1) {
+    // instantiate the mutex
+    if (pthread_mutex_init(&header->mutex, &attr) == -1) {
         perror("error creating mutex");
     }
-    //Store in shm
-    header_ptr->mutex = &mu_handle;
+
+    return header;
 }
-void coord::attach(shared_memory_region *shm){
-    
-    //do check to verify memory region size
-    if(sizeof(coord_header)> (u_long) shm->size){
-        perror("Header data too large for allocated shm");
-        exit(1);
+
+int service_slot(coord_header* header,
+                 int slot,
+                 shm_pair (*allocation)(int)){
+    pthread_mutex_lock(&header->mutex);
+    int client_id = header->slots[slot].client_id;
+
+    if (header->available_slots[slot].client_reserved &&
+            !header->slots[slot].shm_created) {
+        // call allocation Function
+        shm_pair shms = (*allocation)(header->slots[slot].message_size);
+
+        header->slots[slot].shms = shms;
+        header->slots[slot].shm_created = true;
+
+        pthread_mutex_unlock(&header->mutex);
+        return client_id;
     }
 
-    this->shm = shm;
-
-    coord_header *header_ptr = get_coord_header(this->shm->shmaddr);
-
-    //Get the mutex in shared memory to local handle
-    this->mu_handle = *((pthread_mutex_t *) header_ptr->mutex);
-
-}
-void coord::destroy(){
-    pthread_mutex_destroy(&mu_handle);
+    pthread_mutex_unlock(&header->mutex);
+    return -1;
 }
 
-//Client Section, request a pair of keys for shm
-key_pair coord::try_request_keys(int client_id){
-    coord_header *header = this->get_coord_header(shm->shmaddr);
-    int reserved_slot = -1;
+void coord_delete(coord_header* header){
+    int shmid = header->shmid;
+    coord_detach(header);
+    shm_remove(shmid);
+}
 
-    ///try to reserve a slot, if not available wait and try again
+// SHOULD ONLY BE USED FOR TESTING PURPOSES, UNSAFE
+void force_clear_slot(coord_header* header, int slot){
+    // don't need to remove shm if server has not handled this slot yet (aka
+    // created shm regions)
+    if (header->slots[slot].shm_created) {
+        shm_info request_shm = header->slots[slot].shms.request_shm;
+        shm_info response_shm = header->slots[slot].shms.response_shm;
 
-    pthread_mutex_lock(&mu_handle);
-    for(int i = 0; i <available_coord_slots; i++){
-        if ((header->available_slots[i].client_request == false) && (header->available_slots[i].server_handled == false) ){
-            header->available_slots[i].client_request = true;
-            header->coord_slots[i].client_id = client_id;
-            header->coord_slots[i].detach = false;
-            header->coord_slots[i].keys.request_shm_key = -1;
-            header->coord_slots[i].keys.response_shm_key = -1;
-            header->coord_slots[i].shm_created = false;
-
-            reserved_slot = i;
-            break;
-        } 
+        shm_remove(request_shm.shmid);
+        shm_remove(response_shm.shmid);
     }
-    pthread_mutex_unlock(&mu_handle);
-    //Reserve a slot, now poll it until it is handled
-    //TODO:implement timeout
-    while(true){
-        if (header->coord_slots[reserved_slot].shm_created == true){
-            key_pair keys = {};
-            keys.request_shm_key =  header->coord_slots[reserved_slot].keys.request_shm_key;
-            keys.response_shm_key = header->coord_slots[reserved_slot].keys.response_shm_key;
-            return keys;
-        }
-        //tune with wait
+
+    memset(&header->slots[slot], 0, sizeof(coord_row));
+    header->available_slots[slot].client_reserved = false;
+}
+
+void clear_slot(coord_header* header, int slot){
+    pthread_mutex_lock(&header->mutex);
+    if (header->slots[slot].detach) {
+        force_clear_slot(header, slot);
     }
+    pthread_mutex_unlock(&header->mutex);
 }
 
-//Server section, handle requests in critical section
-//Single writer principle, run this with a dedicated thread. 
-void coord::service_requests(std::function<key_pair(int)> allocation, int key_seed){
-    coord_header *header = this->get_coord_header(shm->shmaddr);
-
-        ///try to reserve a slot, if not available wait and try again
-        // this->sem.acquire();
-        for(int i = 0; i <available_coord_slots; i++){
-            if ((header->available_slots[i].client_request == true) && (header->available_slots[i].server_handled == false) ){
-                //Begin handling request, what does this look like?
-                //Use passed function that returns keys
-
-                //Call Allocation Function
-                key_pair keys = allocation(key_seed);
-                
-                header->coord_slots[i].keys.request_shm_key = keys.request_shm_key;
-                header->coord_slots[i].keys.response_shm_key = keys.response_shm_key;
-                header->coord_slots[i].shm_created = true;
-
-                this->queue_keys[i] = keys;
-                header->available_slots[i].server_handled = true;
-            }
-        }
-        // this->sem.release();
-}
-
-key_pair* coord::query_handled_requests(){
-    coord_header *header = this->get_coord_header(shm->shmaddr);
-    for(int i = 0; i <available_coord_slots; i++){
-        key_pair keys = header->coord_slots[i].keys;
-        this->queue_keys[i] = keys; 
+void coord_shutdown(coord_header* header) {
+    pthread_mutex_lock(&header->mutex);
+    for (int i = 0; i < SLOT_NUM; ++i) {
+            header->slots[i].detach = true;
     }
-    return queue_keys;
+    pthread_mutex_unlock(&header->mutex);
 }
-
-
 #endif
