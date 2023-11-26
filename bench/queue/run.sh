@@ -4,9 +4,9 @@ compiler_cmd="$1"
 # temp="${compiler_cmd%\'}"
 # temp="${temp#\'}"=
 
-rm -f test
+rm -f bench
 # clear
 
-$compiler_cmd ./main.c -o test
+$compiler_cmd ./main.c -o bench
 
-./test
+./bench

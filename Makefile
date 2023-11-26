@@ -75,6 +75,9 @@ debug: $(TARGET_DEBUG)
 test: 
 	(cd tests;./runner.sh "$(CXX) $(COBJFLAGS)")
 
+.PHONY: bench
+bench: 
+	(cd bench;./runner.sh "$(CXX) $(COBJFLAGS)")
 	
 # .PHONY: lib
 # lib: $(LIB)

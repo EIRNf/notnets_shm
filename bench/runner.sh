@@ -8,13 +8,13 @@ fi
 
 argument="$1"
 current_directory=$(pwd)
-output_file="$current_directory/test_output.txt"
+output_file="$current_directory/bench_output.txt"
 
 # List all directories in the current directory
 directories=$(find . -maxdepth 1 -type d -not -name ".")
 
 # Initialize the output file
-echo "Output from tests in each directory using compilation '$argument':" > "$output_file"
+echo "Output from benchmarks in each directory using compilation '$argument':" > "$output_file"
 
 # Loop through each directory and run a script if it exists
 for directory in $directories; do

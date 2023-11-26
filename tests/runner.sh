@@ -18,7 +18,7 @@ echo "Output from tests in each directory using compilation '$argument':" > "$ou
 
 # Loop through each directory and run a script if it exists
 for directory in $directories; do
-    script_path="$current_directory/$directory/run.sh"  # Change 'your_script_name.sh' to the actual script name
+    script_path="$current_directory/$directory/run.sh"  
 
     if [ -f "$script_path" ]; then
         echo "Running script in directory: $directory" >> "$output_file"

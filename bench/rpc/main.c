@@ -2,8 +2,7 @@
 //Currently commented out as it has not been updated
 #include <stdio.h>
 
-#include "tests.c"
-
+#include "bench.c"
 
 
 /* Run client and server processes from same program distinguished by different arguments
@@ -15,8 +14,9 @@ Goals:
 */ 
 
 
-int main(int argc, char *argv[])
+int main()
 {
-
-
+    bench_run_all();
 }
+
+
