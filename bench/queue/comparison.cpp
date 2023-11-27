@@ -11,16 +11,8 @@
 
 int iters = NUM_ITEMS;
 
-void boost_lockfree_spes_queue(){
-
-    std::cout << "boost::lockfree::spsc:" << std::endl;
-  
-    boost::lockfree::spsc_queue<int> q(1000);
-
-
-    auto t = std::thread([&] {
-    //   pinThread(cpu1);
-      for (int i = 0; i < iters; ++i) {
+void boost_consumer(boost::lockfree::spsc_queue<int> q){
+     for (int i = 0; i < iters; ++i) {
         int val;
         while (q.pop(&val, 1) != 1)
           ;
@@ -28,9 +20,16 @@ void boost_lockfree_spes_queue(){
           throw std::runtime_error("");
         }
       }
-    });
+}
 
-    // pinThread(cpu2);
+
+void boost_lockfree_spes_queue(){
+
+    std::cout << "boost::lockfree::spsc:" << std::endl;
+  
+    boost::lockfree::spsc_queue<int> q(1000);
+
+    std::thread t(boost_consumer, q);
 
     auto start = std::chrono::steady_clock::now();
     for (int i = 0; i < iters; ++i) {
