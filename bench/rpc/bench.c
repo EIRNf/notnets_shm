@@ -5,7 +5,7 @@
 #include <stdatomic.h>
 
 
-#define NUM_ITEMS 1000000
+#define NUM_ITEMS 10000
 #define MESSAGE_SIZE 4 //Int
 
 struct timespec start, end;
@@ -49,86 +49,99 @@ void bench_report_stats() {
 }
 
 
-// void *client(queue_pair* qp){
-//     int *buf = malloc(MESSAGE_SIZE);
-//     int buf_size = MESSAGE_SIZE;
+void client(queue_pair* qp){
+    int *buf = malloc(MESSAGE_SIZE);
+    int buf_size = MESSAGE_SIZE;
 
-//     //hold until flag is set to true
-//     while(!run_flag);
+    int* pop_buf = malloc(MESSAGE_SIZE);
+    int pop_buf_size = MESSAGE_SIZE;
 
-//     for(int i=1;i<NUM_ITEMS;i++) {
-//         *buf = i;
-//         client_send_rpc(qp, buf, buf_size);
+
+    //hold until flag is set to true
+    while(!run_flag);
+
+    for(int i=1;i<NUM_ITEMS;i++) {
+        *buf = i;
+        client_send_rpc(qp, buf, buf_size);
         
-//         //Request sent, read for response
+        //Request sent, read for response
 
-//         int pop_size = client_receive_buf(qp, buf, buf_size);
-//     }
-//     free(buf);
-//     pthread_exit(0);
-// }
+        client_receive_buf(qp, pop_buf, pop_buf_size);
+
+        assert(*pop_buf == *buf);
+    }
+    free(pop_buf);
+    free(buf);
+}
  
-// void server(queue_pair* qp){
-//     size_t *message_size = malloc(sizeof(ssize_t));
-//     *message_size = MESSAGE_SIZE;
-//     int* pop_buf = malloc(*message_size);
+void *server(void* s_qp){
+    queue_pair* qp = (queue_pair*) s_qp;
 
-//     //hold until flag is set to true
-//     while(!run_flag);
+    int* buf = malloc(MESSAGE_SIZE);
+    int buf_size = MESSAGE_SIZE;
 
-//     for(int i=1;i<NUM_ITEMS;i++) {
-//         if (i == NUM_ITEMS-1){
-//             break;
-//         }
+    int* pop_buf = malloc(MESSAGE_SIZE);
+    int pop_buf_size = MESSAGE_SIZE;
 
-//         // pop(shmaddr, pop_buf, message_size);
- 
-//         assert(*pop_buf == i);
-//     }
+    //hold until flag is set to true
+    while(!run_flag);
 
-//     free(pop_buf);
-// }
+    for(int i=1;i<NUM_ITEMS;i++) {
 
-// void rtt_test(){ 
-//     // create shm and attach to it
-//     key_t ipc_key = 1;
-//     int ipc_shm_size = sizeof(void*) * 2;
-//     int ipc_shmid = shm_create(ipc_key, ipc_shm_size, create_flag);
-//     void* ipc_shmaddr = shm_attach(ipc_shmid);
+        server_receive_buf(qp, pop_buf, pop_buf_size);
 
-//     // pthread_t producer;
-//     pthread_t consumer;
+        //Business logic or something
+        *buf = *pop_buf;
 
-//     server_context* sc = register_server("test_server_addr");
+        server_send_rpc(qp,buf,buf_size);
+     }
 
-//     queue_pair* c_qp = client_open("test_client_addr",
-//                                 "test_server_addr",
-//                                 sizeof(int));
+    free(pop_buf);
+    free(buf);
+    pthread_exit(0);
 
-//     queue_pair* s_qp;
-//     while ((s_qp = accept(sc)) == NULL);
+}
 
-//     //producer thread
-//     //pthread_create(&producer, NULL, client, c_qp);
-//     pthread_create(&consumer, NULL, server, s_qp);
+void rtt_test(){ 
+    // create shm and attach to it
+    key_t ipc_key = 2;
+    int ipc_shm_size = sizeof(void*) * 2;
+    int ipc_shmid = shm_create(ipc_key, ipc_shm_size, create_flag);
+    void* ipc_shmaddr = shm_attach(ipc_shmid);
 
-//     //Actual measuring
-//     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-//     client(s_qp);
-//     run_flag = true;
-//     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+    // pthread_t producer;
+    pthread_t consumer;
 
-//     pthread_join(consumer,NULL);    
+    server_context* sc = register_server("test_server_addr");
 
-//     bench_report_stats();
+    queue_pair* c_qp = client_open("test_client_addr",
+                                "test_server_addr",
+                                sizeof(int));
 
-//     shutdown(sc);
+    queue_pair* s_qp;
+    while ((s_qp = accept(sc)) == NULL);
 
-//     // cleanup
-//     shm_detach(ipc_shmaddr);
-//     shm_remove(ipc_shmid);
+    //producer thread
+    //pthread_create(&producer, NULL, client, c_qp);
+    pthread_create(&consumer, NULL, server, s_qp);
 
-// }
+    //Actual measuring
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+    run_flag = true;
+    client(c_qp);
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+
+    pthread_join(consumer,NULL);    
+
+    bench_report_stats();
+
+    shutdown(sc);
+
+    // cleanup
+    shm_detach(ipc_shmaddr);
+    shm_remove(ipc_shmid);
+
+}
 
 
 
@@ -137,7 +150,7 @@ void bench_run_all(void){
     //Connection Test
 
     //Echo application, capture RTT latency and throughput
-    // rtt_test();
+    rtt_test();
 
     //"Tune" Server Overhead
 

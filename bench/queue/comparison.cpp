@@ -3,22 +3,23 @@
 #include <thread>
 
 #include <boost/lockfree/spsc_queue.hpp>
-#include <folly/ProducerConsumerQueue.h>
+// #include <folly/ProducerConsumerQueue.h>
 
 
 
-extern "C" void boost_lockfree_spes_queue();
-extern "C" void folly_spsc();
+#define NUM_ITEMS 1000000
+
+int iters = NUM_ITEMS;
 
 void boost_lockfree_spes_queue(){
 
     std::cout << "boost::lockfree::spsc:" << std::endl;
   
-    boost::lockfree::spsc_queue<int> q(queueSize);
+    boost::lockfree::spsc_queue<int> q(1000);
 
 
     auto t = std::thread([&] {
-      pinThread(cpu1);
+    //   pinThread(cpu1);
       for (int i = 0; i < iters; ++i) {
         int val;
         while (q.pop(&val, 1) != 1)
@@ -29,7 +30,7 @@ void boost_lockfree_spes_queue(){
       }
     });
 
-    pinThread(cpu2);
+    // pinThread(cpu2);
 
     auto start = std::chrono::steady_clock::now();
     for (int i = 0; i < iters; ++i) {
@@ -47,36 +48,43 @@ void boost_lockfree_spes_queue(){
 
 }
 
-void folly_spsc(){
+// void folly_spsc(){
 
-    std::cout << "folly::ProducerConsumerQueue:" << std::endl;
+//     std::cout << "folly::ProducerConsumerQueue:" << std::endl;
 
-    folly::ProducerConsumerQueue<int> q(queueSize);
-    auto t = std::thread([&] {
-      pinThread(cpu1);
-      for (int i = 0; i < iters; ++i) {
-        int val;
-        while (!q.read(val))
-          ;
-        if (val != i) {
-          throw std::runtime_error("");
-        }
-      }
-    });
+//     folly::ProducerConsumerQueue<int> q(queueSize);
+//     auto t = std::thread([&] {
+//       pinThread(cpu1);
+//       for (int i = 0; i < iters; ++i) {
+//         int val;
+//         while (!q.read(val))
+//           ;
+//         if (val != i) {
+//           throw std::runtime_error("");
+//         }
+//       }
+//     });
 
-    pinThread(cpu2);
+//     pinThread(cpu2);
 
-    auto start = std::chrono::steady_clock::now();
-    for (int i = 0; i < iters; ++i) {
-      while (!q.write(i))
-        ;
-    }
-    t.join();
-    auto stop = std::chrono::steady_clock::now();
-    std::cout << iters * 1000000 /
-                     std::chrono::duration_cast<std::chrono::nanoseconds>(stop -
-                                                                          start)
-                         .count()
-              << " ops/ms" << std::endl;
+//     auto start = std::chrono::steady_clock::now();
+//     for (int i = 0; i < iters; ++i) {
+//       while (!q.write(i))
+//         ;
+//     }
+//     t.join();
+//     auto stop = std::chrono::steady_clock::now();
+//     std::cout << iters * 1000000 /
+//                      std::chrono::duration_cast<std::chrono::nanoseconds>(stop -
+//                                                                           start)
+//                          .count()
+//               << " ops/ms" << std::endl;
     
+// }
+
+int main(){
+    // folly_spsc();
+
+    boost_lockfree_spes_queue();
+    return 0;
 }

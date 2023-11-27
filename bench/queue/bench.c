@@ -4,7 +4,6 @@
 #include <pthread.h>
 #include <assert.h>
 #include <stdatomic.h>
-#include "comparison.cpp"
 
 #define NUM_ITEMS 1000000
 #define MESSAGE_SIZE 4 //Int
@@ -27,8 +26,8 @@ void bench_report_stats() {
         fprintf(stdout, "\n execution time:%ld ms \n ", ms);
         //Latency 
         // fprintf(stdout, "\n latency: %ld ms/op \n", ms/NUM_ITEMS);
-        long ns =  (end.tv_nsec - start.tv_nsec);
-        fprintf(stdout, "\n latency:%ld ns/op \n ", ns/NUM_ITEMS);
+        // long ns =  (end.tv_nsec - start.tv_nsec);
+        // fprintf(stdout, "\n latency:%ld ns/op \n ", ns/NUM_ITEMS);
         //Throughput
         fprintf(stdout, "\n throughput:%ld ops/ms \n", NUM_ITEMS/ms);
 
@@ -38,7 +37,7 @@ void bench_report_stats() {
 
         fprintf(stdout, "\n execution time:%ld ns \n ", ns);
         //Latency 
-        fprintf(stdout, "\n latency:%ld ns/op \n ", ns/NUM_ITEMS);
+        // fprintf(stdout, "\n latency:%ld ns/op \n ", ns/NUM_ITEMS);
 
         //Throughput
         //Convert to reasonable unit ms
@@ -135,9 +134,5 @@ void notnets_bench_enqueue_dequeue(){
 void bench_run_all(void){
     
     notnets_bench_enqueue_dequeue();
-
-    boost_lockfree_spes_queue();
-
-    folly_spsc();
 
 }
