@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include <assert.h>
 #include <stdatomic.h>
-
+#include "comparison.cpp"
 
 #define NUM_ITEMS 1000000
 #define MESSAGE_SIZE 4 //Int
@@ -50,7 +50,6 @@ void bench_report_stats() {
   
 }
 
-
 void *producer_push(){
     int *buf = malloc(MESSAGE_SIZE);
     // int message_size = MESSAGE_SIZE;
@@ -89,10 +88,7 @@ void consumer_pop(){
     free(pop_buf);
 }
 
-
-void bench_enqueue_dequeue(){
-
-
+void notnets_bench_enqueue_dequeue(){
     // create shm and attach to it
     key_t key = 1;
     int shm_size = 16024; // make adjustable 
@@ -132,8 +128,16 @@ void bench_enqueue_dequeue(){
 
 }
 
-//How to avoid waiting until not empty or 
-//empty queue when calling pop when taking process time
+
+
+
+
 void bench_run_all(void){
-    bench_enqueue_dequeue();
+    
+    notnets_bench_enqueue_dequeue();
+
+    boost_lockfree_spes_queue();
+
+    folly_spsc();
+
 }
