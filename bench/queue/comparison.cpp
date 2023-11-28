@@ -6,22 +6,9 @@
 // #include <folly/ProducerConsumerQueue.h>
 
 
-
 #define NUM_ITEMS 1000000
 
 int iters = NUM_ITEMS;
-
-void boost_consumer(boost::lockfree::spsc_queue<int> q){
-     for (int i = 0; i < iters; ++i) {
-        int val;
-        while (q.pop(&val, 1) != 1)
-          ;
-        if (val != i) {
-          throw std::runtime_error("");
-        }
-      }
-}
-
 
 void boost_lockfree_spes_queue(){
 
@@ -29,7 +16,16 @@ void boost_lockfree_spes_queue(){
   
     boost::lockfree::spsc_queue<int> q(1000);
 
-    std::thread t(boost_consumer, q);
+     auto t = std::thread([&] {
+      for (int i = 0; i < iters; ++i) {
+        int val;
+        while (q.pop(&val, 1) != 1)
+          ;
+        if (val != i) {
+          throw std::runtime_error("");
+        }
+      }
+    });
 
     auto start = std::chrono::steady_clock::now();
     for (int i = 0; i < iters; ++i) {
@@ -38,12 +34,12 @@ void boost_lockfree_spes_queue(){
     }
     t.join();
     auto stop = std::chrono::steady_clock::now();
-    std::cout << iters * 1000000 /
-                     std::chrono::duration_cast<std::chrono::nanoseconds>(stop -
-                                                                          start)
-                         .count()
-              << " ops/ms" << std::endl;
 
+    auto difference = stop - start;
+
+    std::cout << iters /
+                     std::chrono::duration_cast<std::chrono::milliseconds>(difference).count()
+              << " ops/ms" << std::endl;
 
 }
 

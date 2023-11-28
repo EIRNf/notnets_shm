@@ -13,36 +13,36 @@ struct timespec start, end;
 atomic_bool run_flag = false; //control execution
 
 void bench_report_stats() {
+    fprintf(stdout, "notnets/spsc\n");
     //nanosecond ns 1.0e-09
     //microsecond us 1.0e-06
     //millisecond ms 1.0e-03
 
     if (end.tv_sec > 0 ){ //we have atleast 1 sec
-
         //use millisecond scale
         long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
 	    ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
 
-        fprintf(stdout, "\n execution time:%ld ms \n ", ms);
+        // fprintf(stdout, "\n execution time:%ld ms \n ", ms);
         //Latency 
         // fprintf(stdout, "\n latency: %ld ms/op \n", ms/NUM_ITEMS);
         // long ns =  (end.tv_nsec - start.tv_nsec);
         // fprintf(stdout, "\n latency:%ld ns/op \n ", ns/NUM_ITEMS);
         //Throughput
-        fprintf(stdout, "\n throughput:%ld ops/ms \n", NUM_ITEMS/ms);
+        fprintf(stdout, "%ld ops/ms \n", NUM_ITEMS/ms);
 
     }
     else {//nanosecond scale, probably not very accurate
         long ns =  (end.tv_nsec - start.tv_nsec);
 
-        fprintf(stdout, "\n execution time:%ld ns \n ", ns);
+        // fprintf(stdout, "\n execution time:%ld ns \n ", ns);
         //Latency 
         // fprintf(stdout, "\n latency:%ld ns/op \n ", ns/NUM_ITEMS);
 
         //Throughput
         //Convert to reasonable unit ms
         long ms = ns / 1.0e+06;
-        fprintf(stdout, "\n throughput:%ld ops/ms \n", NUM_ITEMS/ms);
+        fprintf(stdout, "%ld ops/ms \n", NUM_ITEMS/ms);
     }
 
 

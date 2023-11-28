@@ -26,9 +26,9 @@ shm_pair fake_shm_allocator(int message_size) {
     int response_shmid = shm_create(SIMPLE_KEY + 1,
                                     QUEUE_SIZE,
                                     create_flag);
-    shm_info request_shm = {SIMPLE_KEY,
+    notnets_shm_info request_shm = {SIMPLE_KEY,
                             request_shmid};
-    shm_info response_shm = {SIMPLE_KEY + 1,
+    notnets_shm_info response_shm = {SIMPLE_KEY + 1,
                              response_shmid};
 
     // set up shm regions as queues

@@ -221,8 +221,8 @@ shm_pair _fake_shm_allocator(int message_size) {
     int response_shmid = shm_create(SIMPLE_KEY + 1,
                                     QUEUE_SIZE,
                                     create_flag);
-    shm_info request_shm = {SIMPLE_KEY, request_shmid};
-    shm_info response_shm = {SIMPLE_KEY + 1, response_shmid};
+    notnets_shm_info request_shm = {SIMPLE_KEY, request_shmid};
+    notnets_shm_info response_shm = {SIMPLE_KEY + 1, response_shmid};
 
     // set up shm regions as queues
     void* request_addr = shm_attach(request_shmid);
@@ -251,8 +251,8 @@ shm_pair _rand_shm_allocator(int message_size) {
     int response_shmid = shm_create(key2,
                                     QUEUE_SIZE,
                                     create_flag);
-    shm_info request_shm = {key1, request_shmid};
-    shm_info response_shm = {key2, response_shmid};
+    notnets_shm_info request_shm = {key1, request_shmid};
+    notnets_shm_info response_shm = {key2, response_shmid};
 
     // set up shm regions as queues
     void* request_addr = shm_attach(request_shmid);

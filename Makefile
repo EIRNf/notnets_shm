@@ -1,6 +1,6 @@
 # tool macros
 CXX := clang-17
-CXXFLAGS :=# -pthread  -lstdc++  #-Wall -Wextra -Werror -lstdc++ #-fPIC -shared
+CXXFLAGS := -pthread #   -lstdc++  #-Wall -Wextra -Werror -lstdc++ #-fPIC -shared
 #-fsanitize=thread -fPIE -pie -g -fPIC 
 DBGFLAGS := -g
 COBJFLAGS := $(CXXFLAGS) -Wall -Wextra -Werror

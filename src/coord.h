@@ -17,14 +17,14 @@ typedef struct reserve_pair {
     bool client_reserved;
 } reserve_pair;
 
-typedef struct shm_info {
+typedef struct notnets_shm_info {
     int key;
     int shmid;
-} shm_info;
+} notnets_shm_info;
 
 typedef struct shm_pair {
-    shm_info request_shm;
-    shm_info response_shm;
+    notnets_shm_info request_shm;
+    notnets_shm_info response_shm;
 } shm_pair;
 
 //Modify to be templatable, permit
@@ -177,8 +177,8 @@ void force_clear_slot(coord_header* header, int slot){
     // don't need to remove shm if server has not handled this slot yet (aka
     // created shm regions)
     if (header->slots[slot].shm_created) {
-        shm_info request_shm = header->slots[slot].shms.request_shm;
-        shm_info response_shm = header->slots[slot].shms.response_shm;
+        notnets_shm_info request_shm = header->slots[slot].shms.request_shm;
+        notnets_shm_info response_shm = header->slots[slot].shms.response_shm;
 
         shm_remove(request_shm.shmid);
         shm_remove(response_shm.shmid);
