@@ -68,7 +68,7 @@ ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
 
     spsc_queue_header* header_ptr = get_queue_header(shmaddr);
     *header_ptr = header;
-    atomic_thread_fence(memory_order_seq_cst);
+    atomic_thread_fence(memory_order_release);
 
     return shm_size - leftover_bytes;
 }
@@ -98,7 +98,7 @@ void enqueue(spsc_queue_header* header, const void* buf, size_t buf_size) {
     int tail = header->tail;
 
     memcpy((char*) array_start + tail*message_size, buf, buf_size);
-    atomic_thread_fence(memory_order_seq_cst);
+    atomic_thread_fence(memory_order_release);
     header->current_count++;
     header->total_count++;
 
@@ -168,7 +168,7 @@ void dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
         (char*) array_start + header->head*header->message_size + header->message_offset,
         *buf_size
     );
-    atomic_thread_fence(memory_order_seq_cst);
+    atomic_thread_fence(memory_order_release);
 
     header->message_offset += *buf_size;
 
