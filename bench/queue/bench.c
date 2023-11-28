@@ -56,6 +56,12 @@ void bench_report_stats() {
 }
 
 
+#ifdef __APPLE__
+void pinThread(int cpu) {
+//empty func
+    (void)cpu;
+}
+#else
 void pinThread(int cpu) {
   if (cpu < 0) {
     return;
@@ -69,6 +75,7 @@ void pinThread(int cpu) {
     exit(1);
   }
 }
+#endif
 
 
 void *producer_push(){
