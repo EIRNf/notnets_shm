@@ -4,6 +4,9 @@
 #include <pthread.h>
 #include <assert.h>
 #include <stdatomic.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
 
 #define NUM_ITEMS 1000000
 #define MESSAGE_SIZE 4 //Int
@@ -11,6 +14,9 @@
 void* shmaddr; //pointer to queue
 struct timespec start, end;
 atomic_bool run_flag = false; //control execution
+
+int cpu0 = 0;
+int cpu1 = 1;
 
 void bench_report_stats() {
     fprintf(stdout, "notnets/spsc\n");
@@ -49,7 +55,24 @@ void bench_report_stats() {
   
 }
 
+
+void pinThread(int cpu) {
+  if (cpu < 0) {
+    return;
+  }
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(cpu, &cpuset);
+  if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) ==
+      -1) {
+    perror("pthread_setaffinity_no");
+    exit(1);
+  }
+}
+
+
 void *producer_push(){
+    pinThread(cpu1);
     int *buf = malloc(MESSAGE_SIZE);
     // int message_size = MESSAGE_SIZE;
 
@@ -67,6 +90,7 @@ void *producer_push(){
 }
  
 void consumer_pop(){
+    pinThread(cpu1);
     size_t *message_size = malloc(sizeof(ssize_t));
     *message_size = MESSAGE_SIZE;
     int* pop_buf = malloc(*message_size);
@@ -74,6 +98,7 @@ void consumer_pop(){
     //hold until flag is set to true
     while(!run_flag);
 
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
     for(int i=1;i<NUM_ITEMS;i++) {
         if (i == NUM_ITEMS-1){
             break;
@@ -83,6 +108,7 @@ void consumer_pop(){
  
         assert(*pop_buf == i);
     }
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 
     free(pop_buf);
 }
@@ -111,10 +137,8 @@ void notnets_bench_enqueue_dequeue(){
     pthread_create(&producer, NULL, producer_push, NULL);
 
     //Actual measuring
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
     run_flag = true;
     consumer_pop();
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 
     pthread_join(producer,NULL);    
 

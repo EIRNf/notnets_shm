@@ -10,6 +10,23 @@
 
 int iters = NUM_ITEMS;
 
+int cpu0 = 0;
+int cpu1 = 1;
+
+void pinThread(int cpu) {
+  if (cpu < 0) {
+    return;
+  }
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(cpu, &cpuset);
+  if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) ==
+      -1) {
+    perror("pthread_setaffinity_no");
+    exit(1);
+  }
+}
+
 void boost_lockfree_spes_queue(){
 
     std::cout << "boost::lockfree::spsc:" << std::endl;
@@ -17,6 +34,7 @@ void boost_lockfree_spes_queue(){
     boost::lockfree::spsc_queue<int> q(1000);
 
      auto t = std::thread([&] {
+      pinThread(cpu1);
       for (int i = 0; i < iters; ++i) {
         int val;
         while (q.pop(&val, 1) != 1)
@@ -26,6 +44,8 @@ void boost_lockfree_spes_queue(){
         }
       }
     });
+
+    pinThread(cpu0);
 
     auto start = std::chrono::steady_clock::now();
     for (int i = 0; i < iters; ++i) {

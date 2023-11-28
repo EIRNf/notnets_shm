@@ -1,7 +1,7 @@
 // #include "../../src/queue.h"
-//Currently commented out as it has not been updated
+#define _GNU_SOURCE
 #include <stdio.h>
-
+#include <sched.h>
 #include "bench.c"
 
 

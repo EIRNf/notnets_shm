@@ -61,6 +61,7 @@ void client(queue_pair* qp){
     //hold until flag is set to true
     while(!run_flag);
 
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
     for(int i=1;i<NUM_ITEMS;i++) {
         *buf = i;
         client_send_rpc(qp, buf, buf_size);
@@ -71,6 +72,7 @@ void client(queue_pair* qp){
 
         assert(*pop_buf == *buf);
     }
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
     free(pop_buf);
     free(buf);
 }
@@ -127,10 +129,8 @@ void rtt_test(){
     pthread_create(&consumer, NULL, server, s_qp);
 
     //Actual measuring
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
     run_flag = true;
     client(c_qp);
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
 
     pthread_join(consumer,NULL);    
 
