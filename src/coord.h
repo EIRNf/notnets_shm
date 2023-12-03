@@ -112,6 +112,16 @@ shm_pair check_slot(coord_header* header, int slot){
     return shms;
 }
 
+int get_client_id(coord_header* header, int slot){
+    int i = 0;
+    pthread_mutex_lock(&header->mutex);
+    if (header->slots[slot].shm_created == true) {
+        i = header->slots[slot].client_id;
+    }
+    pthread_mutex_unlock(&header->mutex);
+    return i;
+}
+
 // Server
 coord_header* coord_create(char* coord_address){
     //Create shm region

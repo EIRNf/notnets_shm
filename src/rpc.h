@@ -22,6 +22,7 @@
 // there value in keeping all three
 // pairs of keys, shmid, and ref? in case of an issue where reconnect might be attempted?
 typedef struct queue_pair {
+    int client_id;
     void* request_shmaddr;
     void* response_shmaddr;
 } queue_pair;
@@ -69,6 +70,7 @@ void shutdown(server_context* handler);
 // PRIVATE HELPER FUNCTIONS
 queue_pair* _create_queue_pair(coord_header* ch, int slot) {
     shm_pair shms = check_slot(ch, slot);
+    int id = get_client_id(ch, slot);
     // keep on checking slot until receive shms
     while (shms.request_shm.key <= 0 || shms.response_shm.key <= 0) {
         shms = check_slot(ch, slot);
@@ -78,6 +80,7 @@ queue_pair* _create_queue_pair(coord_header* ch, int slot) {
 
     qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
     qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
+    qp->client_id = id;
 
     return qp;
 }
