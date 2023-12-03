@@ -1,58 +1,67 @@
 #include "../../src/mem.h"
 #include "../../src/queue.h"
-#include  <time.h>
+#include <time.h>
 #include <pthread.h>
 #include <assert.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <unistd.h>
+#include <sys/types.h>
+// #include <sys/resource.h>
 
-#define NUM_ITEMS 1000000
+
+
+// #define NUM_ITEMS 10000000
 #define MESSAGE_SIZE 4 //Int
+#define EXECUTION_SEC 10
 
-void* shmaddr; //pointer to queue
-struct timespec start, end;
-atomic_bool run_flag = false; //control execution
+typedef struct run_stats {
+    void* shmaddr;
+    struct timespec start, end, total;
+    atomic_bool start_flag;
+    atomic_bool stop_flag;
+    int max_queue_depth;
+    int average_queue_depth;
+} run_stats;
+    
+
+run_stats run1 = {
+    .max_queue_depth = 0,
+    .start_flag = false,
+    .stop_flag = false
+    };
+
+// void* shmaddr; //pointer to queue
+// struct timespec start, end;
+// atomic_bool stop_flag = false;
+
+int items_consumed = 0;
 
 int cpu0 = 0;
 int cpu1 = 1;
 
-void bench_report_stats() {
-    fprintf(stdout, "notnets/spsc\n");
+void bench_report_stats(run_stats run, char* name) {
+    
+    fprintf(stdout, "%s\n", name);
     //nanosecond ns 1.0e-09
     //microsecond us 1.0e-06
     //millisecond ms 1.0e-03
 
-    if (end.tv_sec > 0 ){ //we have atleast 1 sec
-        //use millisecond scale
-        long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
-	    ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
+    // long ms = run1.total.tv_sec * 1.0e+03;
+    // ms += run1.total.tv_nsec / 1.0e+06;
+    // long ns =  run1.total.tv_nsec;
 
-        // fprintf(stdout, "\n execution time:%ld ms \n ", ms);
-        //Latency 
-        // fprintf(stdout, "\n latency: %ld ms/op \n", ms/NUM_ITEMS);
-        // long ns =  (end.tv_nsec - start.tv_nsec);
-        // fprintf(stdout, "\n latency:%ld ns/op \n ", ns/NUM_ITEMS);
-        //Throughput
-        fprintf(stdout, "%ld ops/ms \n", NUM_ITEMS/ms);
-
-    }
-    else {//nanosecond scale, probably not very accurate
-        long ns =  (end.tv_nsec - start.tv_nsec);
-
-        // fprintf(stdout, "\n execution time:%ld ns \n ", ns);
-        //Latency 
-        // fprintf(stdout, "\n latency:%ld ns/op \n ", ns/NUM_ITEMS);
-
-        //Throughput
-        //Convert to reasonable unit ms
-        long ms = ns / 1.0e+06;
-        fprintf(stdout, "%ld ops/ms \n", NUM_ITEMS/ms);
-    }
-
-
-  
+    // fprintf(stdout, "\n execution time:%ld ms \n ", ms);
+    //Latency 
+    // fprintf(stdout, "\n latency: %ld ms/op \n", ms/NUM_ITEMS);
+    //Throughput
+    fprintf(stdout, "Time: %ld sec, ItemsConsumed: %d  \n", run1.total.tv_sec ,items_consumed);
+    fprintf(stdout, "MaxQueueDepth: %d \n", run.max_queue_depth);
+    fprintf(stdout, "AverageQueueDepth: %d \n", run.average_queue_depth);
+    fprintf(stdout, "%ld ops/sec \n", items_consumed/run1.total.tv_sec);
+    // fprintf(stdout, "%ld ns/op \n ", ns/items_consumed);
 }
 
 
@@ -77,47 +86,107 @@ void pinThread(int cpu) {
 }
 #endif
 
+// void record_core_util(){
+//     struct timespec currTime;
+//     clockid_t threadClockId;
+
+//      //! Get thread clock Id
+//     pthread_getcpuclockid(pthread_self(), &threadClockId);
+//     //! Using thread clock Id get the clock time
+//     clock_gettime(threadClockId, &currTime);
+
+//     rusage *usage = malloc(sizeof(rusage)); 
+    
+//     getrusage(RUSAGE_THREAD, usage);
+
+// }
+
 
 void *producer_push(){
     pinThread(cpu1);
-    int *buf = malloc(MESSAGE_SIZE);
+    u_int *buf = malloc(MESSAGE_SIZE);
     // int message_size = MESSAGE_SIZE;
 
     //hold until flag is set to true
-    while(!run_flag);
+    while(!run1.start_flag);
 
-    for(int i=1;i<NUM_ITEMS;i++) {
-        *buf = i;
+    u_int i = 0;
+    int queue_depth_samples = 0;
+    int queue_depth = 0;
+    // buf = &i;
+    while(!run1.stop_flag){
+        // *buf = i;
         //push
-        push(shmaddr, buf, MESSAGE_SIZE);
+        push(run1.shmaddr, &i, MESSAGE_SIZE);
+        
+        //Interval sampling
+        if(i%1000000==0){
+            queue_depth_samples++;
+            // printf("head:%d\n", get_queue_header(run1.shmaddr)->head);
+            // printf("tail:%d\n", get_queue_header(run1.shmaddr)->tail);
 
+            
+            queue_depth = (get_queue_header(run1.shmaddr)->tail - get_queue_header(run1.shmaddr)->head + get_queue_header(run1.shmaddr)->queue_size ) % get_queue_header(run1.shmaddr)->queue_size;
+            // printf("count:%d\n", queue_depth);
+
+            if(queue_depth > run1.max_queue_depth){
+                run1.max_queue_depth = queue_depth;
+            }
+            run1.average_queue_depth += queue_depth;
+
+        }
+
+        i++;
     }
+    run1.average_queue_depth = run1.average_queue_depth / queue_depth_samples;
     free(buf);
     pthread_exit(0);
 }
  
-void consumer_pop(){
-    pinThread(cpu1);
+void *consumer_pop(){
+    pinThread(cpu0);
     size_t *message_size = malloc(sizeof(ssize_t));
     *message_size = MESSAGE_SIZE;
-    int* pop_buf = malloc(*message_size);
 
-    //hold until flag is set to true
-    while(!run_flag);
+    u_int* pop_buf = malloc(*message_size);
 
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-    for(int i=1;i<NUM_ITEMS;i++) {
-        if (i == NUM_ITEMS-1){
-            break;
-        }
-
-        pop(shmaddr, pop_buf, message_size);
- 
+    while(!run1.start_flag);
+    u_int i = 0;
+    clock_gettime(CLOCK_MONOTONIC, &run1.start);
+    while (!run1.stop_flag){
+        pop(run1.shmaddr, pop_buf, message_size);
+        
         assert(*pop_buf == i);
+        i++;
     }
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
-
+    clock_gettime(CLOCK_MONOTONIC, &run1.end);
+    items_consumed = i;
     free(pop_buf);
+    pthread_exit(0);
+}
+
+void *interval_consumer_pop(){
+    pinThread(cpu0);
+    size_t *message_size = malloc(sizeof(ssize_t));
+    *message_size = MESSAGE_SIZE;
+
+    u_int* pop_buf = malloc(*message_size);
+
+    while(!run1.start_flag);
+    u_int i = 0;
+    while (!run1.stop_flag){
+        clock_gettime(CLOCK_MONOTONIC, &run1.start);
+        pop(run1.shmaddr, pop_buf, message_size);
+        
+        assert(*pop_buf == i);
+        i++;
+        clock_gettime(CLOCK_MONOTONIC, &run1.end);
+        // run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
+        run1.total.tv_nsec = run1.end.tv_nsec - run1.start.tv_nsec;
+    }
+    items_consumed = i;
+    free(pop_buf);
+    pthread_exit(0);
 }
 
 void notnets_bench_enqueue_dequeue(){
@@ -126,8 +195,7 @@ void notnets_bench_enqueue_dequeue(){
     int shm_size = 16024; // make adjustable 
 
     pthread_t producer;
-    // pthread_t consumer;
-
+    pthread_t consumer;
 
     int shmid = shm_create(key, shm_size, create_flag);
 
@@ -135,35 +203,90 @@ void notnets_bench_enqueue_dequeue(){
         shmid = shm_create(key, shm_size, create_flag);
     }
 
-    shmaddr = shm_attach(shmid);
+    run1.shmaddr = shm_attach(shmid);
+
 
     // create queue
-    queue_create(shmaddr, shm_size, MESSAGE_SIZE);
-
+    queue_create(run1.shmaddr, shm_size, MESSAGE_SIZE);
     //producer thread
     pthread_create(&producer, NULL, producer_push, NULL);
+    pthread_create(&consumer, NULL, consumer_pop, NULL);
 
-    //Actual measuring
-    run_flag = true;
-    consumer_pop();
+    run1.start_flag = true;
+    sleep(EXECUTION_SEC);
+    //Signal stop
+    run1.stop_flag = true;
 
-    pthread_join(producer,NULL);    
-
-    bench_report_stats();
+    pthread_join(producer,NULL);  
+    pthread_join(consumer,NULL);    
+  
+    // run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
+    run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
+    run1.total.tv_nsec = run1.end.tv_nsec - run1.start.tv_nsec;
+    bench_report_stats(run1, "batch-notnets/spsc");
 
     // cleanup
-    shm_detach(shmaddr);
+    shm_detach(run1.shmaddr);
     shm_remove(shmid);
 
 
 }
 
 
+void notnets_bench_enqueue_dequeue_interval(){
+    // create shm and attach to it
+    key_t key = 1;
+    int shm_size = 16024; // make adjustable 
 
 
+
+    pthread_t producer;
+    pthread_t consumer;
+
+    int shmid = shm_create(key, shm_size, create_flag);
+
+    while (shmid == -1) {
+        shmid = shm_create(key, shm_size, create_flag);
+    }
+
+    run1.shmaddr = shm_attach(shmid);
+    
+
+    run1.max_queue_depth = 0;
+    run1.start_flag = false;
+    run1.stop_flag = false;
+
+    
+
+    // create queue
+    queue_create(run1.shmaddr, shm_size, MESSAGE_SIZE);
+    //producer thread
+    pthread_create(&producer, NULL, producer_push, NULL);
+    pthread_create(&consumer, NULL, interval_consumer_pop, NULL);
+
+    run1.start_flag = true;
+    sleep(EXECUTION_SEC);
+    //Signal stop
+    run1.stop_flag = true;
+
+    pthread_join(producer,NULL);  
+    pthread_join(consumer,NULL);    
+  
+
+    bench_report_stats(run1, "iterative-notnets/spsc");
+
+    // cleanup
+    shm_detach(run1.shmaddr);
+    shm_remove(shmid);
+
+
+}
 
 void bench_run_all(void){
     
     notnets_bench_enqueue_dequeue();
+
+    notnets_bench_enqueue_dequeue_interval();
+
 
 }

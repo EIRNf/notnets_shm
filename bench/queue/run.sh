@@ -17,7 +17,7 @@ $compiler_cmd ./main.c -o bench
 
 # Compile run cpp program
 # /usr/bin/clang++-17 -pthread  -Wall -Wextra -Werror -fcolor-diagnostics -fansi-escape-codes ./comparison.cpp -o ./comparison -g 
-/usr/bin/g++  -pthread -Wall -Wextra -Werror -g ./comparison.cpp -o ./comparison 
+/usr/bin/clang++-17  -pthread -Wall -Wextra -Werror -o2 ./comparison.cpp -o ./comparison 
 
 
 ./bench

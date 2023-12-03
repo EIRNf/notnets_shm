@@ -12,7 +12,7 @@ struct timespec start, end;
 atomic_bool run_flag = false; //control execution
 
 void bench_report_stats() {
-    fprintf(stdout, "notnets/rtt\n");
+    fprintf(stdout, "rtt-notnets/spsc/\n");
     //nanosecond ns 1.0e-09
     //microsecond us 1.0e-06
     //millisecond ms 1.0e-03
