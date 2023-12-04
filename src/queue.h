@@ -154,8 +154,10 @@ bool is_empty(spsc_queue_header *header) {
  *
  * @param header pointer to queue header
  * @returns dequeued message in a malloced buffer
+ * 
+ * if return 0 all has been read for the message, else return read amount
  */
-void dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
+size_t dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
     void* array_start = get_message_array(header);
 
     // handle offset math
@@ -177,6 +179,8 @@ void dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
         header->current_count--;
         header->message_offset = 0;
     }
+    return header->message_offset;
+
 }
 
 /*
@@ -187,21 +191,23 @@ void dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
  * @param buf_size pointer to a numerical value that will be populated with size
  *                 of returned messaged
  */
-void pop(void* shmaddr, void* buf, size_t* buf_size) {
+size_t pop(void* shmaddr, void* buf, size_t* buf_size) {
     spsc_queue_header* header = get_queue_header(shmaddr);
 
+    size_t read = 0;
     while (true) {
         if (header->stop_consumer_polling) {
-            return;
+            return 0;
         }
 
         if (is_empty(header)) {
             continue;
         } else {
-            dequeue(header, buf, buf_size);
+            read = dequeue(header, buf, buf_size);
             break;
         }
     }
+    return read;
 }
 
 /*

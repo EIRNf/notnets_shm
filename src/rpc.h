@@ -76,7 +76,21 @@ queue_pair* _create_queue_pair(coord_header* ch, int slot) {
         shms = check_slot(ch, slot);
     }
 
-    queue_pair* qp = (queue_pair*) malloc(sizeof(queue_pair));
+        queue_pair* qp = (queue_pair*) malloc(sizeof(queue_pair));
+
+
+    //already attached, return empty addresses? It should not pollute upstream if a record is kept.
+    if (get_attach_state(ch, slot)){
+         qp->request_shmaddr = NULL;
+        qp->response_shmaddr = NULL;
+        qp->client_id = id;
+    } else {
+        qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
+        qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
+        qp->client_id = id;
+        set_slot_to_attach(ch, slot);
+    }
+
 
     qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
     qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
@@ -170,8 +184,7 @@ int client_send_rpc(queue_pair* queues, const void *buf, size_t size) {
  * @return ssize_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
 size_t client_receive_buf(queue_pair* queues, void* buf, size_t size) {
-    pop(queues->response_shmaddr, buf, &size);
-    return size;
+    return pop(queues->response_shmaddr, buf, &size);
 }
 
 
@@ -289,7 +302,7 @@ void manage_pool(server_context* handler) {
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     for (int i = 0; i < SLOT_NUM; ++i) {
-        service_slot(ch, i, &_fake_shm_allocator);
+        service_slot(ch, i, &_rand_shm_allocator);
         clear_slot(ch, i);
     }
 }
@@ -397,8 +410,7 @@ int server_send_rpc(queue_pair* queues, const void *buf, size_t size) {
  * @return size_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
 size_t server_receive_buf(queue_pair* queues, void* buf, size_t size) {
-    pop(queues->request_shmaddr, buf, &size);
-    return size;
+    return pop(queues->request_shmaddr, buf, &size);;
 }
 
 /**
