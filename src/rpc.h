@@ -76,28 +76,28 @@ queue_pair* _create_queue_pair(coord_header* ch, int slot) {
         shms = check_slot(ch, slot);
     }
 
-        queue_pair* qp = (queue_pair*) malloc(sizeof(queue_pair));
-
+    queue_pair* qp = (queue_pair*) malloc(sizeof(queue_pair));
 
     //already attached, return empty addresses? It should not pollute upstream if a record is kept.
-    if (get_attach_state(ch, slot)){
-         qp->request_shmaddr = NULL;
+    
+    //If two attached, return null, not permitted
+    if (get_attach_state(ch, slot) == 2 ){
+        qp->request_shmaddr = NULL;
         qp->response_shmaddr = NULL;
         qp->client_id = id;
     } else {
+        increment_slot_attach_count(ch, slot);
         qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
         qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
         qp->client_id = id;
-        set_slot_to_attach(ch, slot);
     }
 
+    atomic_thread_fence(memory_order_seq_cst);
 
-    qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
-    qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
-    qp->client_id = id;
 
     return qp;
 }
+
 
 void* _manage_pool_runner(void* handler) {
     server_context* sc = (server_context*) handler;
@@ -363,11 +363,14 @@ queue_pair* accept(server_context* handler) {
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     int slot = ch->accept_slot;
+    // bool attach;
 
     pthread_mutex_lock(&ch->mutex);
     for (int i = 0; i < SLOT_NUM; ++i, slot = (slot + 1) % SLOT_NUM) {
         // if this slot is scheduled to be detached, or is not reserved,
         // don't accept it
+
+        // attach = ch->slots[slot].shm_attached;
         if (ch->slots[slot].detach ||
                 !ch->available_slots[slot].client_reserved) {
             continue;
@@ -376,7 +379,7 @@ queue_pair* accept(server_context* handler) {
             pthread_mutex_unlock(&ch->mutex);
 
             return _create_queue_pair(ch, slot);
-        }
+        } 
 
         // if over here, then slot has been reserved, but has not been allocated
         // queues yet, so we move on to next slot

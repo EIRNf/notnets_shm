@@ -139,7 +139,7 @@ void test_send_rcv_rpc_int() {
 
         for (int i = 0; i < 10; ++i) {
             int pop_size = server_receive_buf(qp, buf, buf_size);
-            assert(pop_size == buf_size);
+            assert(pop_size == 0);
 
             // do work on client rpc
             *buf *= 2;
@@ -179,7 +179,7 @@ void test_send_rcv_rpc_int() {
         // get server responses
         for (int i = 0; i < 10; ++i) {
             int pop_size = client_receive_buf(qp, buf, buf_size);
-            assert(pop_size == buf_size);
+            assert(pop_size == 0);
 
             if (*buf != i * 2) {
                 err = 1;

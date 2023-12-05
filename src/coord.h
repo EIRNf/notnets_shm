@@ -32,7 +32,7 @@ typedef struct coord_row {
     int client_id; //Only written to by Client, how do we even know id?
     int message_size;
     bool shm_created;  //Only written to by Server
-    bool shm_attached;
+    atomic_int shm_attached;
     shm_pair shms;
     bool detach;  //Only written to by Client
 } coord_row;
@@ -94,7 +94,8 @@ int request_slot(coord_header* header, int client_id, int message_size){
             header->slots[i].message_size = message_size;
             header->slots[i].detach = false;
             header->slots[i].shm_created = false;
-            header->slots[i].shm_attached = false;
+            header->slots[i].shm_attached = 0;
+            atomic_thread_fence(memory_order_seq_cst);
 
             pthread_mutex_unlock(&header->mutex);
             return i;
@@ -124,8 +125,8 @@ int get_client_id(coord_header* header, int slot){
     return i;
 }
 
-bool get_attach_state(coord_header* header, int slot){
-    bool attach = false;
+int get_attach_state(coord_header* header, int slot){
+    int attach = 0;
     pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
         attach = header->slots[slot].shm_attached;
@@ -134,13 +135,13 @@ bool get_attach_state(coord_header* header, int slot){
     return attach;
 }
 
-//If return false the slot hasnt been created yet
-bool set_slot_to_attach(coord_header* header, int slot) {
-    bool attach = false;
+//If return 0 the slot hasn't had shm created yet
+int increment_slot_attach_count(coord_header* header, int slot) {
+    int attach = 0;
     pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
-        attach = true;
-        header->slots[slot].shm_attached = attach;
+        header->slots[slot].shm_attached += 1;
+        attach = header->slots[slot].shm_attached;
     }
     pthread_mutex_unlock(&header->mutex);
     return attach;
