@@ -192,6 +192,8 @@ int service_slot(coord_header* header,
 
         header->slots[slot].shms = shms;
         header->slots[slot].shm_created = true;
+        atomic_thread_fence(memory_order_seq_cst);
+
 
         pthread_mutex_unlock(&header->mutex);
         return client_id;

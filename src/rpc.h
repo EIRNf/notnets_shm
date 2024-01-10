@@ -152,6 +152,13 @@ queue_pair* client_open(char* source_addr,
         slot = request_slot(ch, client_id, message_size);
     }
 
+    //Wait until creation of shm until returning
+    while(!ch->slots[slot].shm_created){
+        atomic_thread_fence(memory_order_acquire);
+        // printf("still waiting\n");
+        continue;
+    }
+
     return _create_queue_pair(ch, slot);
 }
 

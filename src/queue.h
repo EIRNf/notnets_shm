@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <unistd.h>
 
 
 typedef struct spsc_queue_header {
@@ -99,13 +100,14 @@ void enqueue(spsc_queue_header* header, const void* buf, size_t buf_size) {
 
     memcpy((char*) array_start + tail*message_size, buf, buf_size);
     atomic_thread_fence(memory_order_release);
+
     header->current_count++;
     header->total_count++;
 
     // TODO: fence?
 
     header->tail = (header->tail + 1) % header->queue_size;
-    // atomic_thread_fence(memory_order_seq_cst);
+    // atomic_thread_fence(memory_order_release);
 }
 
 /*
@@ -146,6 +148,7 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
  * @returns boolean of true if queue is empty, false otherwise
  */
 bool is_empty(spsc_queue_header *header) {
+    atomic_thread_fence(memory_order_acquire);
     return header->head == header->tail;
 }
 
@@ -170,7 +173,7 @@ size_t dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
         (char*) array_start + header->head*header->message_size + header->message_offset,
         *buf_size
     );
-    atomic_thread_fence(memory_order_release);
+    // atomic_thread_fence(memory_order_release);
 
     header->message_offset += *buf_size;
 
@@ -178,7 +181,9 @@ size_t dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
         header->head = (header->head + 1) % header->queue_size;
         header->current_count--;
         header->message_offset = 0;
+        // atomic_thread_fence(memory_order_release);
     }
+    atomic_thread_fence(memory_order_release);
     return header->message_offset;
 
 }
@@ -199,8 +204,9 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) {
         if (header->stop_consumer_polling) {
             return 0;
         }
-
         if (is_empty(header)) {
+            // usleep(1);
+            // printf("is empty\n");
             continue;
         } else {
             read = dequeue(header, buf, buf_size);
