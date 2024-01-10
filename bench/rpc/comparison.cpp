@@ -5,7 +5,6 @@
 #include <boost/lockfree/spsc_queue.hpp>
 // #include <folly/ProducerConsumerQueue.h>
 
-
 #define MESSAGE_SIZE 4 //Int
 #define EXECUTION_SEC 20
 

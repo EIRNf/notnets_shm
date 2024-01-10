@@ -15,7 +15,7 @@
 
 // #define NUM_ITEMS 10000000
 #define MESSAGE_SIZE 4 //Int
-#define EXECUTION_SEC 10
+#define EXECUTION_SEC 60
 
 typedef struct run_stats {
     void* shmaddr;

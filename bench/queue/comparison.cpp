@@ -7,7 +7,7 @@
 
 
 #define MESSAGE_SIZE 4 //Int
-#define EXECUTION_SEC 10
+#define EXECUTION_SEC 60
 
 int cpu0 = 0;
 int cpu1 = 1;

@@ -27,6 +27,12 @@ typedef struct queue_pair {
     void* response_shmaddr;
 } queue_pair;
 
+// typedef struct shmid_pair {
+//     int client_id;
+//     void* request_shmaddr;
+//     void* response_shmaddr;
+// } shmid_pair;
+
 typedef struct server_context {
     void* coord_shmaddr;
     pthread_t manage_pool_thread;
@@ -99,6 +105,8 @@ queue_pair* _create_queue_pair(coord_header* ch, int slot) {
 }
 
 
+
+
 void* _manage_pool_runner(void* handler) {
     server_context* sc = (server_context*) handler;
 
@@ -150,6 +158,13 @@ queue_pair* client_open(char* source_addr,
     // keep on trying to reserve slot
     while (slot == -1) {
         slot = request_slot(ch, client_id, message_size);
+    }
+
+    //Wait until creation of shm until returning
+    while(!ch->slots[slot].shm_created){
+        usleep(500);
+        // printf("still waiting");
+        continue;
     }
 
     return _create_queue_pair(ch, slot);

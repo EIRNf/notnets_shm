@@ -81,6 +81,7 @@ ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
  * @return boolean of whether queue is full
   */
 bool is_full(spsc_queue_header *header) {
+    atomic_thread_fence(memory_order_acquire);
     return (header->tail + 1) % header->queue_size == header->head;
 }
 
@@ -98,13 +99,17 @@ void enqueue(spsc_queue_header* header, const void* buf, size_t buf_size) {
     int tail = header->tail;
 
     memcpy((char*) array_start + tail*message_size, buf, buf_size);
+
     atomic_thread_fence(memory_order_release);
+    
     header->current_count++;
     header->total_count++;
 
     // TODO: fence?
 
     header->tail = (header->tail + 1) % header->queue_size;
+    atomic_thread_fence(memory_order_release);
+
     // atomic_thread_fence(memory_order_seq_cst);
 }
 
@@ -146,6 +151,7 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
  * @returns boolean of true if queue is empty, false otherwise
  */
 bool is_empty(spsc_queue_header *header) {
+    atomic_thread_fence(memory_order_acquire);
     return header->head == header->tail;
 }
 
@@ -179,6 +185,8 @@ size_t dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
         header->current_count--;
         header->message_offset = 0;
     }
+    atomic_thread_fence(memory_order_release);
+
     return header->message_offset;
 
 }

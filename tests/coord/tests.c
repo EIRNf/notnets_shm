@@ -1,5 +1,8 @@
 #include <assert.h>
 
+ #include <sys/types.h>
+#include <sys/wait.h>
+
 #define SIMPLE_KEY 17
 
 void test_success_print(const char *message) {

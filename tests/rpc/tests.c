@@ -1,6 +1,8 @@
 #include "../../src/rpc.h"
 
 #include <assert.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 void test_success_print(const char *message) {
     printf("SUCCESS:%s\n", message);
