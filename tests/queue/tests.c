@@ -217,6 +217,7 @@ void test_basic_queue_single_process(){
 
     // cleanup
     free(pop_size);
+    free(pop_buf);
     shm_detach(shmaddr);
     shm_remove(shmid);
 

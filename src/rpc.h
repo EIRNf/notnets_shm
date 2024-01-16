@@ -340,6 +340,10 @@ server_context* register_server(char* source_addr) {
     // coord_header, at the end of the day, is just a shm region
     sc->coord_shmaddr = (void*) ch;
 
+    if (pthread_mutex_init(&sc->manage_pool_mutex, NULL) == -1) {
+        perror("error create manage pool mutex");
+    }
+
     // start manage pool runner thread
     int err = pthread_create(&sc->manage_pool_thread,
                              NULL,
@@ -352,12 +356,12 @@ server_context* register_server(char* source_addr) {
         return NULL;
     }
 
-    if (pthread_mutex_init(&sc->manage_pool_mutex, NULL) == -1) {
-        perror("error create manage pool mutex");
-    }
-    sc->manage_pool_state = RUNNING_NO_SHUTDOWN;
 
-    srand(time(NULL));
+    pthread_mutex_lock(&sc->manage_pool_mutex);
+    sc->manage_pool_state = RUNNING_NO_SHUTDOWN;
+    pthread_mutex_unlock(&sc->manage_pool_mutex);
+
+    // srand(time(NULL));
 
     return sc;
 }
@@ -446,7 +450,7 @@ void shutdown(server_context* handler) {
     pthread_mutex_unlock(&handler->manage_pool_mutex);
 
     // wait for manage pool thread to shut down
-    while (true) {
+    while (true) { //TODO figure out how to get rid of runnning thread
         pthread_mutex_lock(&handler->manage_pool_mutex);
         if (handler->manage_pool_state == NOT_RUNNING) {
             pthread_mutex_unlock(&handler->manage_pool_mutex);
