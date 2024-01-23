@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdatomic.h>
+
 
 typedef struct spsc_queue_header {
     int head;
@@ -17,7 +19,6 @@ typedef struct spsc_queue_header {
     int total_count;
     bool stop_producer_polling;
     bool stop_consumer_polling;
-    void* message_array;
 } spsc_queue_header;
 
 /*
@@ -29,6 +30,10 @@ typedef struct spsc_queue_header {
 spsc_queue_header* get_queue_header(void* shmaddr) {
     spsc_queue_header* header = (spsc_queue_header*) shmaddr;
     return header;
+}
+
+void* get_message_array(spsc_queue_header* header) {
+    return (char*) header + sizeof(spsc_queue_header);
 }
 
 /**
@@ -60,11 +65,10 @@ ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
     header.total_count = 0;
     header.stop_consumer_polling = false;
     header.stop_producer_polling = false;
-    char* temp_addr = (char*) shmaddr;
-    header.message_array = temp_addr + sizeof(spsc_queue_header);
 
     spsc_queue_header* header_ptr = get_queue_header(shmaddr);
     *header_ptr = header;
+    atomic_thread_fence(memory_order_release);
 
     return shm_size - leftover_bytes;
 }
@@ -77,6 +81,7 @@ ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
  * @return boolean of whether queue is full
   */
 bool is_full(spsc_queue_header *header) {
+    atomic_thread_fence(memory_order_acquire);
     return (header->tail + 1) % header->queue_size == header->head;
 }
 
@@ -88,18 +93,24 @@ bool is_full(spsc_queue_header *header) {
  * @param buf_size size of the buf in bytes
   */
 void enqueue(spsc_queue_header* header, const void* buf, size_t buf_size) {
-    void* array_start = header->message_array;
+    void* array_start = get_message_array(header);
 
     int message_size = header->message_size;
     int tail = header->tail;
 
-    memcpy(array_start + tail*message_size, buf, buf_size);
+    memcpy((char*) array_start + tail*message_size, buf, buf_size);
 
+    atomic_thread_fence(memory_order_release);
+    
     header->current_count++;
     header->total_count++;
 
     // TODO: fence?
+
     header->tail = (header->tail + 1) % header->queue_size;
+    atomic_thread_fence(memory_order_release);
+
+    // atomic_thread_fence(memory_order_seq_cst);
 }
 
 /*
@@ -140,6 +151,7 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
  * @returns boolean of true if queue is empty, false otherwise
  */
 bool is_empty(spsc_queue_header *header) {
+    atomic_thread_fence(memory_order_acquire);
     return header->head == header->tail;
 }
 
@@ -148,9 +160,11 @@ bool is_empty(spsc_queue_header *header) {
  *
  * @param header pointer to queue header
  * @returns dequeued message in a malloced buffer
+ * 
+ * if return 0 all has been read for the message, else return read amount
  */
-void dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
-    void* array_start = header->message_array;
+size_t dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
+    void* array_start = get_message_array(header);
 
     // handle offset math
     if (*buf_size + header->message_offset > header->message_size) {
@@ -159,9 +173,11 @@ void dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
 
     memcpy(
         buf,
-        array_start + header->head*header->message_size + header->message_offset,
+        (char*) array_start + header->head*header->message_size + header->message_offset,
         *buf_size
     );
+    atomic_thread_fence(memory_order_release);
+
     header->message_offset += *buf_size;
 
     if ((size_t) header->message_offset == header->message_size) {
@@ -169,31 +185,37 @@ void dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
         header->current_count--;
         header->message_offset = 0;
     }
+    atomic_thread_fence(memory_order_release);
+
+    return header->message_offset;
+
 }
 
 /*
  * @brief polling pop, will wait until it can pop from queue
  *
  * @param shmaddr pointer to shm region
+ * @param buf buffer that will eventually store the popped element
  * @param buf_size pointer to a numerical value that will be populated with size
  *                 of returned messaged
- * @return message buffer popped from queue
  */
-void pop(void* shmaddr, void* buf, size_t* buf_size) {
+size_t pop(void* shmaddr, void* buf, size_t* buf_size) {
     spsc_queue_header* header = get_queue_header(shmaddr);
 
+    size_t read = 0;
     while (true) {
         if (header->stop_consumer_polling) {
-            return;
+            return 0;
         }
 
         if (is_empty(header)) {
             continue;
         } else {
-            dequeue(header, buf, buf_size);
+            read = dequeue(header, buf, buf_size);
             break;
         }
     }
+    return read;
 }
 
 /*
@@ -209,10 +231,10 @@ const void* peek(void* shmaddr, ssize_t *size) {
     int message_size = header->message_size;
     int queue_head = header->head;
 
-    void* array_start = header->message_array;
+    void* array_start = get_message_array(header);
 
     *size = header->message_size;
-    return (const void*) (array_start + queue_head*message_size);
+    return (const void*) ((char*) array_start + queue_head*message_size);
 }
 
 #endif

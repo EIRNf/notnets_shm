@@ -1,5 +1,8 @@
 #include <assert.h>
 
+ #include <sys/types.h>
+#include <sys/wait.h>
+
 #define SIMPLE_KEY 17
 
 void test_success_print(const char *message) {
@@ -17,7 +20,7 @@ void test_failed_print(const char *message) {
     fflush(stdout);
 }
 
-shm_pair fake_shm_allocator() {
+shm_pair fake_shm_allocator(int message_size) {
     shm_pair shms = {};
 
     int request_shmid = shm_create(SIMPLE_KEY,
@@ -26,15 +29,14 @@ shm_pair fake_shm_allocator() {
     int response_shmid = shm_create(SIMPLE_KEY + 1,
                                     QUEUE_SIZE,
                                     create_flag);
-    shm_info request_shm = {SIMPLE_KEY,
+    notnets_shm_info request_shm = {SIMPLE_KEY,
                             request_shmid};
-    shm_info response_shm = {SIMPLE_KEY + 1,
+    notnets_shm_info response_shm = {SIMPLE_KEY + 1,
                              response_shmid};
 
     // set up shm regions as queues
     void* request_addr = shm_attach(request_shmid);
     void* response_addr = shm_attach(response_shmid);
-    int message_size = sizeof(int);
     queue_create(request_addr, QUEUE_SIZE, message_size);
     queue_create(response_addr, QUEUE_SIZE, message_size);
     // don't want to stay attached to the queue pairs
@@ -52,7 +54,7 @@ void test_queue_allocation() {
     int iter = 10;
     int err = 0;
 
-    shm_pair shms = fake_shm_allocator();
+    shm_pair shms = fake_shm_allocator(message_size);
 
     void* request_queue_addr = shm_attach(shms.request_shm.shmid);
     void* response_queue_addr = shm_attach(shms.response_shm.shmid);
@@ -107,10 +109,14 @@ void test_single_client_send_rcv() {
         // client
         int err = 0;
 
-        coord_header* coord_region = attach("common_name");
+        coord_header* coord_region = coord_attach("common_name");
+
+        while (coord_region == NULL) {
+            coord_region = coord_attach("common_name");
+        }
 
         int client_id = 4;
-        int reserved_slot = request_slot(coord_region, client_id);
+        int reserved_slot = request_slot(coord_region, client_id, sizeof(int));
         assert(reserved_slot == 0);
 
         shm_pair shms = {};
@@ -197,7 +203,7 @@ void test_single_client_send_rcv() {
     }
 }
 
-void test_single_client_get_keys(){
+void test_single_client_get_slot(){
     // Forking to test multiprocess functionality
     pid_t wpid;
     int status = 0;
@@ -208,10 +214,14 @@ void test_single_client_get_keys(){
         perror("fork");
     } else if (c_pid == 0) {
         // CHILD PROCESS
-        coord_header* coord_region = attach("common_name");
+        coord_header* coord_region = coord_attach("common_name");
+
+        while (coord_region == NULL) {
+            coord_region = coord_attach("common_name");
+        }
 
         int client_id = 4;
-        int reserved_slot = request_slot(coord_region, client_id);
+        int reserved_slot = request_slot(coord_region, client_id, sizeof(int));
         assert(reserved_slot == 0);
 
         shm_pair shms = {};
@@ -249,7 +259,7 @@ void test_single_client_get_keys(){
 }
 
 void tests_run_all(void){
-    test_single_client_get_keys();
+    test_single_client_get_slot();
     test_queue_allocation();
     test_single_client_send_rcv();
 }

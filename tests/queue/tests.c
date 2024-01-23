@@ -8,7 +8,6 @@ void test_success_print(const char *message) {
     printf("SUCCESS:%s\n", message);
 }
 
-
 void test_failed_print(const char *message) {
     printf("FAILED:%s\n", message);
 }
@@ -218,6 +217,7 @@ void test_basic_queue_single_process(){
 
     // cleanup
     free(pop_size);
+    free(pop_buf);
     shm_detach(shmaddr);
     shm_remove(shmid);
 
