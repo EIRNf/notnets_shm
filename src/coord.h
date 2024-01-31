@@ -46,6 +46,37 @@ typedef struct coord_header {
     coord_row slots[SLOT_NUM];
 } coord_header;
 
+void print_coord_row(const coord_row *row) {
+    printf("  client_id: %d\n", row->client_id);
+    if (row->client_id == 0){
+        return;
+    }
+    printf("  message_size: %d\n", row->message_size);
+    printf("  shm_created: %s\n", row->shm_created ? "true" : "false");
+    printf("  shm_attached: %d\n", atomic_load(&row->shm_attached));
+    printf("  shms.request_shm.key: %d\n", row->shms.request_shm.key);
+    printf("  shms.request_shm.shmid: %d\n", row->shms.request_shm.shmid);
+    printf("  shms.response_shm.key: %d\n", row->shms.response_shm.key);
+    printf("  shms.response_shm.shmid: %d\n", row->shms.response_shm.shmid);
+    printf("  detach: %s\n", row->detach ? "true" : "false");
+}
+
+void print_coord_header(const coord_header *header) {
+    printf("shmid: %d\n", header->shmid);
+    printf("accept_slot: %d\n", header->accept_slot);
+    printf("mutex: <pthread_mutex_t>\n");
+    
+    printf("available_slots:\n");
+    for (int i = 0; i < SLOT_NUM; ++i) {
+        printf("  slot[%d].client_reserved: %s\n", i, header->available_slots[i].client_reserved ? "true" : "false");
+    }
+
+    printf("slots:\n");
+    for (int i = 0; i < SLOT_NUM; ++i) {
+        printf("  slot[%d]:\n", i);
+        print_coord_row(&header->slots[i]);
+    }
+}
 
 // djb2, dan bernstein
 unsigned long hash(unsigned char *str){
@@ -85,10 +116,13 @@ void coord_detach(coord_header* header){
 // Client
 // Returns reserved slot to check back against, if -1 failed to get a slot
 int request_slot(coord_header* header, int client_id, int message_size){
+
     // try to reserve a slot, if not available wait and try again
     pthread_mutex_lock(&header->mutex);
     for(int i = 0; i < SLOT_NUM; i++){
         if (header->available_slots[i].client_reserved == false){
+            // printf("CLIENT: Pre-Requesting:\n");
+            // print_coord_header(header);
             header->available_slots[i].client_reserved = true;
             header->slots[i].client_id = client_id;
             header->slots[i].message_size = message_size;
@@ -96,7 +130,8 @@ int request_slot(coord_header* header, int client_id, int message_size){
             header->slots[i].shm_created = false;
             header->slots[i].shm_attached = 0;
             atomic_thread_fence(memory_order_seq_cst);
-
+            // printf("CLIENT: Post-Requesting:\n");
+            // print_coord_header(header);
             pthread_mutex_unlock(&header->mutex);
             return i;
         }
@@ -187,6 +222,8 @@ int service_slot(coord_header* header,
 
     if (header->available_slots[slot].client_reserved &&
             !header->slots[slot].shm_created) {
+        // printf("SERVER: Pre-Servicing:\n");
+        // print_coord_header(header);
         // call allocation Function
         shm_pair shms = (*allocation)(header->slots[slot].message_size);
 
@@ -194,6 +231,8 @@ int service_slot(coord_header* header,
         header->slots[slot].shm_created = true;
 
         pthread_mutex_unlock(&header->mutex);
+        // printf("SERVER: Post-Servicing:\n");
+        // print_coord_header(header);
         return client_id;
     }
 

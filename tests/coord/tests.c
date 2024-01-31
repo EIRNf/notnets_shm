@@ -3,6 +3,11 @@
  #include <sys/types.h>
 #include <sys/wait.h>
 
+#include "../../src/mem.h"
+#include "../../src/coord.h"
+
+
+
 #define SIMPLE_KEY 17
 
 void test_success_print(const char *message) {

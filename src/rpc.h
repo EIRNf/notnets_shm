@@ -146,6 +146,9 @@ void* _manage_pool_runner(void* handler) {
 queue_pair* client_open(char* source_addr,
                         char* destination_addr,
                         int message_size) {
+
+    // printf("CLIENT: OPEN:\n");
+
     coord_header* ch = coord_attach(destination_addr);
 
     if (ch == NULL) {
@@ -160,12 +163,12 @@ queue_pair* client_open(char* source_addr,
         slot = request_slot(ch, client_id, message_size);
     }
 
-    //Wait until creation of shm until returning
     while(!ch->slots[slot].shm_created){
         usleep(500);
         // printf("still waiting");
         continue;
     }
+
 
     return _create_queue_pair(ch, slot);
 }
@@ -271,6 +274,10 @@ shm_pair _fake_shm_allocator(int message_size) {
 }
 
 shm_pair _rand_shm_allocator(int message_size) {
+    // printf("ALLOCATOR:\n");
+
+    srand(time(0));
+
     shm_pair shms = {};
 
     int key1 = rand();
@@ -379,6 +386,8 @@ server_context* register_server(char* source_addr) {
  * @return queue_pair
  */
 queue_pair* accept(server_context* handler) {
+    // printf("SERVER: ACCEPT:\n");
+
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     int slot = ch->accept_slot;
