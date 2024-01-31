@@ -119,6 +119,63 @@ void test_accept() {
     shm_remove(ipc_shmid);
 }
 
+
+// void test_many_servers() {
+//     // shm for communication between parent and child process
+//     key_t ipc_key = 1;
+//     int ipc_shm_size = sizeof(void*) * 2;
+//     int ipc_shmid = shm_create(ipc_key, ipc_shm_size, create_flag);
+//     void* ipc_shmaddr = shm_attach(ipc_shmid);
+//     void** two_ptrs = (void**) ipc_shmaddr;
+
+//     pid_t pid = fork();
+
+//     if (pid == -1) {
+//         perror("fork");
+//     } else if (pid > 0) { // PARENT PROCESS
+//         server_context* sc = register_server("test_server_addr");
+
+//         queue_pair* qp;
+//         while ((qp = accept(sc)) == NULL);
+
+//         // wait for client to update the ipc shm
+//         while (two_ptrs[0] == 0 && two_ptrs[0] == 0);
+
+//         // the accepted qp should be same as the qp given to the client, since
+//         // there should only be one reserved/allocated slot
+//         int err = qp->request_shmaddr != two_ptrs[0] ||
+//             qp->response_shmaddr != two_ptrs[1];
+
+//         if (err) {
+//             test_failed_print(__func__);
+//         } else {
+//             test_success_print(__func__);
+//         }
+
+//         free(qp);
+//         shutdown(sc);
+//     } else { // CHILD PROCESS
+//         queue_pair* qp = client_open("test_client_addr",
+//                                      "test_server_addr",
+//                                      sizeof(int));
+//         while (qp == NULL) {
+//             qp = client_open("test_client_addr",
+//                              "test_server_addr",
+//                              sizeof(int));
+//         }
+
+//         two_ptrs[0] = qp->request_shmaddr;
+//         two_ptrs[1] = qp->response_shmaddr;
+
+//         free(qp);
+//         exit(0);
+//     }
+
+//     // cleanup ipc shm
+//     shm_detach(ipc_shmaddr);
+//     shm_remove(ipc_shmid);
+// }
+
 void test_send_rcv_rpc_int() {
     // shm for communication between parent and child process
     key_t ipc_key = 1;
@@ -297,6 +354,7 @@ void test_send_rcv_rpc_str() {
     shm_remove(ipc_shmid);
 }
 void tests_run_all() {
+    // test_many_servers();
     test_register_server_shutdown();
     test_open_close();
     test_accept();
