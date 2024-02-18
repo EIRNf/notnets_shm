@@ -1,9 +1,9 @@
 # tool macros
 CXX := clang-17
-CXXFLAGS := -pthread   #   -lstdc++  #-Wall -Wextra -Werror -lstdc++ #-fPIC -shared
+CXXFLAGS := -pthread -g#   -lstdc++  #-Wall -Wextra -Werror -lstdc++ #-fPIC -shared
 #-fsanitize=address -fPIE -pie -g -fPIC -g -fsanitize=thread -fno-omit-frame-pointer
-DBGFLAGS := -g
-COBJFLAGS := $(CXXFLAGS) -Wall -Wextra -Werror
+DBGFLAGS := -g -O2
+COBJFLAGS := $(CXXFLAGS) -Wall -Wextra -Werror  -O2
 LDFLAGS  := 
 
 # path macros

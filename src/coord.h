@@ -1,7 +1,7 @@
 #ifndef __COORD_H
 #define __COORD_H
 
-#define SLOT_NUM 10
+#define SLOT_NUM 100
 #define QUEUE_SIZE 16024
 
 #include "mem.h"
@@ -103,6 +103,10 @@ coord_header* coord_attach(char* coord_address){
 
     void* shmaddr = shm_attach(shmid);
 
+    if (shmaddr == NULL) {
+        return NULL;
+    }
+
     // get header
     coord_header* header = (coord_header*) shmaddr;
 
@@ -123,13 +127,14 @@ int request_slot(coord_header* header, int client_id, int message_size){
         if (header->available_slots[i].client_reserved == false){
             // printf("CLIENT: Pre-Requesting:\n");
             // print_coord_header(header);
-            header->available_slots[i].client_reserved = true;
             header->slots[i].client_id = client_id;
             header->slots[i].message_size = message_size;
             header->slots[i].detach = false;
-            header->slots[i].shm_created = false;
             header->slots[i].shm_attached = 0;
+            header->slots[i].shm_created = false;
             atomic_thread_fence(memory_order_seq_cst);
+            header->available_slots[i].client_reserved = true;
+
             // printf("CLIENT: Post-Requesting:\n");
             // print_coord_header(header);
             pthread_mutex_unlock(&header->mutex);
@@ -145,6 +150,7 @@ shm_pair check_slot(coord_header* header, int slot){
     pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
         shms = header->slots[slot].shms;
+        atomic_thread_fence(memory_order_seq_cst);
     }
     pthread_mutex_unlock(&header->mutex);
     return shms;
@@ -216,7 +222,8 @@ coord_header* coord_create(char* coord_address){
 
 int service_slot(coord_header* header,
                  int slot,
-                 shm_pair (*allocation)(int)){
+                 shm_pair (*allocation)(int,int)){
+                    
     pthread_mutex_lock(&header->mutex);
     int client_id = header->slots[slot].client_id;
 
@@ -224,13 +231,17 @@ int service_slot(coord_header* header,
             !header->slots[slot].shm_created) {
         // printf("SERVER: Pre-Servicing:\n");
         // print_coord_header(header);
+
+
         // call allocation Function
-        shm_pair shms = (*allocation)(header->slots[slot].message_size);
+        shm_pair shms = (*allocation)(header->slots[slot].message_size,header->slots[slot].client_id);
 
         header->slots[slot].shms = shms;
         header->slots[slot].shm_created = true;
+        atomic_thread_fence(memory_order_seq_cst);
 
         pthread_mutex_unlock(&header->mutex);
+
         // printf("SERVER: Post-Servicing:\n");
         // print_coord_header(header);
         return client_id;

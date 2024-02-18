@@ -17,6 +17,8 @@
 #define RUNNING_NO_SHUTDOWN 1
 #define RUNNING_SHUTDOWN 2
 
+#define CLIENT_OPEN_WAIT_INTERVAL 0 //in us
+#define SERVER_SERVICE_POll_INTERVAL 0 //in us
 // This assumes two unidirectional SPSC queues, find way to generalize
 // Unsure how much to keep in this ref, is
 // there value in keeping all three
@@ -78,7 +80,7 @@ queue_pair* _create_queue_pair(coord_header* ch, int slot) {
     shm_pair shms = check_slot(ch, slot);
     int id = get_client_id(ch, slot);
     // keep on checking slot until receive shms
-    while (shms.request_shm.key <= 0 || shms.response_shm.key <= 0) {
+    while (shms.request_shm.key == 0 || shms.response_shm.key == 0) {
         shms = check_slot(ch, slot);
     }
 
@@ -122,7 +124,8 @@ void* _manage_pool_runner(void* handler) {
 
         manage_pool(sc);
 
-        sleep(1);
+        usleep(SERVER_SERVICE_POll_INTERVAL);  
+        // sleep(1);
     }
 
     return NULL;
@@ -136,6 +139,8 @@ void* _manage_pool_runner(void* handler) {
  * a coord request for a new queue pair can be made. This can
  * fail due to the server not having initialized its coord region,
  * no available reserve slots,etc
+ * 
+ * TODO; Add configurable timeout.
  *
  *
  * @param source_addr[IN] source_addr: Client Address + Nonce.
@@ -154,21 +159,24 @@ queue_pair* client_open(char* source_addr,
     if (ch == NULL) {
         return NULL;
     }
-
+    
     int client_id = (int) hash((unsigned char*) source_addr);
     int slot = request_slot(ch, client_id, message_size);
 
+
     // keep on trying to reserve slot
     while (slot == -1) {
+        usleep(CLIENT_OPEN_WAIT_INTERVAL);
         slot = request_slot(ch, client_id, message_size);
     }
 
     while(!ch->slots[slot].shm_created){
-        usleep(500);
+        usleep(CLIENT_OPEN_WAIT_INTERVAL);
         // printf("still waiting");
         continue;
     }
 
+    
 
     return _create_queue_pair(ch, slot);
 }
@@ -246,8 +254,11 @@ int client_close(char* source_addr, char* destination_addr) {
 
 //SERVER
 
-shm_pair _fake_shm_allocator(int message_size) {
+shm_pair _fake_shm_allocator(int message_size, int client_id) {
     shm_pair shms = {};
+
+
+    (void) client_id;
 
     int request_shmid = shm_create(SIMPLE_KEY,
                                    QUEUE_SIZE,
@@ -273,9 +284,48 @@ shm_pair _fake_shm_allocator(int message_size) {
     return shms;
 }
 
-shm_pair _rand_shm_allocator(int message_size) {
+
+
+shm_pair _hash_shm_allocator(int message_size, int client_id) {
+    // printf("ALLOCATOR:\n");
+    shm_pair shms = {};
+    
+    // int key1 = hash((unsigned char*)&client_id);
+    // int temp = client_id + 1;
+    // int key2 = hash((unsigned char*)&temp);
+
+    int key1 = client_id;
+    int key2 = client_id+1;
+
+    int request_shmid = shm_create(key1,
+                                   QUEUE_SIZE,
+                                   create_flag);
+    int response_shmid = shm_create(key2,
+                                    QUEUE_SIZE,
+                                    create_flag);
+    notnets_shm_info request_shm = {key1, request_shmid};
+    notnets_shm_info response_shm = {key2, response_shmid};
+
+    // set up shm regions as queues
+    void* request_addr = shm_attach(request_shmid);
+    void* response_addr = shm_attach(response_shmid);
+    queue_create(request_addr, QUEUE_SIZE, message_size);
+    queue_create(response_addr, QUEUE_SIZE, message_size);
+    // don't want to stay attached to the queue pairs
+    shm_detach(request_addr);
+    shm_detach(response_addr);
+
+    shms.request_shm = request_shm;
+    shms.response_shm = response_shm;
+
+    return shms;
+}
+
+shm_pair _rand_shm_allocator(int message_size, int client_id) {
     // printf("ALLOCATOR:\n");
 
+
+    (void) client_id;
     srand(time(0));
 
     shm_pair shms = {};
@@ -324,7 +374,7 @@ void manage_pool(server_context* handler) {
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     for (int i = 0; i < SLOT_NUM; ++i) {
-        service_slot(ch, i, &_rand_shm_allocator);
+        service_slot(ch, i, &_hash_shm_allocator);
         clear_slot(ch, i);
     }
 }
@@ -352,6 +402,8 @@ server_context* register_server(char* source_addr) {
     }
 
     // start manage pool runner thread
+    // Technically a thread leak as the reference for the 
+    // thread is stored in shared memory.
     int err = pthread_create(&sc->manage_pool_thread,
                              NULL,
                              _manage_pool_runner,
@@ -375,6 +427,9 @@ server_context* register_server(char* source_addr) {
 
 /**
  * @brief
+ * 
+ * TODO//Check for repeat entries!!!!!!!!!
+
  *
  * Returns a queue pair corresponding to a client who requested it.
  * Will only service one client per call? In round robin fashion, cycles
@@ -463,6 +518,7 @@ void shutdown(server_context* handler) {
         pthread_mutex_lock(&handler->manage_pool_mutex);
         if (handler->manage_pool_state == NOT_RUNNING) {
             pthread_mutex_unlock(&handler->manage_pool_mutex);
+            pthread_join(handler->manage_pool_thread, NULL);
             break;
         }
         pthread_mutex_unlock(&handler->manage_pool_mutex);

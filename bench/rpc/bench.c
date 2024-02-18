@@ -8,11 +8,20 @@
 #define NUM_ITEMS 10000
 #define MESSAGE_SIZE 4 //Int
 
+#define MAX_CLIENTS 10
+
 struct timespec start, end;
 atomic_bool run_flag = false; //control execution
 
+struct connection_args {
+    int client_id;
+    struct timespec start;
+    struct timespec end;
+    unsigned int sync_bit;
+};
+
+
 void bench_report_stats() {
-    fprintf(stdout, "rtt-notnets/spsc/\n");
     //nanosecond ns 1.0e-09
     //microsecond us 1.0e-06
     //millisecond ms 1.0e-03
@@ -43,10 +52,7 @@ void bench_report_stats() {
         //Convert to reasonable unit ms
         long ms = ns / 1.0e+06;
         fprintf(stdout, "%ld ops/ms \n", NUM_ITEMS/ms);
-    }
-
-
-  
+    }  
 }
 
 
@@ -61,7 +67,7 @@ void client(queue_pair* qp){
     //hold until flag is set to true
     while(!run_flag);
 
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+    clock_gettime(CLOCK_MONOTONIC, &start);
     for(int i=1;i<NUM_ITEMS;i++) {
         *buf = i;
         client_send_rpc(qp, buf, buf_size);
@@ -72,9 +78,10 @@ void client(queue_pair* qp){
 
         assert(*pop_buf == *buf);
     }
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+    clock_gettime(CLOCK_MONOTONIC, &end);
     free(pop_buf);
     free(buf);
+    free(qp);
 }
  
 void *server(void* s_qp){
@@ -101,17 +108,12 @@ void *server(void* s_qp){
 
     free(pop_buf);
     free(buf);
+    free(qp);
     pthread_exit(0);
-
 }
 
 void rtt_test(){ 
-    // create shm and attach to it
-    key_t ipc_key = 2;
-    int ipc_shm_size = sizeof(void*) * 2;
-    int ipc_shmid = shm_create(ipc_key, ipc_shm_size, create_flag);
-    void* ipc_shmaddr = shm_attach(ipc_shmid);
-
+    fprintf(stdout, "rtt-notnets/spsc/\n");
     // pthread_t producer;
     pthread_t consumer;
 
@@ -136,11 +138,298 @@ void rtt_test(){
 
     bench_report_stats();
 
-    shutdown(sc);
 
-    // cleanup
-    shm_detach(ipc_shmaddr);
-    shm_remove(ipc_shmid);
+    shutdown(sc);
+    run_flag = false;
+}
+
+void bench_report_averaged_connection_stats(struct connection_args args[]){
+    //nanosecond ns 1.0e-09
+    //microsecond us 1.0e-06
+    //millisecond ms 1.0e-03
+
+    
+    long total_ms = 0.0;
+    for(int i =0; i < MAX_CLIENTS; i++){
+        struct timespec start = args[i].start;
+        struct timespec end = args[i].end;
+        
+        if ((end.tv_sec - start.tv_sec) > 0 ){ //we have atleast 1 sec
+
+            long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
+            ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
+
+            total_ms += ms;
+        } else {//nanosecond scale, probably not very accurate
+            long ns = 0.0;
+            ns = (end.tv_nsec - start.tv_nsec);    
+
+            total_ms += (ns * 1.0e-06);
+        }
+    }
+
+    fprintf(stdout, "Average execution time: %ld ms \n", (total_ms/MAX_CLIENTS));
+
+}
+
+
+
+void bench_report_connection_stats(struct connection_args *args){
+    //nanosecond ns 1.0e-09
+    //microsecond us 1.0e-06
+    //millisecond ms 1.0e-03
+
+    struct timespec start = args->start;
+    struct timespec end = args->end;
+
+
+    if ((end.tv_sec - start.tv_sec) > 0 ){ //we have atleast 1 sec
+        //use millisecond scale
+        long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
+	    ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
+
+        // long start_time = start.tv_sec * 1.0e+03;
+        // start_time += start.tv_nsec / 1.0e+06;
+
+        // fprintf(stdout, "start_time:%ld ms \n ", start_time);
+
+        // long end_time = end.tv_sec * 1.0e+03;
+        // end_time += end.tv_nsec / 1.0e+06;
+
+        // fprintf(stdout, "end_time:%ld ms \n ", end_time);
+
+
+        fprintf(stdout, "execution time:%ld ms \n", ms);
+        // fprintf(stdout, "execution time:%ld ns \n ", (end.tv_nsec - start.tv_nsec));
+
+        //Latency 
+        // fprintf(stdout, "\n latency: %ld ms/op \n", ms/NUM_ITEMS);
+        // long ns =  (end.tv_nsec - start.tv_nsec);
+        // fprintf(stdout, "%ld ns/op \n", ns);
+
+    }
+    else {//nanosecond scale, probably not very accurate
+        long ns = (end.tv_nsec - start.tv_nsec);
+
+        fprintf(stdout, "execution time:%ld ns \n", ns);
+        //Latency 
+        // fprintf(stdout, "%ld ns/op \n", ns);
+    }  
+}
+
+
+void* client_connection(void* arg){
+    struct connection_args *args = (struct connection_args*) arg;
+
+    char name[32];
+
+
+    sprintf(name, "%d", args->client_id);
+
+    while(!run_flag);
+
+    clock_gettime(CLOCK_MONOTONIC, &args->start);
+    queue_pair* c_qp = client_open(name,
+                                "test_server_addr",
+                                 sizeof(int));
+    while (c_qp == NULL) {
+        c_qp = client_open(name,
+                             "test_server_addr",
+                             sizeof(int));
+        }
+    
+    clock_gettime(CLOCK_MONOTONIC, &args->end);
+      // No connection was achieved :()
+    if (c_qp == NULL){
+        fprintf(stdout, "Missed Connection: %d \n", args->client_id);
+    }
+
+    if (c_qp->request_shmaddr == NULL || c_qp->response_shmaddr == NULL ){
+        fprintf(stdout, "Repeat Connection: %d \n", (int)hash((unsigned char*)name));
+        fprintf(stdout, "Client Id: %d \n", c_qp->client_id);
+        fprintf(stdout, "Request_Queue: %p \n", c_qp->request_shmaddr);
+        fprintf(stdout, "Response_Queue: %p \n", c_qp->response_shmaddr);
+
+    }
+    free(c_qp);
+    pthread_exit(0);
+}
+
+// Evaluate how long a single non contested connection takes in notnets
+void single_connection_test(){ 
+    fprintf(stdout, "notnets/single-connection/\n");
+
+    //Current 
+    server_context* sc = register_server("test_server_addr");
+
+    pthread_t client;
+
+    struct connection_args *args = malloc(sizeof(struct connection_args));
+    args->client_id = 1;
+    atomic_thread_fence(memory_order_seq_cst);
+
+
+    pthread_create(&client, NULL, client_connection,args);
+
+    queue_pair* s_qp;
+    //Synchronization variable to begin attempting to open connections
+    run_flag = true;
+    while ((s_qp = accept(sc)) == NULL);
+
+
+    pthread_join(client,NULL);    
+
+    bench_report_connection_stats(args);
+    free(s_qp);
+    shutdown(sc);
+    free(args);
+    run_flag = false;
+}
+
+int cmpfunc(const void * a, const void * b) {
+   return ( *(int*)a - *(int*)b );
+}
+
+//TODO: Make connection/desconection stress test
+
+// TODO: This is a weird one. There is a bug that occurs under 
+// certain 
+// Evaluate how long connections take in Notnets
+// Instantiate multiple client threads to opening new connection until max is reached.
+// Server simply accepts and loops over avalable queue pairs until it can read data from all those connected.
+void connection_stress_test(){ 
+    fprintf(stdout, "notnets/multi-connection/\n");
+
+    // pthread_t producer;
+    pthread_t *clients[MAX_CLIENTS] = {};
+
+    //Current 
+    server_context* sc = register_server("test_server_addr");
+
+    struct connection_args *args[MAX_CLIENTS] = {};
+
+    //Create client threads, will maintain a holding pattern until 
+    // flag is flipped
+    struct timespec nonce;
+    for(int i = 0; i < MAX_CLIENTS; i++){
+        struct connection_args *client_args = malloc(sizeof(struct connection_args));
+        args[i] = client_args;
+        pthread_t *new_client = malloc(sizeof(pthread_t));
+        clients[i] = new_client;
+        if (! timespec_get(&nonce, TIME_UTC)){
+            // return -1;
+        }
+        args[i]->client_id = i + nonce.tv_nsec;
+        args[i]->sync_bit = 0;
+        atomic_thread_fence(memory_order_seq_cst);
+        pthread_create(clients[i], NULL, client_connection, args[i]);
+    }
+    
+
+    queue_pair* s_qp;
+
+    //Synchronization variable to begin attempting to open connections
+    run_flag = true;
+    
+   
+    int client_list[MAX_CLIENTS];
+    queue_pair *client_queues[MAX_CLIENTS];
+    int *item;
+    int key;
+    for (int i=0;i < MAX_CLIENTS;){
+        s_qp = accept(sc);
+        //Check for repeat entries!!!!!!!!!
+        if (s_qp != NULL){ //Ocasional Leak here, discover why TODO
+            
+            key = s_qp->client_id;
+            item = (int*) bsearch(&key, client_list,MAX_CLIENTS,sizeof(int),cmpfunc);
+            //Client already accepted, reject
+            if(item != NULL){
+                free(s_qp);
+                continue;
+            }
+
+            if(s_qp->request_shmaddr != NULL){
+                client_list[i] = s_qp->client_id;
+                client_queues[i] = s_qp;
+                i++;
+            }
+            // free(s_qp);
+        }
+    }
+
+    atomic_thread_fence(memory_order_seq_cst);
+    //Join threads
+    for(int i =0; i < MAX_CLIENTS; i++){
+        pthread_join(*clients[i],NULL);
+        // bench_report_connection_stats(args[i]);
+        //Free heap allocated data
+        free(client_queues[i]);
+        // free(args[i]);
+        free(clients[i]);
+    }
+    bench_report_averaged_connection_stats(*args);
+
+    for (int i=0; i< MAX_CLIENTS; i++){
+        free(args[i]);
+    }
+    shutdown(sc);
+    run_flag = false;
+}
+
+
+
+void rtt_during_connection_test(){ 
+      // pthread_t producer;
+    pthread_t *clients[MAX_CLIENTS] = {};
+
+    //Current 
+    server_context* sc = register_server("test_server_addr");
+
+    struct connection_args *args[MAX_CLIENTS] = {};
+
+    //Create client threads, will maintain a holding pattern until 
+    // flag is flipped
+    for(int i = 0; i < MAX_CLIENTS; i++){
+        struct connection_args *client_args = malloc(sizeof(struct connection_args));
+        args[i] = client_args;
+        pthread_t *new_client = malloc(sizeof(pthread_t));
+        clients[i] = new_client;
+        args[i]->client_id = i;
+        args[i]->sync_bit = 0;
+        pthread_create(clients[i], NULL, client_connection, args[i]);
+    }
+    
+
+    queue_pair* s_qp;
+
+    //Synchronization variable to begin attempting to open connections
+    run_flag = true;
+
+    queue_pair *client_queues[MAX_CLIENTS];
+    for (int i=0;i < MAX_CLIENTS;){
+        s_qp = accept(sc);
+        if (s_qp != NULL){
+            if(s_qp->request_shmaddr != NULL){
+                client_queues[i] = s_qp;
+                i++;
+            }
+        }
+    }
+
+    //Join threads
+    //
+    fprintf(stdout, "notnets/multi-connection/\n");
+    for(int i =0; i <MAX_CLIENTS; i++){
+        pthread_join(*clients[i],NULL);
+        bench_report_connection_stats(args[i]);
+        //Free heap allocated data
+        free(client_queues[i]);
+        free(args[i]);
+        free(clients[i]);
+    }
+    shutdown(sc);
+    run_flag = false;
 
 }
 
@@ -152,7 +441,8 @@ void bench_run_all(void){
 
     //Echo application, capture RTT latency and throughput
     rtt_test();
-
+    single_connection_test();
+    connection_stress_test();
     //"Tune" Server Overhead
 
 

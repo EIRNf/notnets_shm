@@ -1,5 +1,7 @@
+#define _GNU_SOURCE
 #include "../../src/mem.h"
 #include "../../src/queue.h"
+#include <sched.h>
 #include <time.h>
 #include <pthread.h>
 #include <assert.h>
