@@ -25,8 +25,11 @@ void test_failed_print(const char *message) {
     fflush(stdout);
 }
 
-shm_pair fake_shm_allocator(int message_size) {
+shm_pair fake_shm_allocator(int message_size, int client_id) {
     shm_pair shms = {};
+
+
+    (void) client_id;
 
     int request_shmid = shm_create(SIMPLE_KEY,
                                    QUEUE_SIZE,
@@ -34,10 +37,8 @@ shm_pair fake_shm_allocator(int message_size) {
     int response_shmid = shm_create(SIMPLE_KEY + 1,
                                     QUEUE_SIZE,
                                     create_flag);
-    notnets_shm_info request_shm = {SIMPLE_KEY,
-                            request_shmid};
-    notnets_shm_info response_shm = {SIMPLE_KEY + 1,
-                             response_shmid};
+    notnets_shm_info request_shm = {SIMPLE_KEY, request_shmid};
+    notnets_shm_info response_shm = {SIMPLE_KEY + 1, response_shmid};
 
     // set up shm regions as queues
     void* request_addr = shm_attach(request_shmid);
@@ -59,7 +60,7 @@ void test_queue_allocation() {
     int iter = 10;
     int err = 0;
 
-    shm_pair shms = fake_shm_allocator(message_size);
+    shm_pair shms = fake_shm_allocator(message_size, 1);
 
     void* request_queue_addr = shm_attach(shms.request_shm.shmid);
     void* response_queue_addr = shm_attach(shms.response_shm.shmid);

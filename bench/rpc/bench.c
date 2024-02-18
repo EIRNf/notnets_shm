@@ -10,6 +10,8 @@
 
 #define MAX_CLIENTS 10
 
+#define NUM_HANDLERS 10
+
 struct timespec start, end;
 atomic_bool run_flag = false; //control execution
 
@@ -223,7 +225,6 @@ void* client_connection(void* arg){
 
     char name[32];
 
-
     sprintf(name, "%d", args->client_id);
 
     while(!run_flag);
@@ -246,6 +247,7 @@ void* client_connection(void* arg){
 
     if (c_qp->request_shmaddr == NULL || c_qp->response_shmaddr == NULL ){
         fprintf(stdout, "Repeat Connection: %d \n", (int)hash((unsigned char*)name));
+        fprintf(stdout, "Repeat Connection: %d \n", args->client_id);
         fprintf(stdout, "Client Id: %d \n", c_qp->client_id);
         fprintf(stdout, "Request_Queue: %p \n", c_qp->request_shmaddr);
         fprintf(stdout, "Response_Queue: %p \n", c_qp->response_shmaddr);
@@ -254,6 +256,8 @@ void* client_connection(void* arg){
     free(c_qp);
     pthread_exit(0);
 }
+
+
 
 // Evaluate how long a single non contested connection takes in notnets
 void single_connection_test(){ 
@@ -320,6 +324,8 @@ void connection_stress_test(){
             // return -1;
         }
         args[i]->client_id = i + nonce.tv_nsec;
+        // args[i]->client_id = i ;
+
         args[i]->sync_bit = 0;
         atomic_thread_fence(memory_order_seq_cst);
         pthread_create(clients[i], NULL, client_connection, args[i]);
@@ -378,10 +384,122 @@ void connection_stress_test(){
 }
 
 
+void post_connect_client(struct connection_args *args,queue_pair* qp){
+    int *buf = malloc(MESSAGE_SIZE);
+    int buf_size = MESSAGE_SIZE;
+
+    int* pop_buf = malloc(MESSAGE_SIZE);
+    int pop_buf_size = MESSAGE_SIZE;
+
+
+    //hold until flag is set to true
+    while(!run_flag);
+
+    clock_gettime(CLOCK_MONOTONIC, &args->start);
+    for(int i=1;i<NUM_ITEMS;i++) {
+        *buf = i;
+        client_send_rpc(qp, buf, buf_size);
+        
+        //Request sent, read for response
+
+        client_receive_buf(qp, pop_buf, pop_buf_size);
+
+        assert(*pop_buf == *buf);
+    }
+    clock_gettime(CLOCK_MONOTONIC, &args->end);
+    free(pop_buf);
+    free(buf);
+    free(qp);
+}
+
+
+
+void* client_connection_rtt(void* arg){
+    struct connection_args *args = (struct connection_args*) arg;
+
+    char name[32];
+
+    sprintf(name, "%d", args->client_id);
+
+    while(!run_flag);
+
+    // clock_gettime(CLOCK_MONOTONIC, &args->start);
+    queue_pair* c_qp = client_open(name,
+                                "test_server_addr",
+                                 sizeof(int));
+    while (c_qp == NULL) {
+        c_qp = client_open(name,
+                             "test_server_addr",
+                             sizeof(int));
+        }
+    
+    // clock_gettime(CLOCK_MONOTONIC, &args->end);
+      // No connection was achieved :()
+    if (c_qp == NULL){
+        fprintf(stdout, "Missed Connection: %d \n", args->client_id);
+    }
+
+    if (c_qp->request_shmaddr == NULL || c_qp->response_shmaddr == NULL ){
+        fprintf(stdout, "Repeat Connection: %d \n", (int)hash((unsigned char*)name));
+        fprintf(stdout, "Client Id: %d \n", c_qp->client_id);
+        fprintf(stdout, "Request_Queue: %p \n", c_qp->request_shmaddr);
+        fprintf(stdout, "Response_Queue: %p \n", c_qp->response_shmaddr);
+
+    }
+    post_connect_client(args, c_qp);
+    pthread_exit(0);
+}
+
+
+void* client_connection_write_read(void* arg){
+    struct connection_args *args = (struct connection_args*) arg;
+
+    char name[32];
+
+
+    sprintf(name, "%d", args->client_id);
+
+    while(!run_flag);
+
+    clock_gettime(CLOCK_MONOTONIC, &args->start);
+    queue_pair* c_qp = client_open(name,
+                                "test_server_addr",
+                                 sizeof(int));
+    while (c_qp == NULL) {
+        c_qp = client_open(name,
+                             "test_server_addr",
+                             sizeof(int));
+        }
+    
+    clock_gettime(CLOCK_MONOTONIC, &args->end);
+      // No connection was achieved :()
+    if (c_qp == NULL){
+        fprintf(stdout, "Missed Connection: %d \n", args->client_id);
+    }
+
+    if (c_qp->request_shmaddr == NULL || c_qp->response_shmaddr == NULL ){
+        fprintf(stdout, "Repeat Connection: %d \n", (int)hash((unsigned char*)name));
+        fprintf(stdout, "Client Id: %d \n", c_qp->client_id);
+        fprintf(stdout, "Request_Queue: %p \n", c_qp->request_shmaddr);
+        fprintf(stdout, "Response_Queue: %p \n", c_qp->response_shmaddr);
+
+    }
+
+    //Handling client 
+    client(c_qp);
+
+    free(c_qp);
+    pthread_exit(0);
+}
+
 
 void rtt_during_connection_test(){ 
-      // pthread_t producer;
+    fprintf(stdout, "notnets/rtt-during-multi-connection/\n");
+
+    // pthread_t producer;
     pthread_t *clients[MAX_CLIENTS] = {};
+    pthread_t *handlers[NUM_HANDLERS] = {};
+
 
     //Current 
     server_context* sc = register_server("test_server_addr");
@@ -390,13 +508,19 @@ void rtt_during_connection_test(){
 
     //Create client threads, will maintain a holding pattern until 
     // flag is flipped
+    struct timespec nonce;
     for(int i = 0; i < MAX_CLIENTS; i++){
         struct connection_args *client_args = malloc(sizeof(struct connection_args));
         args[i] = client_args;
         pthread_t *new_client = malloc(sizeof(pthread_t));
         clients[i] = new_client;
-        args[i]->client_id = i;
+        if (! timespec_get(&nonce, TIME_UTC)){
+            // return -1;
+        }
+        args[i]->client_id = i + nonce.tv_nsec;
+        // args[i]->client_id = i ;
         args[i]->sync_bit = 0;
+        atomic_thread_fence(memory_order_seq_cst);
         pthread_create(clients[i], NULL, client_connection, args[i]);
     }
     
@@ -405,28 +529,54 @@ void rtt_during_connection_test(){
 
     //Synchronization variable to begin attempting to open connections
     run_flag = true;
-
+   
+    int client_list[MAX_CLIENTS];
     queue_pair *client_queues[MAX_CLIENTS];
-    for (int i=0;i < MAX_CLIENTS;){
+    int *item;
+    int key;
+    for(int i=0;i < MAX_CLIENTS;){
         s_qp = accept(sc);
-        if (s_qp != NULL){
-            if(s_qp->request_shmaddr != NULL){
+        if (s_qp != NULL){ //Ocasional Leak here, discover why TODO
+
+            //Check for repeat entries!!!!!!!!!
+            key = s_qp->client_id;
+            item = (int*) bsearch(&key, client_list,MAX_CLIENTS,sizeof(int),cmpfunc);
+            //Client already accepted, reject
+            if(item != NULL){
+                free(s_qp);
+                continue;
+            }
+
+            if (s_qp->request_shmaddr != NULL){
+                client_list[i] = s_qp->client_id;
                 client_queues[i] = s_qp;
                 i++;
+
+                //Run handler thread.
+                for(int j =0; j < NUM_HANDLERS; j++){
+                    pthread_t *new_handler = malloc(sizeof(pthread_t));
+                    handlers[j] = new_handler;
+                    pthread_create(handlers[j], NULL, server, s_qp);
+                }
             }
+            // free(s_qp);
         }
     }
 
+    atomic_thread_fence(memory_order_seq_cst);
     //Join threads
-    //
-    fprintf(stdout, "notnets/multi-connection/\n");
-    for(int i =0; i <MAX_CLIENTS; i++){
+    for(int i =0; i < MAX_CLIENTS; i++){
         pthread_join(*clients[i],NULL);
-        bench_report_connection_stats(args[i]);
+        // bench_report_connection_stats(args[i]);
         //Free heap allocated data
         free(client_queues[i]);
-        free(args[i]);
+        // free(args[i]);
         free(clients[i]);
+    }
+    bench_report_averaged_connection_stats(*args);
+
+    for (int i=0; i< MAX_CLIENTS; i++){
+        free(args[i]);
     }
     shutdown(sc);
     run_flag = false;
