@@ -20,5 +20,9 @@ $compiler_cmd ./main.c -o bench
 /usr/bin/clang++-17  -pthread -Wall -Wextra -Werror -o2 ./comparison.cpp -o ./comparison 
 
 
+#Attempt recording of CPU Utilization
+
+
+
 ./bench
 ./comparison

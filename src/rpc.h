@@ -17,8 +17,8 @@
 #define RUNNING_NO_SHUTDOWN 1
 #define RUNNING_SHUTDOWN 2
 
-#define CLIENT_OPEN_WAIT_INTERVAL 0 //in us
-#define SERVER_SERVICE_POll_INTERVAL 0 //in us
+#define CLIENT_OPEN_WAIT_INTERVAL 200 //in us
+#define SERVER_SERVICE_POll_INTERVAL 150 //in us
 // This assumes two unidirectional SPSC queues, find way to generalize
 // Unsure how much to keep in this ref, is
 // there value in keeping all three
@@ -55,7 +55,9 @@ typedef struct server_context {
 // forward declaration of functions
 // ===============================================================
 // PRIVATE HELPER FUNCTIONS
-queue_pair* _create_queue_pair(coord_header* ch, int slot);
+queue_pair* _create_client_queue_pair(coord_header* ch, int slot);
+queue_pair* _create_server_queue_pair(coord_header* ch, int slot);
+
 void* _manage_pool_runner(void* handler);
 
 // CLIENT
@@ -76,7 +78,35 @@ void shutdown(server_context* handler);
 // ===============================================================
 
 // PRIVATE HELPER FUNCTIONS
-queue_pair* _create_queue_pair(coord_header* ch, int slot) {
+queue_pair* _create_client_queue_pair(coord_header* ch, int slot) {
+    shm_pair shms = check_slot(ch, slot);
+    int id = get_client_id(ch, slot);
+    // keep on checking slot until receive shms
+    while (shms.request_shm.key == 0 || shms.response_shm.key == 0) {
+        shms = check_slot(ch, slot);
+    }
+
+    queue_pair* qp = (queue_pair*) malloc(sizeof(queue_pair));
+
+    //already attached, return empty addresses? It should not pollute upstream if a record is kept.
+    if (get_client_attach_state(ch, slot)){
+        qp->request_shmaddr = NULL;
+        qp->response_shmaddr = NULL;
+        qp->client_id = id;
+    } else {
+        set_client_attach_state(ch, slot,true);
+        qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
+        qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
+        qp->client_id = id;
+    } 
+    atomic_thread_fence(memory_order_seq_cst);
+
+    return qp;
+}
+
+
+
+queue_pair* _create_server_queue_pair(coord_header* ch, int slot) {
     shm_pair shms = check_slot(ch, slot);
     int id = get_client_id(ch, slot);
     // keep on checking slot until receive shms
@@ -89,22 +119,23 @@ queue_pair* _create_queue_pair(coord_header* ch, int slot) {
     //already attached, return empty addresses? It should not pollute upstream if a record is kept.
     
     //If two attached, return null, not permitted
-    if (get_attach_state(ch, slot) == 2 ){
+    if (get_server_attach_state(ch, slot)){
         qp->request_shmaddr = NULL;
         qp->response_shmaddr = NULL;
         qp->client_id = id;
     } else {
-        increment_slot_attach_count(ch, slot);
+        set_server_attach_state(ch, slot,true);
         qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
         qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
         qp->client_id = id;
-    }
+    } 
 
     atomic_thread_fence(memory_order_seq_cst);
 
 
     return qp;
 }
+
 
 
 
@@ -164,21 +195,19 @@ queue_pair* client_open(char* source_addr,
     int slot = request_slot(ch, client_id, message_size);
 
 
-    // keep on trying to reserve slot
+    // keep on trying to reserve slot, if all slots are taken but no one detaches you wait forever
     while (slot == -1) {
-        usleep(CLIENT_OPEN_WAIT_INTERVAL);
         slot = request_slot(ch, client_id, message_size);
+        usleep(CLIENT_OPEN_WAIT_INTERVAL);
     }
 
     while(!ch->slots[slot].shm_created){
         usleep(CLIENT_OPEN_WAIT_INTERVAL);
-        // printf("still waiting");
         continue;
     }
 
     
-
-    return _create_queue_pair(ch, slot);
+    return _create_client_queue_pair(ch, slot);
 }
 
 /**
@@ -253,7 +282,6 @@ int client_close(char* source_addr, char* destination_addr) {
 }
 
 //SERVER
-
 shm_pair _fake_shm_allocator(int message_size, int client_id) {
     shm_pair shms = {};
 
@@ -311,6 +339,7 @@ shm_pair _hash_shm_allocator(int message_size, int client_id) {
     void* response_addr = shm_attach(response_shmid);
     queue_create(request_addr, QUEUE_SIZE, message_size);
     queue_create(response_addr, QUEUE_SIZE, message_size);
+
     // don't want to stay attached to the queue pairs
     shm_detach(request_addr);
     shm_detach(response_addr);
@@ -442,7 +471,6 @@ server_context* register_server(char* source_addr) {
  */
 queue_pair* accept(server_context* handler) {
     // printf("SERVER: ACCEPT:\n");
-
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     int slot = ch->accept_slot;
@@ -458,10 +486,14 @@ queue_pair* accept(server_context* handler) {
                 !ch->available_slots[slot].client_reserved) {
             continue;
         } else if (ch->slots[slot].shm_created) {
-            ch->accept_slot = (slot + 1) % SLOT_NUM;
-            pthread_mutex_unlock(&ch->mutex);
 
-            return _create_queue_pair(ch, slot);
+            //TODO: Prevent double attach 
+
+            ch->accept_slot = (slot + 1) % SLOT_NUM;
+
+
+            pthread_mutex_unlock(&ch->mutex);
+            return _create_server_queue_pair(ch, slot);
         } 
 
         // if over here, then slot has been reserved, but has not been allocated
