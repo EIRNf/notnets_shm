@@ -5,3 +5,15 @@ debug
 
 tests/test_output.txt
 tests/*/test
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/settings.json
+.vscode/tasks.json
+
+bench/bench_output.txt
+bench/queue/bench
+bench/queue/comparison
+bench/rpc/bench
+bench/rpc/core
+bench/rpc/main
+tests/queue/main
