@@ -1,7 +1,7 @@
 #ifndef __COORD_H
 #define __COORD_H
 
-#define SLOT_NUM 10
+#define SLOT_NUM 20
 #define QUEUE_SIZE 16024
 
 #include "mem.h"

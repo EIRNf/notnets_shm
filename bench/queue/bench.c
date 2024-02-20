@@ -50,19 +50,21 @@ void bench_report_stats(run_stats run, char* name) {
     //nanosecond ns 1.0e-09
     //microsecond us 1.0e-06
     //millisecond ms 1.0e-03
-
-    // long ms = run1.total.tv_sec * 1.0e+03;
-    // ms += run1.total.tv_nsec / 1.0e+06;
-    // long ns =  run1.total.tv_nsec;
-
-    // fprintf(stdout, "\n execution time:%ld ms \n ", ms);
-    //Latency 
-    // fprintf(stdout, "\n latency: %ld ms/op \n", ms/NUM_ITEMS);
-    //Throughput
     fprintf(stdout, "Time: %ld sec, ItemsConsumed: %d  \n", run1.total.tv_sec ,items_consumed);
+
     fprintf(stdout, "MaxQueueDepth: %d \n", run.max_queue_depth);
     fprintf(stdout, "AverageQueueDepth: %d \n", run.average_queue_depth);
-    fprintf(stdout, "%ld ops/sec \n", items_consumed/run1.total.tv_sec);
+
+    //microsecond scane 
+    double total_us = run1.total.tv_sec * 1.0e+06;
+    total_us += run1.total.tv_nsec / 1.0e+03;
+
+    double total_ms = run1.total.tv_sec * 1.0e+03;
+    total_ms += run1.total.tv_nsec / 1.0e+06;
+
+    fprintf(stdout, "%f ns/op \n", (total_us * 1.0e+03)/items_consumed);
+
+    fprintf(stdout, "%f ops/ms \n", items_consumed/(total_ms));
     // fprintf(stdout, "%ld ns/op \n ", ns/items_consumed);
 }
 

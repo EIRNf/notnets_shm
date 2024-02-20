@@ -28,7 +28,7 @@ void pinThread(int cpu) {
 
 void boost_lockfree_spes_queue(){
 
-    std::cout << "boost::lockfree::spsc:" << std::endl;
+    std::cout << "batch-boost::lockfree::spsc:" << std::endl;
   
     boost::lockfree::spsc_queue<u_int> q(16024);
 
@@ -73,9 +73,10 @@ void boost_lockfree_spes_queue(){
 
     auto difference = stop - start;
     std::cout << "Time: " << std::chrono::duration_cast<std::chrono::seconds>(difference).count() << "sec, ItemsConsumed: " << items_consumed << std::endl;
+    std::cout <<  std::chrono::duration_cast<std::chrono::nanoseconds>(difference).count() /items_consumed  << " ns/op" << std::endl;
     std::cout << items_consumed /
-                     std::chrono::duration_cast<std::chrono::seconds>(difference).count()
-              << " ops/sec" << std::endl;
+                     std::chrono::duration_cast<std::chrono::milliseconds>(difference).count()
+              << " ops/ms" << std::endl;
 
 }
 

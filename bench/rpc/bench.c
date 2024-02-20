@@ -5,11 +5,11 @@
 #include <stdatomic.h>
 
 
-#define NUM_ITEMS 1000000
+#define NUM_ITEMS 10000000
 #define MESSAGE_SIZE 4 //Int
 
-#define MAX_CLIENTS 10
-#define NUM_HANDLERS 10
+#define MAX_CLIENTS 20
+#define NUM_HANDLERS 20
 
 atomic_bool run_flag = false; //control execution
 
