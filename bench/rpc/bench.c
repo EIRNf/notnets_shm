@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <stdatomic.h>
 
-
 #define NUM_ITEMS 10000000
 #define MESSAGE_SIZE 4 //Int
 
@@ -154,10 +153,6 @@ void rtt_test(){
     shutdown(sc);
     run_flag = false;
 }
-
-
-
-
 
 void bench_report_connection_stats(struct connection_args *args){
     //nanosecond ns 1.0e-09
@@ -428,7 +423,6 @@ void bench_report_rtt_connection_stats(struct connection_args *args){
     }  
 }
 
-
 void post_connect_client(struct connection_args *args, queue_pair* qp){
     int *buf = malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
@@ -625,6 +619,7 @@ void rtt_during_connection_test(){
 
 
 
+
 void bench_run_all(void){
     //Connection Test
 
@@ -634,6 +629,7 @@ void bench_run_all(void){
     connection_stress_test();
     rtt_during_connection_test();
     //"Tune" Server Overhead
+
 
 
 }
