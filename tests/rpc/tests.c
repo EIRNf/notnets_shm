@@ -360,4 +360,6 @@ void tests_run_all() {
     test_accept();
     test_send_rcv_rpc_int();
     test_send_rcv_rpc_str();
+
+    //Testing simultaneous clients 
 }
