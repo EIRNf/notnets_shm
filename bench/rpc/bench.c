@@ -20,7 +20,7 @@ struct connection_args {
 };
 
 
-void bench_report_stats(struct connection_args *args) {
+void bench_report_rtt_stats(struct connection_args *args) {
     //nanosecond ns 1.0e-09
     //microsecond us 1.0e-06
     //millisecond ms 1.0e-03
@@ -148,7 +148,7 @@ void rtt_test(){
 
     fprintf(stdout, "Num Items: %d  \n", NUM_ITEMS);
     fprintf(stdout, "Message Size: %d  \n", MESSAGE_SIZE);
-    bench_report_stats(args);
+    bench_report_rtt_stats(args);
     free(args);
     shutdown(sc);
     run_flag = false;
@@ -198,7 +198,6 @@ void bench_report_connection_stats(struct connection_args *args){
     }  
 }
 
-
 void* client_connection(void* arg){
     struct connection_args *args = (struct connection_args*) arg;
 
@@ -235,8 +234,6 @@ void* client_connection(void* arg){
     free(c_qp);
     pthread_exit(0);
 }
-
-
 
 // Evaluate how long a single non contested connection takes in notnets
 void single_connection_test(){ 
@@ -618,16 +615,166 @@ void rtt_during_connection_test(){
 
 
 
+void single_rtt_during_connection_test(){ 
+    fprintf(stdout, "notnets/single-rtt-during-multi-connection/\n");
+
+    // pthread_t producer;
+    pthread_t *clients[MAX_CLIENTS] = {};
+    pthread_t *handler;
+
+
+    //Current 
+    server_context* sc = register_server("test_server_addr");
+
+    struct connection_args *args[MAX_CLIENTS] = {};
+
+    //Create client threads, will maintain a holding pattern until flag is flipped
+    //Handle single writing client
+    struct connection_args *client_args = malloc(sizeof(struct connection_args));
+    args[MAX_CLIENTS-1] = client_args;
+    args[MAX_CLIENTS-1]->client_id = MAX_CLIENTS-1;
+    pthread_t *new_client = malloc(sizeof(pthread_t));
+    clients[MAX_CLIENTS-1] = new_client;
+    pthread_create(clients[MAX_CLIENTS-1], NULL, client_connection_rtt, args[MAX_CLIENTS-1]);
+
+    //Handle other non messaging Clients
+    struct timespec nonce;
+    for(int i = 0; i < MAX_CLIENTS-1; i++){
+        struct connection_args *client_args = malloc(sizeof(struct connection_args));
+        args[i] = client_args;
+        pthread_t *new_client = malloc(sizeof(pthread_t));
+        clients[i] = new_client;
+        if (! timespec_get(&nonce, TIME_UTC)){
+            // return -1;
+        }
+        args[i]->client_id = i + nonce.tv_nsec;
+        // args[i]->client_id = i ;
+        args[i]->sync_bit = 0;
+        pthread_create(clients[i], NULL, client_connection, args[i]);
+    }
+
+    queue_pair* s_qp;
+
+    //Synchronization variable to begin attempting to open connections
+    run_flag = true;
+
+    //Hash to identify client id
+
+    char name[32];
+    sprintf(name, "%d", MAX_CLIENTS-1);
+    int temp_client_id = (int)hash((unsigned char*) name);
+   
+    int client_list[MAX_CLIENTS];
+    int *item;
+    int key;
+    for(int i=0;i < MAX_CLIENTS;){
+        s_qp = accept(sc);
+
+ 
+
+        if (s_qp != NULL){ //Ocasional Leak here, discover why TODO
+
+            //Check for repeat entries!!!!!!!!!
+            key = s_qp->client_id;
+            item = (int*) bsearch(&key, client_list,MAX_CLIENTS,sizeof(int),cmpfunc);
+            
+            //Client already accepted, reject
+            if(item != NULL){
+                free(s_qp);
+                continue;
+            }
+
+            if (s_qp->request_shmaddr != NULL){
+
+                //Found RTT client handle
+                if (s_qp->client_id == temp_client_id){
+                    client_list[i] = s_qp->client_id;
+                    handler = malloc(sizeof(pthread_t));
+                    atomic_thread_fence(memory_order_seq_cst);
+                    pthread_create(handler, NULL, server, s_qp);
+                    i++;
+                }
+
+                client_list[i] = s_qp->client_id;
+                atomic_thread_fence(memory_order_seq_cst);
+                i++;
+            }
+        }
+    }
+
+    // atomic_thread_fence(memory_order_seq_cst);
+    //Join threads
+    pthread_join(*handler,NULL);
+    free(handler);
+    for(int i =0; i < MAX_CLIENTS; i++){
+        pthread_join(*clients[i],NULL);
+        free(clients[i]);
+    }
+
+    //PRINT AVERGAGE
+    //nanosecond ns 1.0e-09
+    //microsecond us 1.0e-06
+    //millisecond ms 1.0e-03
+
+    //Handle RTT timing
+    bench_report_rtt_stats( args[MAX_CLIENTS-1]);
+   
+    
+
+    //Handle connection timing
+    long total_ns = 0.0;
+    for(int i =0; i < MAX_CLIENTS-1; i++){
+        struct timespec start = args[i]->start;
+        struct timespec end = args[i]->end;
+
+
+        if ((end.tv_sec - start.tv_sec) > 0 ){ //we have atleast 1 sec
+
+            long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
+            ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
+
+            total_ns += (ms * 1.0e+06);
+        } else {//nanosecond scale, probably not very accurate
+        
+            long ns = 0.0;
+            ns =  (end.tv_sec - start.tv_sec) * 1.0e+09;
+            ns += (end.tv_nsec - start.tv_nsec);    
+
+            total_ns += ns;
+        }
+    }
+
+    long average_ns = total_ns/(MAX_CLIENTS-1);
+
+    fprintf(stdout, "Num RTT Clients: %d  \n", 1);
+    fprintf(stdout, "Num Connect Clients: %d  \n", MAX_CLIENTS-1);
+    fprintf(stdout, "Available Slots: %d  \n", SLOT_NUM);
+    fprintf(stdout, "Num Items: %d  \n", NUM_ITEMS);
+    fprintf(stdout, "Message Size: %d  \n", MESSAGE_SIZE);
+    fprintf(stdout, "Average Connect Latency: %ld ns/op \n", average_ns);
+
+
+    for (int i=0; i< MAX_CLIENTS; i++){
+        free(args[i]);
+    }
+    shutdown(sc);
+
+    run_flag = false;
+
+}
 
 
 void bench_run_all(void){
     //Connection Test
 
     //Echo application, capture RTT latency and throughput
+    //TODO: Modify to pass arguments
     rtt_test();
     single_connection_test();
     connection_stress_test();
     rtt_during_connection_test();
+    single_rtt_during_connection_test();
+
     //"Tune" Server Overhead
 
 
