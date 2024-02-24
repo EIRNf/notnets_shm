@@ -86,9 +86,6 @@ void bench_report_connection_stats(struct connection_args *args){
     }  
 }
 
-
-
-
 void* client_tcp_connection(void* arg){
 
     int sockfd;
@@ -126,6 +123,9 @@ void* client_tcp_connection(void* arg){
     pthread_exit(0);
 }
 
+void server_tcp_handler(){
+
+}
 
 void single_tcp_connection_test(){
     fprintf(stdout, "tcp-socket/single-connection/\n");
@@ -249,16 +249,19 @@ void connection_tcp_stress_test(){
     run_flag = true;
 
 
-    //Accept loop for Server
+    // Accept loop for Server
     // Accept the data packet from client and verification 
-    connfd = accept(sockfd, (SA*)&cli, &len); 
-    if (connfd < 0) { 
-        printf("server accept failed...\n"); 
-        exit(0); 
-    } 
-   
 
-    atomic_thread_fence(memory_order_seq_cst);
+    int client_list[MAX_CLIENTS];
+    for(int i = 0; i < MAX_CLIENTS; i++){
+        connfd = accept(sockfd, (SA*)&cli, &len); 
+        if (connfd < 0) { 
+            printf("server accept failed...\n"); 
+            exit(0); 
+        } 
+        client_list[i] = connfd;
+    }
+
     //Join threads
     for(int i =0; i < MAX_CLIENTS; i++){
         pthread_join(*clients[i],NULL);
@@ -290,13 +293,151 @@ void connection_tcp_stress_test(){
         }
     }
 
-
     fprintf(stdout, "Num Clients: %d  \n", MAX_CLIENTS);
     fprintf(stdout, "Available Slots: %d  \n", NUM_CONNECTIONS);
     fprintf(stdout, "Average Connection Latency: %ld ms/op \n", (total_ms/MAX_CLIENTS));
     fprintf(stdout, "Average Connection Latency: %ld ns/op  \n", total_ns/MAX_CLIENTS);
 
     close(sockfd);
+    for (int i=0; i< MAX_CLIENTS; i++){
+        free(args[i]);
+    }
+    run_flag = false;
+}
+
+void rtt_during_tcp_connection_test(){
+    fprintf(stdout, "tcp-socket/rtt-during-multi-connection/\n");
+
+     int sockfd, connfd; 
+    socklen_t len;
+    struct sockaddr_in servaddr, cli; 
+
+    // socket create and verification 
+    sockfd = socket(AF_INET, SOCK_STREAM, 0); 
+    if (sockfd == -1) { 
+        printf("socket creation failed...\n"); 
+        exit(0); 
+    } 
+
+    bzero(&servaddr, sizeof(servaddr)); 
+
+
+    // assign IP, PORT 
+    servaddr.sin_family = AF_INET; 
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY); 
+    servaddr.sin_port = htons(PORT); 
+    // Binding newly created socket to given IP and verification 
+    if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) { 
+        printf("socket bind failed...\n"); 
+        exit(0); 
+    } 
+
+
+
+    // Now server is ready to listen and verification 
+    if ((listen(sockfd, NUM_CONNECTIONS)) != 0) { 
+        printf("Listen failed...\n"); 
+        exit(0); 
+    } 
+
+    len = sizeof(cli); 
+
+    // pthread_t producer;
+    pthread_t *clients[MAX_CLIENTS] = {};
+    pthread_t *handlers[NUM_HANDLERS] = {};
+
+
+    struct connection_args *args[MAX_CLIENTS] = {};
+
+    //Create client threads, will maintain a holding pattern until 
+    // flag is flipped
+    struct timespec nonce;
+    for(int i = 0; i < MAX_CLIENTS; i++){
+        struct connection_args *client_args = malloc(sizeof(struct connection_args));
+        args[i] = client_args;
+        pthread_t *new_client = malloc(sizeof(pthread_t));
+        clients[i] = new_client;
+        if (! timespec_get(&nonce, TIME_UTC)){
+            // return -1;
+        }
+        args[i]->client_id = i + nonce.tv_nsec;
+        // args[i]->client_id = i ;
+        args[i]->sync_bit = 0;
+        pthread_create(clients[i], NULL, client_tcp_connection, args[i]);
+    }
+    
+    //Synchronization variable to begin attempting to open connections
+    run_flag = true;
+   
+    int client_list[MAX_CLIENTS];
+    for(int i=0;i < MAX_CLIENTS;){
+        connfd = accept(sockfd, (SA*)&cli, &len); 
+        if (connfd < 0) { 
+            printf("server accept failed...\n"); 
+            exit(0); 
+        } 
+        if (connfd){
+            client_list[i] = connfd;
+            pthread_t *new_handler = malloc(sizeof(pthread_t));
+            handlers[i] = new_handler;
+            atomic_thread_fence(memory_order_seq_cst);
+            // pthread_create(handlers[i], NULL, server_tcp_handler, NULL); //server handler
+            i++;
+        }
+    }
+
+    // atomic_thread_fence(memory_order_seq_cst);
+    //Join threads
+    for(int i =0; i < MAX_CLIENTS; i++){
+        pthread_join(*handlers[i],NULL);
+        pthread_join(*clients[i],NULL);
+        // bench_report_rtt_connection_stats(args[i]);
+        //Free heap allocated data
+        // free(client_queues[i]);
+        free(handlers[i]);
+        // free(args[i]);
+        free(clients[i]);
+    }
+
+    //PRINT AVERGAGE
+    //nanosecond ns 1.0e-09
+    //microsecond us 1.0e-06
+    //millisecond ms 1.0e-03
+    
+    long total_ns = 0.0;
+    for(int i =0; i < MAX_CLIENTS; i++){
+        struct timespec start = args[i]->start;
+        struct timespec end = args[i]->end;
+
+
+        if ((end.tv_sec - start.tv_sec) > 0 ){ //we have atleast 1 sec
+
+            long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
+            ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
+
+            total_ns += (ms * 1.0e+06);
+        } else {//nanosecond scale, probably not very accurate
+        
+            long ns = 0.0;
+            ns =  (end.tv_sec - start.tv_sec) * 1.0e+09;
+            ns += (end.tv_nsec - start.tv_nsec);    
+
+            total_ns += ns;
+        }
+    }
+
+    long average_ns = total_ns/MAX_CLIENTS;
+
+    fprintf(stdout, "Num Clients: %d  \n", MAX_CLIENTS);
+    fprintf(stdout, "Num Items: %d  \n", NUM_ITEMS);
+    fprintf(stdout, "Message Size: %d  \n", MESSAGE_SIZE);
+    fprintf(stdout, "Average Latency: %ld ns/op \n", (average_ns/NUM_ITEMS));
+    fprintf(stdout, "Average Throughput: %f ops/ms \n", (NUM_ITEMS)/(average_ns / 1.0e+06));
+    fprintf(stdout, "Total Throughput: %f ops/ms \n", (NUM_ITEMS * MAX_CLIENTS)/(average_ns / 1.0e+06));
+
+
+
+
     for (int i=0; i< MAX_CLIENTS; i++){
         free(args[i]);
     }
