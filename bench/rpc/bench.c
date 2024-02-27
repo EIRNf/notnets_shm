@@ -1,8 +1,15 @@
+#define _GNU_SOURCE
+#include <stdio.h>
 #include "../../src/rpc.h"
 #include  <time.h>
 #include <pthread.h>
 #include <assert.h>
 #include <stdatomic.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sched.h>
+
+
 
 #define NUM_ITEMS 10000000
 #define MESSAGE_SIZE 4 //Int
@@ -62,8 +69,31 @@ void bench_report_rtt_stats(struct connection_args *args) {
     }  
 }
 
+#ifdef __APPLE__
+void pinThread(int cpu) {
+//empty func
+    (void)cpu;
+}
+#else
+void pinThread(int cpu) {
+  if (cpu < 0) {
+    return;
+  }
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(cpu, &cpuset);
+  if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) ==
+      -1) {
+    perror("pthread_setaffinity_no");
+    exit(1);
+  }
+}
+#endif
+
+
 
 void client(queue_pair* qp, struct connection_args *args){
+
     int *buf = malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
 
@@ -92,6 +122,8 @@ void client(queue_pair* qp, struct connection_args *args){
 }
  
 void *server(void* s_qp){
+    pinThread(cpu0);
+
     queue_pair* qp = (queue_pair*) s_qp;
 
     int* buf = malloc(MESSAGE_SIZE);

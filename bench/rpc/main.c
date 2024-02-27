@@ -1,6 +1,5 @@
 // #include "../../src/queue.h"
 //Currently commented out as it has not been updated
-#include <stdio.h>
 
 #include "bench.c"
 

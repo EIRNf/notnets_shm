@@ -12,6 +12,8 @@ int cpu0 = 0;
 int cpu1 = 1;
 
 void pinThread(int cpu) {
+      (void)cpu;
+
   if (cpu < 0) {
     return;
   }
