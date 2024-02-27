@@ -29,7 +29,7 @@ void pinThread(int cpu) {
 
 void boost_rtt(){
 
-    std::cout << "boost::lockfree::spsc:" << std::endl;
+    std::cout << "\nboost::lockfree::spsc:" << std::endl;
   
     boost::lockfree::spsc_queue<u_int> q(16024);
     boost::lockfree::spsc_queue<u_int> q2(16024);

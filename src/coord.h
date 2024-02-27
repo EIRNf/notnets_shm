@@ -1,7 +1,7 @@
 #ifndef __COORD_H
 #define __COORD_H
 
-#define SLOT_NUM 10
+#define SLOT_NUM 20
 #define QUEUE_SIZE 16024
 
 #include "mem.h"
@@ -31,8 +31,10 @@ typedef struct shm_pair {
 typedef struct coord_row {
     int client_id; //Only written to by Client, how do we even know id?
     int message_size;
-    bool shm_created;  //Only written to by Server
-    atomic_int shm_attached;
+    atomic_bool shm_created;  //Only written to by Server
+    atomic_bool client_attached;
+    atomic_bool server_attached;
+    // atomic_int shm_attached;
     shm_pair shms;
     bool detach;  //Only written to by Client
 } coord_row;
@@ -53,7 +55,8 @@ void print_coord_row(const coord_row *row) {
     }
     printf("  message_size: %d\n", row->message_size);
     printf("  shm_created: %s\n", row->shm_created ? "true" : "false");
-    printf("  shm_attached: %d\n", atomic_load(&row->shm_attached));
+    printf("  client_attached: %d\n", atomic_load(&row->client_attached));
+    printf("  server_attached: %d\n", atomic_load(&row->server_attached));
     printf("  shms.request_shm.key: %d\n", row->shms.request_shm.key);
     printf("  shms.request_shm.shmid: %d\n", row->shms.request_shm.shmid);
     printf("  shms.response_shm.key: %d\n", row->shms.response_shm.key);
@@ -103,6 +106,10 @@ coord_header* coord_attach(char* coord_address){
 
     void* shmaddr = shm_attach(shmid);
 
+    if (shmaddr == NULL) {
+        return NULL;
+    }
+
     // get header
     coord_header* header = (coord_header*) shmaddr;
 
@@ -123,13 +130,15 @@ int request_slot(coord_header* header, int client_id, int message_size){
         if (header->available_slots[i].client_reserved == false){
             // printf("CLIENT: Pre-Requesting:\n");
             // print_coord_header(header);
-            header->available_slots[i].client_reserved = true;
             header->slots[i].client_id = client_id;
             header->slots[i].message_size = message_size;
             header->slots[i].detach = false;
+            atomic_store(&header->slots[i].client_attached,false);
+            atomic_store(&header->slots[i].server_attached,false);
             header->slots[i].shm_created = false;
-            header->slots[i].shm_attached = 0;
             atomic_thread_fence(memory_order_seq_cst);
+            header->available_slots[i].client_reserved = true;
+
             // printf("CLIENT: Post-Requesting:\n");
             // print_coord_header(header);
             pthread_mutex_unlock(&header->mutex);
@@ -145,6 +154,7 @@ shm_pair check_slot(coord_header* header, int slot){
     pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
         shms = header->slots[slot].shms;
+        atomic_thread_fence(memory_order_seq_cst);
     }
     pthread_mutex_unlock(&header->mutex);
     return shms;
@@ -160,23 +170,43 @@ int get_client_id(coord_header* header, int slot){
     return i;
 }
 
-int get_attach_state(coord_header* header, int slot){
-    int attach = 0;
+bool get_client_attach_state(coord_header* header, int slot){
+    bool attach = false;
     pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
-        attach = header->slots[slot].shm_attached;
+        attach =  atomic_load(&header->slots[slot].client_attached);
     }
     pthread_mutex_unlock(&header->mutex);
     return attach;
 }
 
-//If return 0 the slot hasn't had shm created yet
-int increment_slot_attach_count(coord_header* header, int slot) {
-    int attach = 0;
+bool get_server_attach_state(coord_header* header, int slot){
+    bool attach = false;
     pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
-        header->slots[slot].shm_attached += 1;
-        attach = header->slots[slot].shm_attached;
+        attach =  atomic_load(&header->slots[slot].server_attached);
+    }
+    pthread_mutex_unlock(&header->mutex);
+    return attach;
+}
+
+bool set_client_attach_state(coord_header* header, int slot, bool state){
+    bool attach = false;
+    pthread_mutex_lock(&header->mutex);
+    if (header->slots[slot].shm_created == true) {
+        atomic_store(&header->slots[slot].client_attached,state);
+        attach = atomic_load(&header->slots[slot].client_attached);
+    }
+    pthread_mutex_unlock(&header->mutex);
+    return attach;
+}
+
+bool set_server_attach_state(coord_header* header, int slot, bool state){
+    bool attach = false;
+    pthread_mutex_lock(&header->mutex);
+    if (header->slots[slot].shm_created == true) {
+        atomic_store(&header->slots[slot].server_attached,state);
+        attach = atomic_load(&header->slots[slot].server_attached);
     }
     pthread_mutex_unlock(&header->mutex);
     return attach;
@@ -216,7 +246,8 @@ coord_header* coord_create(char* coord_address){
 
 int service_slot(coord_header* header,
                  int slot,
-                 shm_pair (*allocation)(int)){
+                 shm_pair (*allocation)(int,int)){
+                    
     pthread_mutex_lock(&header->mutex);
     int client_id = header->slots[slot].client_id;
 
@@ -224,13 +255,17 @@ int service_slot(coord_header* header,
             !header->slots[slot].shm_created) {
         // printf("SERVER: Pre-Servicing:\n");
         // print_coord_header(header);
+
+
         // call allocation Function
-        shm_pair shms = (*allocation)(header->slots[slot].message_size);
+        shm_pair shms = (*allocation)(header->slots[slot].message_size,header->slots[slot].client_id);
 
         header->slots[slot].shms = shms;
-        header->slots[slot].shm_created = true;
+        atomic_thread_fence(memory_order_seq_cst);
 
+        atomic_store(&header->slots[slot].shm_created, true);
         pthread_mutex_unlock(&header->mutex);
+
         // printf("SERVER: Post-Servicing:\n");
         // print_coord_header(header);
         return client_id;

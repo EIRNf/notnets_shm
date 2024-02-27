@@ -1,7 +1,5 @@
 // #include "../../src/queue.h"
-#define _GNU_SOURCE
-#include <stdio.h>
-#include <sched.h>
+
 #include "bench.c"
 
 
@@ -16,9 +14,6 @@ Goals:
 
 int main()
 {
-
-
-
     bench_run_all();
 }
 

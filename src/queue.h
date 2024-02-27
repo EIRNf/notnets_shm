@@ -46,7 +46,7 @@ void* get_message_array(spsc_queue_header* header) {
  * @return size of usable shm region space
  **/
 ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
-    if (message_size + sizeof(spsc_queue_header) > (u_long) shm_size) {
+    if (message_size + (size_t) sizeof(spsc_queue_header) > shm_size) {
         perror("Message size type + Header data too large for allocated shm");
         exit(1);
     }
@@ -65,10 +65,10 @@ ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
     header.total_count = 0;
     header.stop_consumer_polling = false;
     header.stop_producer_polling = false;
-
-    spsc_queue_header* header_ptr = get_queue_header(shmaddr);
+    atomic_thread_fence(memory_order_seq_cst);
+    spsc_queue_header* header_ptr = get_queue_header(shmaddr); //Necessary???
     *header_ptr = header;
-    atomic_thread_fence(memory_order_release);
+    atomic_thread_fence(memory_order_seq_cst);
 
     return shm_size - leftover_bytes;
 }
@@ -165,6 +165,11 @@ bool is_empty(spsc_queue_header *header) {
  */
 size_t dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
     void* array_start = get_message_array(header);
+
+
+    if(*buf_size > header->message_size+1){
+        printf("not supposed to happen");
+    }
 
     // handle offset math
     if (*buf_size + header->message_offset > header->message_size) {
