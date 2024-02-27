@@ -628,6 +628,12 @@ void single_rtt_during_connection_test(){
 
     struct connection_args *args[MAX_CLIENTS] = {};
 
+    int rtt_client = MAX_CLIENTS-1;
+
+    if (rtt_client == 0) {
+        rtt_client = 1;
+    }
+
     //Create client threads, will maintain a holding pattern until flag is flipped
     //Handle single writing client
     struct connection_args *client_args = malloc(sizeof(struct connection_args));
@@ -744,10 +750,10 @@ void single_rtt_during_connection_test(){
         }
     }
 
-    long average_ns = total_ns/(MAX_CLIENTS-1);
+    long average_ns = total_ns/(rtt_client);
 
     fprintf(stdout, "Num RTT Clients: %d  \n", 1);
-    fprintf(stdout, "Num Connect Clients: %d  \n", MAX_CLIENTS-1);
+    fprintf(stdout, "Num Connect Clients: %d  \n", rtt_client);
     fprintf(stdout, "Available Slots: %d  \n", SLOT_NUM);
     fprintf(stdout, "Num Items: %d  \n", NUM_ITEMS);
     fprintf(stdout, "Message Size: %d  \n", MESSAGE_SIZE);
@@ -774,7 +780,6 @@ void bench_run_all(void){
     connection_stress_test();
     rtt_during_connection_test();
     single_rtt_during_connection_test();
-
     //"Tune" Server Overhead
 
 
