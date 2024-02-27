@@ -16,7 +16,6 @@ struct connection_args {
     int client_id;
     struct timespec start;
     struct timespec end;
-    unsigned int sync_bit;
 };
 
 
@@ -121,7 +120,7 @@ void *server(void* s_qp){
 }
 
 void rtt_test(){ 
-    fprintf(stdout, "rtt-notnets/spsc/\n");
+    fprintf(stdout, "\nrtt-notnets/spsc/\n");
     // pthread_t producer;
     pthread_t consumer;
 
@@ -162,39 +161,18 @@ void bench_report_connection_stats(struct connection_args *args){
     struct timespec start = args->start;
     struct timespec end = args->end;
 
-
     if ((end.tv_sec - start.tv_sec) > 0 ){ //we have atleast 1 sec
         //use millisecond scale
         long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
 	    ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
-
-        // long start_time = start.tv_sec * 1.0e+03;
-        // start_time += start.tv_nsec / 1.0e+06;
-
-        // fprintf(stdout, "start_time:%ld ms \n ", start_time);
-
-        // long end_time = end.tv_sec * 1.0e+03;
-        // end_time += end.tv_nsec / 1.0e+06;
-
-        // fprintf(stdout, "end_time:%ld ms \n ", end_time);
-
-
         
         fprintf(stdout, "Latency: %ld ms/op \n", ms);
-        // fprintf(stdout, "execution time:%ld ns \n ", (end.tv_nsec - start.tv_nsec));
-
-        // //Latency 
-        // fprintf(stdout, "\n latency: %ld ms/op \n", ms/NUM_ITEMS);
-        // long ns =  (end.tv_nsec - start.tv_nsec);
-        // fprintf(stdout, "%ld ns/op \n", ns);
-
     }
     else {//nanosecond scale, probably not very accurate
         long ns = (end.tv_nsec - start.tv_nsec);
 
         fprintf(stdout, "Latency: %ld ns/op \n", ns);
-        //Latency 
-        // fprintf(stdout, "%ld ns/op \n", ns);
+        
     }  
 }
 
@@ -218,11 +196,11 @@ void* client_connection(void* arg){
         }
     
     clock_gettime(CLOCK_MONOTONIC, &args->end);
-      // No connection was achieved :()
+
+    // No connection was achieved :()
     if (c_qp == NULL){
         fprintf(stdout, "Missed Connection: %d \n", args->client_id);
     }
-
     if (c_qp->request_shmaddr == NULL || c_qp->response_shmaddr == NULL ){
         fprintf(stdout, "Repeat Connection: %d \n", (int)hash((unsigned char*)name));
         fprintf(stdout, "Repeat Connection: %d \n", args->client_id);
@@ -237,7 +215,7 @@ void* client_connection(void* arg){
 
 // Evaluate how long a single non contested connection takes in notnets
 void single_connection_test(){ 
-    fprintf(stdout, "notnets/single-connection/\n");
+    fprintf(stdout, "\nnotnets/single-connection/\n");
 
     //Current 
     server_context* sc = register_server("test_server_addr");
@@ -272,15 +250,12 @@ int cmpfunc(const void * a, const void * b) {
    return ( *(int*)a - *(int*)b );
 }
 
-//TODO: Make connection/desconection stress test
 
-// TODO: This is a weird one. There is a bug that occurs under 
-// certain 
 // Evaluate how long connections take in Notnets
 // Instantiate multiple client threads to opening new connection until max is reached.
 // Server simply accepts and loops over avalable queue pairs until it can read data from all those connected.
 void connection_stress_test(){ 
-    fprintf(stdout, "notnets/multi-connection/\n");
+    fprintf(stdout, "\nnotnets/multi-connection/\n");
 
     // pthread_t producer;
     pthread_t *clients[MAX_CLIENTS] = {};
@@ -302,9 +277,6 @@ void connection_stress_test(){
             // return -1;
         }
         args[i]->client_id =  i + nonce.tv_nsec;
-        // args[i]->client_id = i ;
-
-        args[i]->sync_bit = 0;
         atomic_thread_fence(memory_order_seq_cst);
         pthread_create(clients[i], NULL, client_connection, args[i]);
     }
@@ -487,7 +459,7 @@ void* client_connection_rtt(void* arg){
 //Evaluate latency and throughput of connected clients
 //while new clients continue to connect.
 void rtt_during_connection_test(){ 
-    fprintf(stdout, "notnets/rtt-during-multi-connection/\n");
+    fprintf(stdout, "\nnotnets/rtt-during-multi-connection/\n");
 
     // pthread_t producer;
     pthread_t *clients[MAX_CLIENTS] = {};
@@ -511,8 +483,6 @@ void rtt_during_connection_test(){
             // return -1;
         }
         args[i]->client_id = i + nonce.tv_nsec;
-        // args[i]->client_id = i ;
-        args[i]->sync_bit = 0;
         pthread_create(clients[i], NULL, client_connection_rtt, args[i]);
     }
     
@@ -616,7 +586,7 @@ void rtt_during_connection_test(){
 
 
 void single_rtt_during_connection_test(){ 
-    fprintf(stdout, "notnets/single-rtt-during-multi-connection/\n");
+    fprintf(stdout, "\nnotnets/single-rtt-during-multi-connection/\n");
 
     // pthread_t producer;
     pthread_t *clients[MAX_CLIENTS] = {};
@@ -654,8 +624,6 @@ void single_rtt_during_connection_test(){
             // return -1;
         }
         args[i]->client_id = i + nonce.tv_nsec;
-        // args[i]->client_id = i ;
-        args[i]->sync_bit = 0;
         pthread_create(clients[i], NULL, client_connection, args[i]);
     }
 
@@ -780,8 +748,9 @@ void bench_run_all(void){
     connection_stress_test();
     rtt_during_connection_test();
     single_rtt_during_connection_test();
-    //"Tune" Server Overhead
+    //TODO: Make connection/desconection stress test
 
+    //TODO: "Tune" Server Overhead
 
 
 }

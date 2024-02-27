@@ -1,6 +1,6 @@
 # tool macros
 CC := clang-17
-CCFLAGS :=  -pthread -ggdb  #   -lstdc++  #-Wall -Wextra -Werror -lstdc++ #-fPIC -shared
+CCFLAGS :=  -pthread -ggdb#   -lstdc++  #-Wall -Wextra -Werror -lstdc++ #-fPIC -shared
 #-fsanitize=address -fPIE -pie -g -fPIC -g -fsanitize=thread -fno-omit-frame-pointer
 COBJFLAGS := -Wall -Wextra -Werror $(CCFLAGS) 
 LDFLAGS  := -shared

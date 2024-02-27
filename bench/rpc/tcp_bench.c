@@ -56,27 +56,8 @@ void bench_report_connection_stats(struct connection_args *args){
         //use millisecond scale
         long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
 	    ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
-
-        // long start_time = start.tv_sec * 1.0e+03;
-        // start_time += start.tv_nsec / 1.0e+06;
-
-        // fprintf(stdout, "start_time:%ld ms \n ", start_time);
-
-        // long end_time = end.tv_sec * 1.0e+03;
-        // end_time += end.tv_nsec / 1.0e+06;
-
-        // fprintf(stdout, "end_time:%ld ms \n ", end_time);
-
-
         
         fprintf(stdout, "Latency: %ld ms/op \n", ms);
-        // fprintf(stdout, "execution time:%ld ns \n ", (end.tv_nsec - start.tv_nsec));
-
-        // //Latency 
-        // fprintf(stdout, "\n latency: %ld ms/op \n", ms/NUM_ITEMS);
-        // long ns =  (end.tv_nsec - start.tv_nsec);
-        // fprintf(stdout, "%ld ns/op \n", ns);
-
     }
     else {//nanosecond scale, probably not very accurate
         long ns = (end.tv_nsec - start.tv_nsec);
@@ -206,7 +187,7 @@ void* server_tcp_handler(void* socket){
 }
 
 void single_tcp_connection_test(){
-    fprintf(stdout, "tcp-socket/single-connection/\n");
+    fprintf(stdout, "\ntcp-socket/single-connection/\n");
 
 
     int sockfd, connfd; 
@@ -274,7 +255,7 @@ void single_tcp_connection_test(){
 }
 
 void connection_tcp_stress_test(){
-    fprintf(stdout, "tcp-socket/multi-connection/\n");
+    fprintf(stdout, "\ntcp-socket/multi-connection/\n");
 
     int sockfd, connfd; 
     socklen_t len;
@@ -384,7 +365,7 @@ void connection_tcp_stress_test(){
 }
 
 void rtt_during_tcp_connection_test(){
-    fprintf(stdout, "tcp-socket/rtt-during-multi-connection/\n");
+    fprintf(stdout, "\ntcp-socket/rtt-during-multi-connection/\n");
 
      int sockfd, connfd; 
     socklen_t len;

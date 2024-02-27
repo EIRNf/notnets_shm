@@ -46,7 +46,7 @@ int cpu1 = 1;
 
 void bench_report_stats(run_stats run, char* name) {
     
-    fprintf(stdout, "%s\n", name);
+    fprintf(stdout, "\n%s\n", name);
     //nanosecond ns 1.0e-09
     //microsecond us 1.0e-06
     //millisecond ms 1.0e-03
