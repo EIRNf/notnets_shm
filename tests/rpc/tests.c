@@ -458,7 +458,6 @@ void test_connection_double_attach(){
 
 void tests_run_all() {
 
-    // test_many_servers();
     test_register_server_shutdown();
     test_open_close();
     test_accept();
