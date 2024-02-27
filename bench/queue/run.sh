@@ -25,4 +25,4 @@ $compiler_cmd ./main.c -o bench
 
 
 ./bench
-./comparison
+# ./comparison

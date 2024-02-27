@@ -17,3 +17,5 @@ bench/rpc/bench
 bench/rpc/core
 bench/rpc/main
 tests/queue/main
+bench/rpc/tcp_bench
+lib/notnets.so

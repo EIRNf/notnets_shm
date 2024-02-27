@@ -31,9 +31,8 @@
 #define NUM_ITEMS 100000
 #define MESSAGE_SIZE 4 //Int
 
-#define NUM_CONNECTIONS 15
-#define MAX_CLIENTS 15
-#define NUM_HANDLERS 15
+#define MAX_CLIENTS 20
+#define NUM_HANDLERS 20
 
 atomic_bool run_flag = false; //control execution
 
@@ -302,7 +301,7 @@ void connection_tcp_stress_test(){
     } 
 
     // Now server is ready to listen and verification 
-    if ((listen(sockfd, NUM_CONNECTIONS)) != 0) { 
+    if ((listen(sockfd, MAX_CLIENTS)) != 0) { 
         printf("Listen failed...\n"); 
         exit(0); 
     } 
@@ -370,7 +369,7 @@ void connection_tcp_stress_test(){
     }
 
     fprintf(stdout, "Num Clients: %d  \n", MAX_CLIENTS);
-    fprintf(stdout, "Available Slots: %d  \n", NUM_CONNECTIONS);
+    fprintf(stdout, "Available Slots: %d  \n", MAX_CLIENTS);
     fprintf(stdout, "Average Connection Latency: %ld ms/op \n", (total_ms/MAX_CLIENTS));
     fprintf(stdout, "Average Connection Latency: %ld ns/op  \n", total_ns/MAX_CLIENTS);
 
@@ -414,7 +413,7 @@ void rtt_during_tcp_connection_test(){
 
 
     // Now server is ready to listen and verification 
-    if ((listen(sockfd, NUM_CONNECTIONS)) != 0) { 
+    if ((listen(sockfd, MAX_CLIENTS)) != 0) { 
         printf("Listen failed...\n"); 
         exit(0); 
     } 
