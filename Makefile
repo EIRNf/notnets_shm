@@ -51,6 +51,10 @@ test:
 .PHONY: bench
 bench: 
 	(cd bench;./runner.sh "$(CC) $(COBJFLAGS)")
+
+.PHONY: bench-iter
+bench-iter: 
+	(cd bench;./runner_iterations.sh "$(CC) $(COBJFLAGS)" "20")
 	
 .PHONY: clean
 clean:

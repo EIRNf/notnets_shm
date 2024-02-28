@@ -7,6 +7,7 @@ if [ $# -eq 0 ]; then
 fi
 
 argument="$1"
+iterations="$2"
 current_directory=$(pwd)
 output_file="$current_directory/bench_output.txt"
 
@@ -24,7 +25,9 @@ for directory in $directories; do
         echo "Running script in directory: $directory" >> "$output_file"
         echo "------------------------------------" >> "$output_file"
         cd $directory
-        bash "$script_path" "$argument" >> "$output_file" #2>&1
+        for ((i=1; i<=$iterations; i++)); do
+        bash "$script_path" "$argument -DMAX_CLIENTS=$i">> "$output_file" #2>&1
+        done
         cd $current_directory
         echo "" >> "$output_file" 
         echo "------------------------------------" >> "$output_file"

@@ -11,11 +11,12 @@
 
 
 
-#define NUM_ITEMS 10000000
+#define NUM_ITEMS 1000000
 #define MESSAGE_SIZE 4 //Int
 
+#ifndef MAX_CLIENTS
 #define MAX_CLIENTS 20
-#define NUM_HANDLERS 20
+#endif 
 
 atomic_bool run_flag = false; //control execution
 
@@ -471,7 +472,7 @@ void rtt_during_connection_test(){
 
     // pthread_t producer;
     pthread_t *clients[MAX_CLIENTS] = {};
-    pthread_t *handlers[NUM_HANDLERS] = {};
+    pthread_t *handlers[MAX_CLIENTS] = {};
 
 
     //Current 
@@ -751,11 +752,11 @@ void bench_run_all(void){
 
     //Echo application, capture RTT latency and throughput
     //TODO: Modify to pass arguments
-    rtt_test();
-    single_connection_test();
-    connection_stress_test();
+    // rtt_test();
+    // single_connection_test();
+    // connection_stress_test();
     rtt_during_connection_test();
-    single_rtt_during_connection_test();
+    // single_rtt_during_connection_test();
     //TODO: Make connection/desconection stress test
 
     //TODO: "Tune" Server Overhead

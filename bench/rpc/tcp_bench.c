@@ -28,11 +28,13 @@
 #define MAX 80
 #define PORT 8080
 
-#define NUM_ITEMS 100000
+#define NUM_ITEMS 1000000
 #define MESSAGE_SIZE 4 //Int
 
+#ifndef MAX_CLIENTS
 #define MAX_CLIENTS 20
-#define NUM_HANDLERS 20
+#endif 
+
 
 atomic_bool run_flag = false; //control execution
 
@@ -403,7 +405,7 @@ void rtt_during_tcp_connection_test(){
 
     // pthread_t producer;
     pthread_t *clients[MAX_CLIENTS] = {};
-    pthread_t *handlers[NUM_HANDLERS] = {};
+    pthread_t *handlers[ MAX_CLIENTS] = {};
 
 
     struct connection_args *args[MAX_CLIENTS] = {};
@@ -506,8 +508,8 @@ void rtt_during_tcp_connection_test(){
 }
 
 int main(){ //Annoying to rerun due to time wait socket reuse
-    single_tcp_connection_test();
-    connection_tcp_stress_test();
+    // single_tcp_connection_test();
+    // connection_tcp_stress_test();
     rtt_during_tcp_connection_test();
 }
 
