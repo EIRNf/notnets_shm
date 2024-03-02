@@ -22,53 +22,9 @@
 
 #include <assert.h> //assert
 
-
-#define SA struct sockaddr 
-
-#define MAX 80
-#define PORT 8080
-
-#define NUM_ITEMS 1000000
-#define MESSAGE_SIZE 4 //Int
-
-#ifndef MAX_CLIENTS
-#define MAX_CLIENTS 20
-#endif 
+#include "tcp_bench_utils.c"
 
 
-atomic_bool run_flag = false; //control execution
-
-struct connection_args {
-    int client_id;
-    struct timespec start;
-    struct timespec end;
-    unsigned int sync_bit;
-};
-
-void bench_report_connection_stats(struct connection_args *args){
-    //nanosecond ns 1.0e-09
-    //microsecond us 1.0e-06
-    //millisecond ms 1.0e-03
-
-    struct timespec start = args->start;
-    struct timespec end = args->end;
-
-
-    if ((end.tv_sec - start.tv_sec) > 0 ){ //we have atleast 1 sec
-        //use millisecond scale
-        long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
-	    ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
-        
-        fprintf(stdout, "Latency: %ld ms/op \n", ms);
-    }
-    else {//nanosecond scale, probably not very accurate
-        long ns = (end.tv_nsec - start.tv_nsec);
-
-        fprintf(stdout, "Latency: %ld ns/op \n", ns);
-        //Latency 
-        // fprintf(stdout, "%ld ns/op \n", ns);
-    }  
-}
 
 void* client_tcp_connection(void* arg){
 
@@ -106,7 +62,6 @@ void* client_tcp_connection(void* arg){
     close(sockfd);
     pthread_exit(0);
 }
-
 
 void* client_tcp_load_connection(void* arg){
     int sockfd;
@@ -249,7 +204,7 @@ void single_tcp_connection_test(){
 
     pthread_join(client,NULL);    
     fprintf(stdout, "Num Clients: %d \n", 1);
-    bench_report_connection_stats(args);
+    report_connection_stats(args);
     shutdown(connfd,SHUT_RDWR);
     close(sockfd);
     free(args);
@@ -300,7 +255,6 @@ void connection_tcp_stress_test(){
         pthread_t *new_client = malloc(sizeof(pthread_t));
         clients[i] = new_client;
         args[i]->client_id =  i;
-        args[i]->sync_bit = 0;
         atomic_thread_fence(memory_order_seq_cst);
         pthread_create(clients[i], NULL, client_tcp_connection, args[i]);
     }
@@ -423,7 +377,6 @@ void rtt_during_tcp_connection_test(){
         }
         args[i]->client_id = i + nonce.tv_nsec;
         // args[i]->client_id = i ;
-        args[i]->sync_bit = 0;
         pthread_create(clients[i], NULL, client_tcp_load_connection, args[i]);
     }
     
@@ -453,7 +406,7 @@ void rtt_during_tcp_connection_test(){
     for(int i =0; i < MAX_CLIENTS; i++){
         pthread_join(*handlers[i],NULL);
         pthread_join(*clients[i],NULL);
-        // bench_report_rtt_connection_stats(args[i]);
+        // report_rtt_stats_after_connect(args[i]);
         //Free heap allocated data
         // free(client_queues[i]);
         free(handlers[i]);
@@ -499,7 +452,7 @@ void rtt_during_tcp_connection_test(){
 
 
    // shutdown(sockfd,SHUT_RDWR);
-    for (int i=0; i< MAX_CLIENTS; i++){
+    for (int i=0; i < MAX_CLIENTS; i++){
         shutdown(client_list[i],SHUT_RDWR);
         free(args[i]);
     }
@@ -509,7 +462,15 @@ void rtt_during_tcp_connection_test(){
 
 int main(){ //Annoying to rerun due to time wait socket reuse
     // single_tcp_connection_test();
-    // connection_tcp_stress_test();
-    rtt_during_tcp_connection_test();
+    connection_tcp_stress_test();
+    // rtt_during_tcp_connection_test();
+
+    //Connections are all pre-established, and we only measure steady-state
+    tcp_rtt_steady_state_conn_test();
+    // Connections are established at the start of the experiment, but included in the measurement
+    // We explicitly do not disconnect right?
+    tcp_rtt_during_connection_test();
+    // Connections are open and closed throughout the duration of the experiment.
+    tcp_rtt_connect_disconnect_connection_test();
 }
 

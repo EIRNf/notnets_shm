@@ -145,13 +145,13 @@ void* _manage_pool_runner(void* handler) {
 
     while (true) {
         // check if need to shut down
-        pthread_mutex_lock(&sc->manage_pool_mutex);
+        // pthread_mutex_lock(&sc->manage_pool_mutex);
         if (sc->manage_pool_state == RUNNING_SHUTDOWN) {
             sc->manage_pool_state = NOT_RUNNING;
-            pthread_mutex_unlock(&sc->manage_pool_mutex);
+            // pthread_mutex_unlock(&sc->manage_pool_mutex);
             return NULL;
         }
-        pthread_mutex_unlock(&sc->manage_pool_mutex);
+        // pthread_mutex_unlock(&sc->manage_pool_mutex);
 
         manage_pool(sc);
 
@@ -263,19 +263,19 @@ int client_close(char* source_addr, char* destination_addr) {
     int client_id = (int) hash((unsigned char*) source_addr);
     coord_header* ch = coord_attach(destination_addr);
 
-    pthread_mutex_lock(&ch->mutex);
+    // pthread_mutex_lock(&ch->mutex);
     for (int i = 0; i < SLOT_NUM; ++i) {
         if (ch->slots[i].client_id == client_id) {
             ch->slots[i].detach = true;
 
-            pthread_mutex_unlock(&ch->mutex);
+            // pthread_mutex_unlock(&ch->mutex);
             coord_detach(ch);
 
             return 0;
         }
     }
 
-    pthread_mutex_unlock(&ch->mutex);
+    // pthread_mutex_unlock(&ch->mutex);
     coord_detach(ch);
 
     return -1;
@@ -445,9 +445,9 @@ server_context* register_server(char* source_addr) {
     }
 
 
-    pthread_mutex_lock(&sc->manage_pool_mutex);
+    // pthread_mutex_lock(&sc->manage_pool_mutex);
     sc->manage_pool_state = RUNNING_NO_SHUTDOWN;
-    pthread_mutex_unlock(&sc->manage_pool_mutex);
+    // pthread_mutex_unlock(&sc->manage_pool_mutex);
 
     // srand(time(NULL));
 
@@ -541,19 +541,19 @@ void shutdown(server_context* handler) {
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     // tell manage pool thread to shut down
-    pthread_mutex_lock(&handler->manage_pool_mutex);
+    // pthread_mutex_lock(&handler->manage_pool_mutex);
     handler->manage_pool_state = RUNNING_SHUTDOWN;
-    pthread_mutex_unlock(&handler->manage_pool_mutex);
+    // pthread_mutex_unlock(&handler->manage_pool_mutex);
 
     // wait for manage pool thread to shut down
     while (true) { //TODO figure out how to get rid of runnning thread
-        pthread_mutex_lock(&handler->manage_pool_mutex);
+        // pthread_mutex_lock(&handler->manage_pool_mutex);
         if (handler->manage_pool_state == NOT_RUNNING) {
-            pthread_mutex_unlock(&handler->manage_pool_mutex);
+            // pthread_mutex_unlock(&handler->manage_pool_mutex);
             pthread_join(handler->manage_pool_thread, NULL);
             break;
         }
-        pthread_mutex_unlock(&handler->manage_pool_mutex);
+        // pthread_mutex_unlock(&handler->manage_pool_mutex);
     }
 
     coord_shutdown(ch);

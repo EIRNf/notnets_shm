@@ -1,7 +1,7 @@
 #ifndef __COORD_H
 #define __COORD_H
 
-#define SLOT_NUM 20
+#define SLOT_NUM 40
 #define QUEUE_SIZE 16024
 
 #include "mem.h"
@@ -151,64 +151,64 @@ int request_slot(coord_header* header, int client_id, int message_size){
 
 shm_pair check_slot(coord_header* header, int slot){
     shm_pair shms = {};
-    pthread_mutex_lock(&header->mutex);
+    // pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
         shms = header->slots[slot].shms;
         atomic_thread_fence(memory_order_seq_cst);
     }
-    pthread_mutex_unlock(&header->mutex);
+    // pthread_mutex_unlock(&header->mutex);
     return shms;
 }
 
 int get_client_id(coord_header* header, int slot){
     int i = 0;
-    pthread_mutex_lock(&header->mutex);
+    // pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
         i = header->slots[slot].client_id;
     }
-    pthread_mutex_unlock(&header->mutex);
+    // pthread_mutex_unlock(&header->mutex);
     return i;
 }
 
 bool get_client_attach_state(coord_header* header, int slot){
     bool attach = false;
-    pthread_mutex_lock(&header->mutex);
+    // pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
         attach =  atomic_load(&header->slots[slot].client_attached);
     }
-    pthread_mutex_unlock(&header->mutex);
+    // pthread_mutex_unlock(&header->mutex);
     return attach;
 }
 
 bool get_server_attach_state(coord_header* header, int slot){
     bool attach = false;
-    pthread_mutex_lock(&header->mutex);
+    // pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
         attach =  atomic_load(&header->slots[slot].server_attached);
     }
-    pthread_mutex_unlock(&header->mutex);
+    // pthread_mutex_unlock(&header->mutex);
     return attach;
 }
 
 bool set_client_attach_state(coord_header* header, int slot, bool state){
     bool attach = false;
-    pthread_mutex_lock(&header->mutex);
+    // pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
         atomic_store(&header->slots[slot].client_attached,state);
         attach = atomic_load(&header->slots[slot].client_attached);
     }
-    pthread_mutex_unlock(&header->mutex);
+    // pthread_mutex_unlock(&header->mutex);
     return attach;
 }
 
 bool set_server_attach_state(coord_header* header, int slot, bool state){
     bool attach = false;
-    pthread_mutex_lock(&header->mutex);
+    // pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].shm_created == true) {
         atomic_store(&header->slots[slot].server_attached,state);
         attach = atomic_load(&header->slots[slot].server_attached);
     }
-    pthread_mutex_unlock(&header->mutex);
+    // pthread_mutex_unlock(&header->mutex);
     return attach;
 }
 
@@ -248,7 +248,7 @@ int service_slot(coord_header* header,
                  int slot,
                  shm_pair (*allocation)(int,int)){
                     
-    pthread_mutex_lock(&header->mutex);
+    // pthread_mutex_lock(&header->mutex);
     int client_id = header->slots[slot].client_id;
 
     if (header->available_slots[slot].client_reserved &&
@@ -264,14 +264,14 @@ int service_slot(coord_header* header,
         atomic_thread_fence(memory_order_seq_cst);
 
         atomic_store(&header->slots[slot].shm_created, true);
-        pthread_mutex_unlock(&header->mutex);
+        // pthread_mutex_unlock(&header->mutex);
 
         // printf("SERVER: Post-Servicing:\n");
         // print_coord_header(header);
         return client_id;
     }
 
-    pthread_mutex_unlock(&header->mutex);
+    // pthread_mutex_unlock(&header->mutex);
     return -1;
 }
 
@@ -298,18 +298,18 @@ void force_clear_slot(coord_header* header, int slot){
 }
 
 void clear_slot(coord_header* header, int slot){
-    pthread_mutex_lock(&header->mutex);
+    // pthread_mutex_lock(&header->mutex);
     if (header->slots[slot].detach) {
         force_clear_slot(header, slot);
     }
-    pthread_mutex_unlock(&header->mutex);
+    // pthread_mutex_unlock(&header->mutex);
 }
 
 void coord_shutdown(coord_header* header) {
-    pthread_mutex_lock(&header->mutex);
+    // pthread_mutex_lock(&header->mutex);
     for (int i = 0; i < SLOT_NUM; ++i) {
             header->slots[i].detach = true;
     }
-    pthread_mutex_unlock(&header->mutex);
+    // pthread_mutex_unlock(&header->mutex);
 }
 #endif
