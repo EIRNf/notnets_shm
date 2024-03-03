@@ -32,23 +32,23 @@ void test_queue_partial_buffer() {
     queue_create(shmaddr, shm_size, message_size);
 
 
-    char *buf = malloc(message_size);
+    char *buf = (char*)malloc(message_size);
     buf[0] = 'b';
     buf[1] = 'i';
     buf[2] = 'r';
     buf[3] = 'd';
 
-    char*other_buf = malloc(message_size);
+    char* other_buf = (char*)malloc(message_size);
     other_buf[0] = 'a';
 
     push(shmaddr, buf, message_size);
     push(shmaddr, other_buf, message_size);
 
-    size_t* pop_size = malloc(sizeof(size_t));
+    size_t* pop_size = (size_t*)malloc(sizeof(size_t));
 
     // pop buffer can only store 1 character at a time
     *pop_size = sizeof(char);
-    char* pop_buf = malloc(*pop_size);
+    char* pop_buf = (char*)malloc(*pop_size);
 
     for (int i = 0; i < num_char; i++) {
         pop(shmaddr, pop_buf, pop_size);
@@ -108,7 +108,7 @@ void test_basic_queue_multiprocess(){
         *((int *) ipc_shmaddr) = 1;
 
         // parent pushes into queue
-        int *buf = malloc(message_size);
+        int *buf = (int*)malloc(message_size);
 
         // push integers 1-10
         for (int i = 0; i < iter; i++) {
@@ -141,9 +141,9 @@ void test_basic_queue_multiprocess(){
         // client pops from queue
         // assume the pop buffer can take in a full message
 
-        size_t* pop_size = malloc(sizeof(ssize_t));
+        size_t* pop_size = (size_t*)malloc(sizeof(ssize_t));
         *pop_size = message_size;
-        int* pop_buf = malloc(*pop_size);
+        int* pop_buf = (int*)malloc(*pop_size);
 
         for (int i = 0; i < iter; i++) {
             pop(shmaddr, pop_buf, pop_size);
@@ -193,7 +193,7 @@ void test_basic_queue_single_process(){
 
 
     // push and pop functionality
-    int *buf = malloc(message_size);
+    int *buf = (int*)malloc(message_size);
 
     // push integers 1-10
     int iter = 10;
@@ -204,9 +204,9 @@ void test_basic_queue_single_process(){
 
     free(buf);
 
-    size_t* pop_size = malloc(sizeof(ssize_t));
+    size_t* pop_size = (size_t*)malloc(sizeof(ssize_t));
     *pop_size = message_size;
-    int* pop_buf = malloc(*pop_size);
+    int* pop_buf = (int*)malloc(*pop_size);
 
     for (int i = 0; i < iter; i++) {
         pop(shmaddr, pop_buf, pop_size);
