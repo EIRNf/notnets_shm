@@ -729,11 +729,11 @@ void bench_run_all(void){
     // connection_stress_test();
 
     //Connections are all pre-established, and we only measure steady-state
-    rtt_steady_state_conn_test();
+    // rtt_steady_state_conn_test();
     
     // Connections are established at the start of the experiment, but included in the measurement
     // We explicitly do not disconnect right?
-    rtt_during_connection_test();
+    // rtt_during_connection_test();
     // Connections are open and closed throughout the duration of the experiment.
     rtt_connect_disconnect_connection_test();
 

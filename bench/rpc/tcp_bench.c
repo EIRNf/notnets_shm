@@ -63,7 +63,8 @@ void* client_tcp_connection(void* arg){
     pthread_exit(0);
 }
 
-void* client_tcp_load_connection(void* arg){
+// pthread_tcp_client_connect_measure_rtt
+void* pthread_tcp_client_load_connection(void* arg){
     int sockfd;
     struct sockaddr_in servaddr;
  
@@ -84,7 +85,6 @@ void* client_tcp_load_connection(void* arg){
  
     struct connection_args *args = (struct connection_args*) arg;
 
-    while(!run_flag);
 
     // connect the client socket to server socket
     if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr))
@@ -119,7 +119,66 @@ void* client_tcp_load_connection(void* arg){
 
 }
 
-void* server_tcp_handler(void* socket){
+
+void* pthread_tcp_client_connect_measure_rtt(void* arg){
+    int sockfd;
+    struct sockaddr_in servaddr;
+ 
+    // socket create and verification
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd == -1) {
+        printf("socket creation failed...\n");
+        exit(0);
+    }
+    else
+        // printf("Socket successfully created..\n");
+    bzero(&servaddr, sizeof(servaddr));
+ 
+    // assign IP, PORT
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    servaddr.sin_port = htons(PORT);
+ 
+    struct connection_args *args = (struct connection_args*) arg;
+
+
+    // connect the client socket to server socket
+    if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr))
+    != 0) {
+    printf("connection with the server failed...\n");
+    exit(0);
+    }
+
+    int *buf = malloc(MESSAGE_SIZE);
+    int buf_size = MESSAGE_SIZE;
+
+    int* pop_buf = malloc(MESSAGE_SIZE);
+    int pop_buf_size = MESSAGE_SIZE;
+
+    while(!run_flag);
+
+    clock_gettime(CLOCK_MONOTONIC, &args->start);
+    //Run messages
+     for(int i=1;i<NUM_ITEMS;i++) {
+        *buf = i;
+        // client_send_rpc(qp, buf, buf_size);
+        write(sockfd,buf,buf_size);
+        
+        //Request sent, read for response
+
+        // client_receive_buf(qp, pop_buf, pop_buf_size);
+        read(sockfd,pop_buf,pop_buf_size);
+
+        assert(*pop_buf == *buf);
+    }
+    clock_gettime(CLOCK_MONOTONIC, &args->end);
+    close(sockfd);
+    pthread_exit(0);
+
+}
+
+
+void* pthread_server_tcp_handler(void* socket){
 
    int sockfd = *(int *)socket;
 
@@ -377,7 +436,7 @@ void rtt_during_tcp_connection_test(){
         }
         args[i]->client_id = i + nonce.tv_nsec;
         // args[i]->client_id = i ;
-        pthread_create(clients[i], NULL, client_tcp_load_connection, args[i]);
+        pthread_create(clients[i], NULL, pthread_tcp_client_load_connection, args[i]);
     }
     
     //Synchronization variable to begin attempting to open connections
@@ -395,8 +454,8 @@ void rtt_during_tcp_connection_test(){
             pthread_t *new_handler = malloc(sizeof(pthread_t));
             handlers[i] = new_handler;
             atomic_thread_fence(memory_order_seq_cst);
-            pthread_create(handlers[i], NULL, server_tcp_handler, &client_list[i]); //server handler
-            // pthread_create(handlers[i], NULL, server_tcp_handler, NULL); //server handler
+            pthread_create(handlers[i], NULL, pthread_server_tcp_handler, &client_list[i]); //server handler
+            // pthread_create(handlers[i], NULL, pthread_server_tcp_handler, NULL); //server handler
             i++;
         }
     }
@@ -458,6 +517,172 @@ void rtt_during_tcp_connection_test(){
     }
     close(sockfd);
     run_flag = false;
+}
+
+void tcp_rtt_steady_state_conn_test(){
+
+
+     int sockfd, connfd; 
+    socklen_t len;
+    struct sockaddr_in servaddr, cli; 
+
+    // socket create and verification 
+    sockfd = socket(AF_INET, SOCK_STREAM, 0); 
+    if (sockfd == -1) { 
+        printf("socket creation failed...\n"); 
+        exit(0); 
+    } 
+
+    bzero(&servaddr, sizeof(servaddr)); 
+
+
+    // assign IP, PORT 
+    servaddr.sin_family = AF_INET; 
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY); 
+    servaddr.sin_port = htons(PORT); 
+    // Binding newly created socket to given IP and verification 
+    if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) { 
+        printf("socket bind failed...\n"); 
+        exit(0); 
+    } 
+
+
+
+    // Now server is ready to listen and verification 
+    if ((listen(sockfd, MAX_CLIENTS)) != 0) { 
+        printf("Listen failed...\n"); 
+        exit(0); 
+    } 
+
+    len = sizeof(cli); 
+
+    // pthread_t producer;
+    pthread_t *clients[MAX_CLIENTS] = {};
+    pthread_t *handlers[ MAX_CLIENTS] = {};
+
+
+    struct connection_args *args[MAX_CLIENTS] = {};
+
+    //Create client threads, will maintain a holding pattern until 
+    // flag is flipped
+    struct timespec nonce;
+    for(int i = 0; i < MAX_CLIENTS; i++){
+        struct connection_args *client_args = malloc(sizeof(struct connection_args));
+        args[i] = client_args;
+        pthread_t *new_client = malloc(sizeof(pthread_t));
+        clients[i] = new_client;
+        if (! timespec_get(&nonce, TIME_UTC)){
+            // return -1;
+        }
+        args[i]->client_id = i + nonce.tv_nsec;
+        // args[i]->client_id = i ;
+        pthread_create(clients[i], NULL, pthread_tcp_client_load_connection, args[i]);
+    }
+    
+
+   
+    int client_list[MAX_CLIENTS];
+    for(int i = 0 ;i < MAX_CLIENTS;){
+        connfd = accept(sockfd, (SA*)&cli, &len); 
+        if (connfd < 0) { 
+            printf("server accept failed...\n"); 
+            exit(0); 
+        } 
+        if (connfd){
+            client_list[i] = connfd;
+            pthread_t *new_handler = malloc(sizeof(pthread_t));
+            handlers[i] = new_handler;
+            atomic_thread_fence(memory_order_seq_cst);
+            pthread_create(handlers[i], NULL, pthread_server_tcp_handler, &client_list[i]); //server handler
+            // pthread_create(handlers[i], NULL, pthread_server_tcp_handler, NULL); //server handler
+            i++;
+        }
+    }
+
+    //Synchronization variable to begin attempting to open connections
+    run_flag = true;
+
+    // atomic_thread_fence(memory_order_seq_cst);
+    //Join threads
+    for(int i =0; i < MAX_CLIENTS; i++){
+        pthread_join(*handlers[i],NULL);
+        pthread_join(*clients[i],NULL);
+        // report_rtt_stats_after_connect(args[i]);
+        //Free heap allocated data
+        // free(client_queues[i]);
+        free(handlers[i]);
+        // free(args[i]);
+        free(clients[i]);
+    }
+
+    //PRINT AVERGAGE
+    //nanosecond ns 1.0e-09
+    //microsecond us 1.0e-06
+    //millisecond ms 1.0e-03
+    
+    long total_ns = 0.0;
+    for(int i =0; i < MAX_CLIENTS; i++){
+        struct timespec start = args[i]->start;
+        struct timespec end = args[i]->end;
+
+
+        if ((end.tv_sec - start.tv_sec) > 0 ){ //we have atleast 1 sec
+
+            long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
+            ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
+
+            total_ns += (ms * 1.0e+06);
+        } else {//nanosecond scale, probably not very accurate
+        
+            long ns = 0.0;
+            ns =  (end.tv_sec - start.tv_sec) * 1.0e+09;
+            ns += (end.tv_nsec - start.tv_nsec);    
+
+            total_ns += ns;
+        }
+    }
+
+    long average_ns = total_ns/MAX_CLIENTS;
+
+    // fprintf(stdout, "Num Clients: %d  \n", MAX_CLIENTS);
+    // fprintf(stdout, "Num Items: %d  \n", NUM_ITEMS);
+    // fprintf(stdout, "Message Size: %d  \n", MESSAGE_SIZE);
+    // fprintf(stdout, "Average Latency: %ld ns/op \n", (average_ns/NUM_ITEMS));
+    // fprintf(stdout, "Average Throughput: %f ops/ms \n", (NUM_ITEMS)/(average_ns / 1.0e+06));
+    // fprintf(stdout, "Total Throughput: %f ops/ms \n", (NUM_ITEMS * MAX_CLIENTS)/(average_ns / 1.0e+06));
+
+
+    // fprintf(stdout, "\ntcp-socket/rtt-during-multi-connection/\n");
+
+     // fprintf(stdout, "num_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | \n");
+    fprintf(stdout, "\ntcp-socket/%s/\t", __func__);
+    print_num_clients();
+    print_rtt_num_items();
+    print_msg_size();
+    print_ns_op(average_ns);
+    print_avg_ops_ms(average_ns);
+    print_ops_ms(average_ns);
+
+
+   // shutdown(sockfd,SHUT_RDWR);
+    for (int i=0; i < MAX_CLIENTS; i++){
+        shutdown(client_list[i],SHUT_RDWR);
+        free(args[i]);
+    }
+    close(sockfd);
+    run_flag = false;
+
+
+
+
+}
+
+void tcp_rtt_during_connection_test(){
+
+}
+
+void tcp_rtt_connect_disconnect_connection_test(){
+
 }
 
 int main(){ //Annoying to rerun due to time wait socket reuse

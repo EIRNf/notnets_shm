@@ -15,12 +15,12 @@ rm -f comparison
 # perf stat -B -e faults,migrations,
 
 $compiler_cmd ./main.c -o bench
-$compiler_cmd ./tcp_bench.c -o tcp_bench
+# $compiler_cmd ./tcp_bench.c -o tcp_bench
 
 # Compile run cpp program
 # /usr/bin/clang++-17 -pthread  -Wall -Wextra -Werror -fcolor-diagnostics -fansi-escape-codes ./comparison.cpp -o ./comparison -g 
 # /usr/bin/g++  -pthread -Wall -Wextra -Werror -g ./comparison.cpp -o ./comparison 
 
 ./bench
-./tcp_bench
+# ./tcp_bench
 # ./comparison
