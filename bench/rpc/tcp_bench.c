@@ -466,11 +466,11 @@ int main(){ //Annoying to rerun due to time wait socket reuse
     // rtt_during_tcp_connection_test();
 
     //Connections are all pre-established, and we only measure steady-state
-    tcp_rtt_steady_state_conn_test();
+    // tcp_rtt_steady_state_conn_test();
     // Connections are established at the start of the experiment, but included in the measurement
     // We explicitly do not disconnect right?
-    tcp_rtt_during_connection_test();
+    // tcp_rtt_during_connection_test();
     // Connections are open and closed throughout the duration of the experiment.
-    tcp_rtt_connect_disconnect_connection_test();
+    // tcp_rtt_connect_disconnect_connection_test();
 }
 
