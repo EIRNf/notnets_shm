@@ -19,8 +19,8 @@ void print_coord_row(const coord_row *row) {
     }
     printf("  message_size: %d\n", row->message_size);
     printf("  shm_created: %s\n", row->shm_created ? "true" : "false");
-    printf("  client_attached: %d\n", atomic_load(&row->client_attached));
-    printf("  server_attached: %d\n", atomic_load(&row->server_attached));
+    // printf("  client_attached: %d\n", atomic_load(&row->client_attached));  //TODO compile error
+    // printf("  server_attached: %d\n", atomic_load(&row->server_attached));
     printf("  shms.request_shm.key: %d\n", row->shms.request_shm.key);
     printf("  shms.request_shm.shmid: %d\n", row->shms.request_shm.shmid);
     printf("  shms.response_shm.key: %d\n", row->shms.response_shm.key);
@@ -212,7 +212,7 @@ int service_slot(coord_header* header,
                  int slot,
                  shm_pair (*allocation)(int,int)){
                     
-    // pthread_mutex_lock(&header->mutex);
+    pthread_mutex_lock(&header->mutex);
     int client_id = header->slots[slot].client_id;
 
     if (header->available_slots[slot].client_reserved &&
@@ -228,14 +228,14 @@ int service_slot(coord_header* header,
         atomic_thread_fence(memory_order_seq_cst);
 
         atomic_store(&header->slots[slot].shm_created, true);
-        // pthread_mutex_unlock(&header->mutex);
+        pthread_mutex_unlock(&header->mutex);
 
         // printf("SERVER: Post-Servicing:\n");
         // print_coord_header(header);
         return client_id;
     }
 
-    // pthread_mutex_unlock(&header->mutex);
+    pthread_mutex_unlock(&header->mutex);
     return -1;
 }
 

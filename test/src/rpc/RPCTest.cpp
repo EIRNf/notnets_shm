@@ -41,7 +41,7 @@ struct test_connection_args {
 
 TEST_F(RPCTest, ServerShutDown)
 {
-  server_context* sc = register_server((char*)"common_name");
+    server_context* sc = register_server((char*)"ServerShutDownServer");
     int err = (sc == NULL);
     shutdown(sc);
     EXPECT_FALSE(err);
@@ -56,25 +56,26 @@ TEST_F(RPCTest, OpenClose)
     if (pid == -1) {
         perror("fork");
     } else if (pid > 0) { // PARENT PROCESS
-      server_context* sc = register_server((char*)"test_server_addr");
+      server_context* sc = register_server((char*)"OpenCloseServer");
 
         while ((wpid = wait(&status)) > 0);
 
         shutdown(sc);
     } else { // CHILD PROCESS
         // if returns, then open was successful
-      queue_pair* qp = client_open((char*)"test_client_addr",
-				   (char*)"test_server_addr",
+      queue_pair* qp = client_open((char*)"OpenCloseClient",
+				   (char*)"OpenCloseServer",
                                      sizeof(int));
 
         while (qp == NULL) {
-	  qp = client_open((char*)"test_client_addr",
-			   (char*)"test_server_addr",
+	  qp = client_open((char*)"OpenCloseClient",
+			   (char*)"OpenCloseServer",
                              sizeof(int));
         }
 
-        int err = client_close((char*)"test_client_addr", (char*)"test_server_addr");
+        int err = client_close((char*)"OpenCloseClient", (char*)"OpenCloseServer");
 	EXPECT_FALSE(err);
+        free(qp);
         exit(0);
     }
 }
@@ -82,70 +83,53 @@ TEST_F(RPCTest, OpenClose)
 TEST_F(RPCTest, Accept)
 {
     // shm for communication between parent and child process
-    key_t ipc_key = 1;
-    int ipc_shm_size = sizeof(void*) * 2;
-    int ipc_shmid = shm_create(ipc_key, ipc_shm_size, create_flag);
-    void* ipc_shmaddr = shm_attach(ipc_shmid);
-    void** two_ptrs = (void**) ipc_shmaddr;
-
     pid_t pid = fork();
 
     if (pid == -1) {
         perror("fork");
     } else if (pid > 0) { // PARENT PROCESS
-      server_context* sc = register_server((char*)"test_server_addr");
+      server_context* sc = register_server((char*)"AcceptServer");
 
         queue_pair* qp;
         while ((qp = accept(sc)) == NULL);
 
-        // wait for client to update the ipc shm
-        while (two_ptrs[0] == 0 && two_ptrs[0] == 0);
+        int expected_client_id = (int)hash((unsigned char*)"AcceptClient");
 
-        // the accepted qp should be same as the qp given to the client, since
-        // there should only be one reserved/allocated slot
-        int err = qp->request_shmaddr != two_ptrs[0] ||
-            qp->response_shmaddr != two_ptrs[1];
-
-	EXPECT_FALSE(err);
+        EXPECT_EQ(expected_client_id,qp->client_id);
 
         free(qp);
         shutdown(sc);
     } else { // CHILD PROCESS
-      queue_pair* qp = client_open((char*)"test_client_addr",
-				   (char*)"test_server_addr",
+        queue_pair* qp = client_open((char*)"AcceptClient",
+				   (char*)"AcceptServer",
                                      sizeof(int));
         while (qp == NULL) {
-	  qp = client_open((char*)"test_client_addr",
-			   (char*)"test_server_addr",
+	    qp = client_open((char*)"AcceptClient",
+			   (char*)"AcceptServer",
                              sizeof(int));
         }
-
-        two_ptrs[0] = qp->request_shmaddr;
-        two_ptrs[1] = qp->response_shmaddr;
 
         free(qp);
         exit(0);
     }
-
-    // cleanup ipc shm
-    shm_detach(ipc_shmaddr);
-    shm_remove(ipc_shmid);
 }
 
 TEST_F(RPCTest, SendRecvInt)
 {
     // shm for communication between parent and child process
-    key_t ipc_key = 1;
+    key_t ipc_key = ftok((char*)"SendRecvInt",0);
     int ipc_shm_size = sizeof(void*) * 2;
     int ipc_shmid = shm_create(ipc_key, ipc_shm_size, create_flag);
     void* ipc_shmaddr = shm_attach(ipc_shmid);
+    atomic_int* ipc = (atomic_int*) ipc_shmaddr;
+
 
     pid_t pid = fork();
 
     if (pid == -1) {
         perror("fork");
     } else if (pid > 0) { // PARENT PROCESS
-      server_context* sc = register_server((char*)"test_server_addr");
+      server_context* sc = register_server((char*)"SendRecvIntServer");
 
         queue_pair* qp;
         while ((qp = accept(sc)) == NULL);
@@ -166,17 +150,17 @@ TEST_F(RPCTest, SendRecvInt)
         free(qp);
 
         // wait for client to finish reading responses
-        while (*((int*) ipc_shmaddr) != 1);
+        while ((int)atomic_load(ipc) != 1){}
 
         shutdown(sc);
     } else { // CHILD PROCESS
-      queue_pair* qp = client_open((char*)"test_client_addr",
-                                     (char*)"test_server_addr",
+      queue_pair* qp = client_open((char*)"SendRecvIntClient",
+                                     (char*)"SendRecvIntServer",
                                      sizeof(int));
 
         while (qp == NULL) {
-            qp = client_open((char*)"test_client_addr",
-                             (char*)"test_server_addr",
+            qp = client_open((char*)"SendRecvIntClient",
+                             (char*)"SendRecvIntServer",
                              sizeof(int));
         }
 
@@ -208,7 +192,7 @@ TEST_F(RPCTest, SendRecvInt)
         free(buf);
         free(qp);
 
-        *((int*) ipc_shmaddr) = 1;
+        atomic_store(ipc, 1);
         exit(0);
     }
 
@@ -220,17 +204,19 @@ TEST_F(RPCTest, SendRecvInt)
 TEST_F(RPCTest, SendRecvStr)
 {
     // shm for communication between parent and child process
-    key_t ipc_key = 1;
+    key_t ipc_key = ftok((char*)"SendRecvStr",1);
     int ipc_shm_size = sizeof(void*) * 2;
     int ipc_shmid = shm_create(ipc_key, ipc_shm_size, create_flag);
     void* ipc_shmaddr = shm_attach(ipc_shmid);
+    atomic_int* ipc = (atomic_int*) ipc_shmaddr;
+
 
     pid_t pid = fork();
 
     if (pid == -1) {
         perror("fork");
     } else if (pid > 0) { // PARENT PROCESS
-      server_context* sc = register_server((char*)"test_server_addr");
+        server_context* sc = register_server((char*)"SendRecvStrServer");
 
         queue_pair* qp;
         while ((qp = accept(sc)) == NULL);
@@ -251,18 +237,18 @@ TEST_F(RPCTest, SendRecvStr)
         free(qp);
 
         // wait for client to finish reading responses
-        while (*((int*) ipc_shmaddr) != 1);
+        while ((int)atomic_load(ipc) != 1){}
 
         shutdown(sc);
     } else { // CHILD PROCESS
         int message_size = sizeof(char[10]);
-        queue_pair* qp = client_open((char*)"test_client_addr",
-                                     (char*)"test_server_addr",
+        queue_pair* qp = client_open((char*)"SendRecvStrClient",
+                                     (char*)"SendRecvStrServer",
                                      message_size);
 
         while (qp == NULL) {
-            qp = client_open((char*)"test_client_addr",
-                             (char*)"test_server_addr",
+            qp = client_open((char*)"SendRecvStrClient",
+                             (char*)"SendRecvStrServer",
                              sizeof(int));
         }
 
@@ -294,7 +280,7 @@ TEST_F(RPCTest, SendRecvStr)
         free(buf);
         free(qp);
 
-        *((int*) ipc_shmaddr) = 1;
+        atomic_store(ipc, 1);
         exit(0);
     }
 
@@ -313,20 +299,17 @@ void* test_client_connection(void* arg){
     while(!run_flag);
 
     queue_pair* c_qp = client_open(name,
-                                (char*)"test_server_addr",
+                                (char*)"ConnectionServer",
                                  sizeof(int));
     while (c_qp == NULL) {
         c_qp = client_open(name,
-                             (char*)"test_server_addr",
+                             (char*)"ConnectionServer",
                              sizeof(int));
         }
     
     args->err = 0;
-    args->qp = c_qp;
-
     // No connection was achieved :()
     if (c_qp == NULL){
-        args->qp = NULL;
         args->err = 1;
         fprintf(stdout, "Missed Connection: %d \n", args->client_id);
     }
@@ -351,7 +334,7 @@ TEST_F(RPCTest, Connection)
     pthread_t *clients[TEST_CLIENTS] = {};
 
     //Create server
-    server_context* sc = register_server((char*)"test_server_addr");
+    server_context* sc = register_server((char*)"ConnectionServer");
 
 
     //Args to capture client input
@@ -379,7 +362,7 @@ TEST_F(RPCTest, Connection)
     run_flag = true;
 
     int client_list[TEST_CLIENTS];
-    queue_pair *client_queues[TEST_CLIENTS];
+    // queue_pair *client_queues[TEST_CLIENTS];
     int *item;
     int key;
     for (int i=0;i < TEST_CLIENTS;){
@@ -397,10 +380,10 @@ TEST_F(RPCTest, Connection)
 
             if(s_qp->request_shmaddr != NULL){
                 client_list[i] = s_qp->client_id;
-                client_queues[i] = s_qp;
+                // client_queues[i] = s_qp;
                 i++;
             }
-            // free(s_qp);
+            free(s_qp);
         }
     }
 
@@ -409,7 +392,7 @@ TEST_F(RPCTest, Connection)
     for(int i =0; i < TEST_CLIENTS; i++){
         pthread_join(*clients[i],NULL);
         //Free heap allocated data
-        free(client_queues[i]);
+        // free(client_queues[i]);
         free(clients[i]);
     }   
 

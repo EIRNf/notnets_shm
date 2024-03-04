@@ -117,10 +117,10 @@ TEST_F(CoordTest, SingleClientRecv)
         // client
         int err = 0;
 
-        coord_header* coord_region = coord_attach((char*)"common_name");
+        coord_header* coord_region = coord_attach((char*)"SingleClientRecv");
 
         while (coord_region == NULL) {
-	  coord_region = coord_attach((char*)"common_name");
+	    coord_region = coord_attach((char*)"SingleClientRecv");
         }
 
         int client_id = 4;
@@ -166,7 +166,7 @@ TEST_F(CoordTest, SingleClientRecv)
         exit(0);
     } else {
         // server
-      coord_header* coord_region = coord_create((char*)"common_name");
+        coord_header* coord_region = coord_create((char*)"SingleClientRecv");
         int err = -1;
         while (err == -1) {
             // TODO: what's the point of returning client_id? client_id won't
@@ -219,10 +219,10 @@ TEST_F(CoordTest, SingleClientGetSlot)
         perror("fork");
     } else if (c_pid == 0) {
         // CHILD PROCESS
-      coord_header* coord_region = coord_attach((char*)"common_name");
+      coord_header* coord_region = coord_attach((char*)"SingleClientGetSlot");
 
         while (coord_region == NULL) {
-	  coord_region = coord_attach((char*)"common_name");
+	  coord_region = coord_attach((char*)"SingleClientGetSlot");
         }
 
         int client_id = 4;
@@ -245,10 +245,13 @@ TEST_F(CoordTest, SingleClientGetSlot)
         exit(0);
     } else {
         // PARENT PROCESS
-      coord_header* coord_region = coord_create((char*)"common_name");
+      coord_header* coord_region = coord_create((char*)"SingleClientGetSlot");
         err = -1;
         while (err == -1) {
+            // pthread_mutex_lock(&coord_region->mutex);
             err = service_slot(coord_region, 0, &fake_shm_allocator);
+            // pthread_mutex_unlock(&coord_region->mutex);
+
         }
 
         while ((wpid = wait(&status)) > 0);

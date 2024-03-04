@@ -92,7 +92,7 @@ TEST_F(QueueTest, MultiProcess)
 {
     int err = 0;
     key_t key = 2;
-    key_t ipc_key = 3;
+    key_t ipc_key = 22;
     int shm_size = 1024;
     int message_size = sizeof(int);
     int iter = 100;
@@ -189,7 +189,7 @@ TEST_F(QueueTest, SingleProcess)
 {
     // create shm and attach to it
     int err = 0;
-    key_t key = 4;
+    key_t key = 3;
     int shm_size = 1024;
     int shmid = shm_create(key, shm_size, create_flag);
 
