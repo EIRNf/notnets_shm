@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <unistd.h>
 
+#include <atomic>
 
 class QueueTest : public ::testing::Test
 {
@@ -90,7 +91,8 @@ TEST_F(QueueTest, PartialBuffer)
 TEST_F(QueueTest, MultiProcess)  
 {
     int err = 0;
-    key_t key = 1;
+    key_t key = 2;
+    key_t ipc_key = 3;
     int shm_size = 1024;
     int message_size = sizeof(int);
     int iter = 100;
@@ -104,8 +106,9 @@ TEST_F(QueueTest, MultiProcess)
         // parent process
         // ipc: create shm letting child know when parent has finished creating
         // queue
-        int ipc_shmid = shm_create(key+1, sizeof(int), create_flag);
+        int ipc_shmid = shm_create(ipc_key, sizeof(int), create_flag);
         void* ipc_shmaddr = shm_attach(ipc_shmid);
+        atomic_int* ipc = (atomic_int*) ipc_shmaddr;
 
         // queue: create shm and attach to it
         int shmid = shm_create(key, shm_size, create_flag);
@@ -115,7 +118,7 @@ TEST_F(QueueTest, MultiProcess)
         queue_create(shmaddr, shm_size, message_size);
 
         // let child know parent has finished creating queue
-        *((int *) ipc_shmaddr) = 1;
+        atomic_store(ipc, 1);
 
         // parent pushes into queue
         int *buf = (int*)malloc(message_size);
@@ -127,7 +130,9 @@ TEST_F(QueueTest, MultiProcess)
         }
 
         // wait until child has finished doing work
-        while (*((int *) ipc_shmaddr) != 0){}
+        atomic_thread_fence(memory_order_acquire);
+
+        while ((int)atomic_load(ipc) != 0){}
 
         // cleanup
         free(buf);
@@ -137,15 +142,16 @@ TEST_F(QueueTest, MultiProcess)
         shm_remove(shmid);
     } else {
         // child process
-        int ipc_shmid = shm_create(key+1, sizeof(int), attach_flag);
+        int ipc_shmid = shm_create(ipc_key, sizeof(int), create_flag);
         while (ipc_shmid == -1) {
-            ipc_shmid = shm_create(key+1, sizeof(int), attach_flag);
+            ipc_shmid = shm_create(ipc_key, sizeof(int), create_flag);
         }
 
         void* ipc_shmaddr = shm_attach(ipc_shmid);
-        while (*((int *) ipc_shmaddr) != 1){}
+        atomic_int* ipc = (atomic_int*) ipc_shmaddr;
+        while ((int)atomic_load(ipc) != 1){}
 
-        int shmid = shm_create(key, shm_size, attach_flag);
+        int shmid = shm_create(key, shm_size, create_flag);
         void* shmaddr = shm_attach(shmid);
 
         // client pops from queue
@@ -163,7 +169,7 @@ TEST_F(QueueTest, MultiProcess)
         }
 
         // let parent know child is done with work
-        *((int *) ipc_shmaddr) = 0;
+        atomic_store(ipc, 0);
 
         // cleanup
         free(pop_size);
@@ -183,7 +189,7 @@ TEST_F(QueueTest, SingleProcess)
 {
     // create shm and attach to it
     int err = 0;
-    key_t key = 1;
+    key_t key = 4;
     int shm_size = 1024;
     int shmid = shm_create(key, shm_size, create_flag);
 
