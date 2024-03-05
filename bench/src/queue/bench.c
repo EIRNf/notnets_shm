@@ -228,7 +228,7 @@ void notnets_bench_enqueue_dequeue(){
     // run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
     run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
     run1.total.tv_nsec = run1.end.tv_nsec - run1.start.tv_nsec;
-    bench_report_stats(run1, "batch-notnets/spsc");
+    bench_report_stats(run1, (char*) "batch-notnets/spsc");
 
     // cleanup
     shm_detach(run1.shmaddr);
@@ -278,7 +278,7 @@ void notnets_bench_enqueue_dequeue_interval(){
     pthread_join(consumer,NULL);    
   
 
-    bench_report_stats(run1, "iterative-notnets/spsc");
+    bench_report_stats(run1, (char*)"iterative-notnets/spsc");
 
     // cleanup
     shm_detach(run1.shmaddr);

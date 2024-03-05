@@ -445,7 +445,7 @@ void rtt_steady_state_conn_test(){
     long average_ns = total_ns/MAX_CLIENTS;
 
 
-    // fprintf(stdout, "num_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | \n");
+    fprintf(stdout, "\nnum_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | ");
     fprintf(stdout, "\nnotnets/%s/\t", __func__);
     print_num_clients();
     print_coord_slots();
@@ -571,7 +571,7 @@ void rtt_during_connection_test(){
 
     long average_ns = total_ns/MAX_CLIENTS;
 
-    // fprintf(stdout, "num_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | \n");
+    fprintf(stdout, "\nnum_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | ");
     fprintf(stdout, "\nnotnets/%s/\t", __func__);
     print_num_clients();
     print_coord_slots();
@@ -697,7 +697,7 @@ void rtt_connect_disconnect_connection_test(){
 
     long average_ns = total_ns/MAX_CLIENTS;
 
-    // fprintf(stdout, "num_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | \n");
+    fprintf(stdout, "\nnum_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | ");
     fprintf(stdout, "\nnotnets/%s/\t", __func__);
     print_num_clients();
     print_coord_slots();
