@@ -741,3 +741,12 @@ void bench_run_all(void){
     //TODO: Make connection/desconection stress test
     //TODO: "Tune" Server Overhead
 }
+
+
+
+int main()
+{
+    bench_run_all();
+}
+
+

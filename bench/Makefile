@@ -2,7 +2,7 @@ THISDIR := $(realpath .)
 
 UNAME  := $(shell uname)
 
-CPPFLAGS = -v
+CPPFLAGS = 
 
 INCLUDES = \
  	-I $(THISDIR)/../libnotnets/include \

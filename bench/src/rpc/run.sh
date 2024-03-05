@@ -14,7 +14,7 @@ rm -f comparison
 # perf c2c record -F 60000 -a
 # perf stat -B -e faults,migrations,
 
-$compiler_cmd ./main.c -o bench
+$compiler_cmd ./bench.c -o bench
 $compiler_cmd ./tcp_bench.c -o tcp_bench
 
 # Compile run cpp program
