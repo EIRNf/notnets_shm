@@ -17,7 +17,7 @@ $compiler_cmd ./bench.c -o bench
 
 # Compile run cpp program
 # /usr/bin/clang++-17 -pthread  -Wall -Wextra -Werror -fcolor-diagnostics -fansi-escape-codes ./comparison.cpp -o ./comparison -g 
-/usr/bin/clang++-17  -pthread -Wall -Wextra -Werror -o2 ./comparison.cpp -o ./comparison 
+# /usr/bin/clang++-17  -pthread -Wall -Wextra -Werror -o2 ./comparison.cpp -o ./comparison 
 
 
 #Attempt recording of CPU Utilization

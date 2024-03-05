@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 #include "rpc.h"
 #include  <time.h>
@@ -20,6 +19,8 @@
 
 
 atomic_bool run_flag = false; //control execution
+
+const char *server_addr = "test_server_addr";
 
 struct connection_args {
     int client_id;
@@ -128,11 +129,11 @@ void* pthread_connect_client(void* arg){
 
     clock_gettime(CLOCK_MONOTONIC, &args->start);
     queue_pair* c_qp = client_open(name,
-                                "test_server_addr",
+                                 (char*)server_addr,
                                  sizeof(int));
     while (c_qp == NULL) {
         c_qp = client_open(name,
-                             "test_server_addr",
+                             (char*)server_addr,
                              sizeof(int));
         }
     
@@ -164,11 +165,11 @@ void* pthread_connect_measure_rtt(void* arg){
 
     // clock_gettime(CLOCK_MONOTONIC, &args->start);
     queue_pair* c_qp = client_open(name,
-                                "test_server_addr",
+                                (char*)server_addr,
                                  sizeof(int));
     while (c_qp == NULL) {
         c_qp = client_open(name,
-                             "test_server_addr",
+                             (char*)server_addr,
                              sizeof(int));
         }
 
@@ -202,11 +203,11 @@ void* pthread_measure_connect_and_rtt(void* arg){
 
     clock_gettime(CLOCK_MONOTONIC, &args->start);
     queue_pair* c_qp = client_open(name,
-                                "test_server_addr",
+                                (char*)server_addr,
                                  sizeof(int));
     while (c_qp == NULL) {
         c_qp = client_open(name,
-                             "test_server_addr",
+                             (char*)server_addr,
                              sizeof(int));
         }
     
@@ -246,7 +247,7 @@ void* pthread_measure_connect_and_rtt(void* arg){
 
     clock_gettime(CLOCK_MONOTONIC, &args->end);
 
-    // int err = client_close(name, "test_server_addr");
+    // int err = client_close(name, (char*)server_addr);
     // if (err != 0){
     //     fprintf(stdout, "Close Error: %d \n", err);
     // }
@@ -271,11 +272,11 @@ void* pthread_measure_connect_and_rtt_and_disconnect(void* arg){
 
     clock_gettime(CLOCK_MONOTONIC, &args->start);
     queue_pair* c_qp = client_open(name,
-                                "test_server_addr",
+                                (char*)server_addr,
                                  sizeof(int));
     while (c_qp == NULL) {
         c_qp = client_open(name,
-                             "test_server_addr",
+                             (char*)server_addr,
                              sizeof(int));
         }
     
@@ -313,14 +314,12 @@ void* pthread_measure_connect_and_rtt_and_disconnect(void* arg){
         assert(*pop_buf == *buf);
     }
 
-    int err = client_close(name, "test_server_addr");
+    int err = client_close(name, (char*)server_addr);
     if (err != 0){
         fprintf(stdout, "Close Error: %d \n", err);
     }
 
     clock_gettime(CLOCK_MONOTONIC, &args->end);
-
-
     free(pop_buf);
     free(buf);
     free(c_qp);

@@ -16,10 +16,10 @@ void single_rtt_test(){
     // pthread_t producer;
     pthread_t consumer;
 
-    server_context* sc = register_server("test_server_addr");
+    server_context* sc = register_server((char*)server_addr);
 
-    queue_pair* c_qp = client_open("test_client_addr",
-                                "test_server_addr",
+    queue_pair* c_qp = client_open((char*)"test_client_addr",
+                                (char*)server_addr,
                                 sizeof(int));
 
     struct connection_args *args =  (struct connection_args *) malloc(sizeof(struct connection_args));
@@ -50,7 +50,7 @@ void single_connection_test(){
     fprintf(stdout, "\nnotnets/%s/\n", __func__);
 
     //Current 
-    server_context* sc = register_server("test_server_addr");
+    server_context* sc = register_server((char*)server_addr);
 
     pthread_t client;
 
@@ -88,7 +88,7 @@ void connection_stress_test(){
     pthread_t *clients[MAX_CLIENTS] = {};
 
     //Current 
-    server_context* sc = register_server("test_server_addr");
+    server_context* sc = register_server((char*)server_addr);
 
     struct connection_args *args[MAX_CLIENTS] = {};
 
@@ -201,7 +201,7 @@ void single_rtt_during_connection_test(){
 
 
     //Current 
-    server_context* sc = register_server("test_server_addr");
+    server_context* sc = register_server((char*)server_addr);
 
     struct connection_args *args[MAX_CLIENTS] = {};
 
@@ -352,7 +352,7 @@ void rtt_steady_state_conn_test(){
 
 
     //Current 
-    server_context* sc = register_server("test_server_addr");
+    server_context* sc = register_server((char*)server_addr);
 
     struct connection_args *args[MAX_CLIENTS] = {};
 
@@ -474,7 +474,7 @@ void rtt_during_connection_test(){
 
 
     //Current 
-    server_context* sc = register_server("test_server_addr");
+    server_context* sc = register_server((char*)server_addr);
 
     struct connection_args *args[MAX_CLIENTS] = {};
 
@@ -600,7 +600,7 @@ void rtt_connect_disconnect_connection_test(){
 
 
     //Current 
-    server_context* sc = register_server("test_server_addr");
+    server_context* sc = register_server((char*)server_addr);
 
     struct connection_args *args[MAX_CLIENTS] = {};
 
@@ -724,8 +724,8 @@ void bench_run_all(void){
     //Echo application, capture RTT latency and throughput
     //TODO: Modify to pass arguments
     single_rtt_test();
-    // single_connection_test();
-    // connection_stress_test();
+    single_connection_test();
+    connection_stress_test();
 
     //Connections are all pre-established, and we only measure steady-state
     rtt_steady_state_conn_test();
