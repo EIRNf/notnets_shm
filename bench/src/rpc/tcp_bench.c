@@ -93,10 +93,10 @@ void* client_tcp_load_connection(void* arg){
     exit(0);
     }
 
-    int *buf = malloc(MESSAGE_SIZE);
+    int *buf = (int*) malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
 
-    int* pop_buf = malloc(MESSAGE_SIZE);
+    int* pop_buf = (int*) malloc(MESSAGE_SIZE);
     int pop_buf_size = MESSAGE_SIZE;
 
     clock_gettime(CLOCK_MONOTONIC, &args->start);
@@ -126,10 +126,10 @@ void* server_tcp_handler(void* socket){
     while(!run_flag);
 
 
-    int *buf = malloc(MESSAGE_SIZE);
+    int *buf = (int*)malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
 
-    int* pop_buf = malloc(MESSAGE_SIZE);
+    int* pop_buf = (int*)malloc(MESSAGE_SIZE);
     int pop_buf_size = MESSAGE_SIZE;
 
     //Run messages
@@ -183,7 +183,7 @@ void single_tcp_connection_test(){
 
     pthread_t client;
 
-    struct connection_args *args = malloc(sizeof(struct connection_args));
+    struct connection_args *args =(struct connection_args*) malloc(sizeof(struct connection_args));
     args->client_id = 1;
     atomic_thread_fence(memory_order_seq_cst);
 
@@ -250,9 +250,9 @@ void connection_tcp_stress_test(){
     pthread_t *clients[MAX_CLIENTS] = {};
 
     for(int i = 0; i < MAX_CLIENTS; i++){
-        struct connection_args *client_args = malloc(sizeof(struct connection_args));
+        struct connection_args *client_args = (struct connection_args*) malloc(sizeof(struct connection_args));
         args[i] = client_args;
-        pthread_t *new_client = malloc(sizeof(pthread_t));
+        pthread_t *new_client = (pthread_t*) malloc(sizeof(pthread_t));
         clients[i] = new_client;
         args[i]->client_id =  i;
         atomic_thread_fence(memory_order_seq_cst);
@@ -368,9 +368,9 @@ void rtt_during_tcp_connection_test(){
     // flag is flipped
     struct timespec nonce;
     for(int i = 0; i < MAX_CLIENTS; i++){
-        struct connection_args *client_args = malloc(sizeof(struct connection_args));
+        struct connection_args *client_args = (struct connection_args*) malloc(sizeof(struct connection_args));
         args[i] = client_args;
-        pthread_t *new_client = malloc(sizeof(pthread_t));
+        pthread_t *new_client = (pthread_t*) malloc(sizeof(pthread_t));
         clients[i] = new_client;
         if (! timespec_get(&nonce, TIME_UTC)){
             // return -1;
@@ -392,7 +392,7 @@ void rtt_during_tcp_connection_test(){
         } 
         if (connfd){
             client_list[i] = connfd;
-            pthread_t *new_handler = malloc(sizeof(pthread_t));
+            pthread_t *new_handler = (pthread_t*) malloc(sizeof(pthread_t));
             handlers[i] = new_handler;
             atomic_thread_fence(memory_order_seq_cst);
             pthread_create(handlers[i], NULL, server_tcp_handler, &client_list[i]); //server handler

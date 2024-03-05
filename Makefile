@@ -1,4 +1,4 @@
-.PHONY: all clean
+.PHONY: all clean bench
 
 all:
 	make -C libnotnets all
@@ -8,4 +8,5 @@ clean:
 	make -C libnotnets clean
 	make -C test clean
 
-
+bench:
+	make bench -C bench 

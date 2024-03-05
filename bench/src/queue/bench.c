@@ -1,6 +1,5 @@
-#define _GNU_SOURCE
-#include "../../src/mem.h"
-#include "../../src/queue.h"
+#include "mem.h"
+#include "queue.h"
 #include <sched.h>
 #include <time.h>
 #include <pthread.h>
@@ -106,9 +105,9 @@ void pinThread(int cpu) {
 // }
 
 
-void *producer_push(){
+void *producer_push(void* arg){
     pinThread(cpu1);
-    u_int *buf = malloc(MESSAGE_SIZE);
+    u_int *buf = (u_int*) malloc(MESSAGE_SIZE);
     // int message_size = MESSAGE_SIZE;
 
     //hold until flag is set to true
@@ -147,12 +146,12 @@ void *producer_push(){
     pthread_exit(0);
 }
  
-void *consumer_pop(){
+void *consumer_pop(void* arg){
     pinThread(cpu0);
-    size_t *message_size = malloc(sizeof(ssize_t));
+    size_t *message_size = (size_t*) malloc(sizeof(ssize_t));
     *message_size = MESSAGE_SIZE;
 
-    u_int* pop_buf = malloc(*message_size);
+    u_int* pop_buf = (u_int*) malloc(*message_size);
 
     while(!run1.start_flag);
     u_int i = 0;
@@ -169,12 +168,12 @@ void *consumer_pop(){
     pthread_exit(0);
 }
 
-void *interval_consumer_pop(){
+void *interval_consumer_pop(void* arg){
     pinThread(cpu0);
-    size_t *message_size = malloc(sizeof(ssize_t));
+    size_t *message_size = (size_t*)malloc(sizeof(ssize_t));
     *message_size = MESSAGE_SIZE;
 
-    u_int* pop_buf = malloc(*message_size);
+    u_int* pop_buf = (u_int*)malloc(*message_size);
 
     while(!run1.start_flag);
     u_int i = 0;

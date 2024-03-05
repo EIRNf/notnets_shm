@@ -1,6 +1,5 @@
-#define _GNU_SOURCE
 #include <stdio.h>
-#include "../../src/rpc.h"
+#include "rpc.h"
 #include  <time.h>
 #include <pthread.h>
 #include <assert.h>
@@ -23,7 +22,7 @@ void single_rtt_test(){
                                 "test_server_addr",
                                 sizeof(int));
 
-    struct connection_args *args = malloc(sizeof(struct connection_args));
+    struct connection_args *args =  (struct connection_args *) malloc(sizeof(struct connection_args));
 
     queue_pair* s_qp;
     while ((s_qp = accept(sc)) == NULL);
@@ -55,7 +54,7 @@ void single_connection_test(){
 
     pthread_t client;
 
-    struct connection_args *args = malloc(sizeof(struct connection_args));
+    struct connection_args *args = (struct connection_args*) malloc(sizeof(struct connection_args));
     args->client_id = 1;
     atomic_thread_fence(memory_order_seq_cst);
 
@@ -97,9 +96,9 @@ void connection_stress_test(){
     // flag is flipped
     struct timespec nonce;
     for(int i = 0; i < MAX_CLIENTS; i++){
-        struct connection_args *client_args = malloc(sizeof(struct connection_args));
+        struct connection_args *client_args = (struct connection_args*) malloc(sizeof(struct connection_args));
         args[i] = client_args;
-        pthread_t *new_client = malloc(sizeof(pthread_t));
+        pthread_t *new_client = (pthread_t*) malloc(sizeof(pthread_t));
         clients[i] = new_client;
         if (! timespec_get(&nonce, TIME_UTC)){
             // return -1;
@@ -214,19 +213,19 @@ void single_rtt_during_connection_test(){
 
     //Create client threads, will maintain a holding pattern until flag is flipped
     //Handle single writing client
-    struct connection_args *client_args = malloc(sizeof(struct connection_args));
+    struct connection_args *client_args = (struct connection_args*) malloc(sizeof(struct connection_args));
     args[MAX_CLIENTS-1] = client_args;
     args[MAX_CLIENTS-1]->client_id = MAX_CLIENTS-1;
-    pthread_t *new_client = malloc(sizeof(pthread_t));
+    pthread_t *new_client = (pthread_t*)malloc(sizeof(pthread_t));
     clients[MAX_CLIENTS-1] = new_client;
     pthread_create(clients[MAX_CLIENTS-1], NULL, pthread_connect_measure_rtt, args[MAX_CLIENTS-1]);
 
     //Handle other non messaging Clients
     struct timespec nonce;
     for(int i = 0; i < MAX_CLIENTS-1; i++){
-        struct connection_args *client_args = malloc(sizeof(struct connection_args));
+        struct connection_args *client_args =  (struct connection_args*)  malloc(sizeof(struct connection_args));
         args[i] = client_args;
-        pthread_t *new_client = malloc(sizeof(pthread_t));
+        pthread_t *new_client = (pthread_t*) malloc(sizeof(pthread_t));
         clients[i] = new_client;
         if (! timespec_get(&nonce, TIME_UTC)){
             // return -1;
@@ -271,7 +270,7 @@ void single_rtt_during_connection_test(){
                 //Found RTT client handle
                 if (s_qp->client_id == temp_client_id){
                     client_list[i] = s_qp->client_id;
-                    handler = malloc(sizeof(pthread_t));
+                    handler = (pthread_t*) malloc(sizeof(pthread_t));
                     atomic_thread_fence(memory_order_seq_cst);
                     pthread_create(handler, NULL, pthread_server_rtt, s_qp);
                     i++;
@@ -361,9 +360,9 @@ void rtt_steady_state_conn_test(){
     // flag is flipped
     struct timespec nonce;
     for(int i = 0; i < MAX_CLIENTS; i++){
-        struct connection_args *client_args = malloc(sizeof(struct connection_args));
+        struct connection_args *client_args = (struct connection_args*) malloc(sizeof(struct connection_args));
         args[i] = client_args;
-        pthread_t *new_client = malloc(sizeof(pthread_t));
+        pthread_t *new_client = (pthread_t*)malloc(sizeof(pthread_t));
         clients[i] = new_client;
         if (! timespec_get(&nonce, TIME_UTC)){
             // return -1;
@@ -395,7 +394,7 @@ void rtt_steady_state_conn_test(){
 
             if (s_qp->request_shmaddr != NULL){
                 client_list[i] = s_qp->client_id;
-                pthread_t *new_handler = malloc(sizeof(pthread_t));
+                pthread_t *new_handler = (pthread_t*) malloc(sizeof(pthread_t));
                 handlers[i] = new_handler;
                 atomic_thread_fence(memory_order_seq_cst);
                 pthread_create(handlers[i], NULL, pthread_server_rtt, s_qp);
@@ -483,9 +482,9 @@ void rtt_during_connection_test(){
     // flag is flipped
     struct timespec nonce;
     for(int i = 0; i < MAX_CLIENTS; i++){
-        struct connection_args *client_args = malloc(sizeof(struct connection_args));
+        struct connection_args *client_args = (struct connection_args*) malloc(sizeof(struct connection_args));
         args[i] = client_args;
-        pthread_t *new_client = malloc(sizeof(pthread_t));
+        pthread_t *new_client = (pthread_t*) malloc(sizeof(pthread_t));
         clients[i] = new_client;
         if (! timespec_get(&nonce, TIME_UTC)){
             // return -1;
@@ -520,7 +519,7 @@ void rtt_during_connection_test(){
 
             if (s_qp->request_shmaddr != NULL){
                 client_list[i] = s_qp->client_id;
-                pthread_t *new_handler = malloc(sizeof(pthread_t));
+                pthread_t *new_handler = (pthread_t*) malloc(sizeof(pthread_t));
                 handlers[i] = new_handler;
                 atomic_thread_fence(memory_order_seq_cst);
                 pthread_create(handlers[i], NULL, pthread_server_rtt, s_qp);
@@ -609,9 +608,9 @@ void rtt_connect_disconnect_connection_test(){
     // flag is flipped
     struct timespec nonce;
     for(int i = 0; i < MAX_CLIENTS; i++){
-        struct connection_args *client_args = malloc(sizeof(struct connection_args));
+        struct connection_args *client_args = (struct connection_args*) malloc(sizeof(struct connection_args));
         args[i] = client_args;
-        pthread_t *new_client = malloc(sizeof(pthread_t));
+        pthread_t *new_client =  (pthread_t*) malloc(sizeof(pthread_t));
         clients[i] = new_client;
         if (! timespec_get(&nonce, TIME_UTC)){
             // return -1;
@@ -646,7 +645,7 @@ void rtt_connect_disconnect_connection_test(){
 
             if (s_qp->request_shmaddr != NULL){
                 client_list[i] = s_qp->client_id;
-                pthread_t *new_handler = malloc(sizeof(pthread_t));
+                pthread_t *new_handler = (pthread_t*) malloc(sizeof(pthread_t));
                 handlers[i] = new_handler;
                 atomic_thread_fence(memory_order_seq_cst);
                 pthread_create(handlers[i], NULL, pthread_server_rtt, s_qp);
@@ -724,7 +723,7 @@ void bench_run_all(void){
 
     //Echo application, capture RTT latency and throughput
     //TODO: Modify to pass arguments
-    // single_rtt_test();
+    single_rtt_test();
     // single_connection_test();
     // connection_stress_test();
 

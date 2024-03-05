@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 #include <stdio.h>
-#include "../../src/rpc.h"
+#include "rpc.h"
 #include  <time.h>
 #include <pthread.h>
 #include <assert.h>
@@ -61,10 +61,10 @@ int cmpfunc(const void * a, const void * b) {
 
 void pthread_client_rtt_post_connect(queue_pair* qp, struct connection_args *args){
 
-    int *buf = malloc(MESSAGE_SIZE);
+    int *buf = (int*) malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
 
-    int* pop_buf = malloc(MESSAGE_SIZE);
+    int* pop_buf =(int*) malloc(MESSAGE_SIZE);
     int pop_buf_size = MESSAGE_SIZE;
 
 
@@ -92,10 +92,10 @@ void *pthread_server_rtt(void* s_qp){
 
     queue_pair* qp = (queue_pair*) s_qp;
 
-    int* buf = malloc(MESSAGE_SIZE);
+    int* buf = (int*) malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
 
-    int* pop_buf = malloc(MESSAGE_SIZE);
+    int* pop_buf = (int*) malloc(MESSAGE_SIZE);
     int pop_buf_size = MESSAGE_SIZE;
 
     //hold until flag is set to true
@@ -224,10 +224,10 @@ void* pthread_measure_connect_and_rtt(void* arg){
     }
 
 
-    int *buf = malloc(MESSAGE_SIZE);
+    int *buf = (int*) malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
 
-    int* pop_buf = malloc(MESSAGE_SIZE);
+    int* pop_buf = (int*)malloc(MESSAGE_SIZE);
     int pop_buf_size = MESSAGE_SIZE;
 
     //hold until flag is set to true
@@ -293,10 +293,10 @@ void* pthread_measure_connect_and_rtt_and_disconnect(void* arg){
     }
 
 
-    int *buf = malloc(MESSAGE_SIZE);
+    int *buf = (int*)malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
 
-    int* pop_buf = malloc(MESSAGE_SIZE);
+    int* pop_buf = (int*)malloc(MESSAGE_SIZE);
     int pop_buf_size = MESSAGE_SIZE;
 
     //hold until flag is set to true

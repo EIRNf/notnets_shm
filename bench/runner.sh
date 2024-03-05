@@ -11,7 +11,7 @@ current_directory=$(pwd)
 output_file="$current_directory/bench_output.txt"
 
 # List all directories in the current directory
-directories=$(find . -maxdepth 1 -type d -not -name ".")
+directories=$(find ./src -maxdepth 1 -type d -not -name ".")
 
 # Initialize the output file
 echo "Output from benchmarks in each directory using compilation '$argument':" > "$output_file"
