@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 
 //Evaluate queue latency after connection has already been made
 void single_rtt_test();
