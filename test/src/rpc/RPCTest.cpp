@@ -326,6 +326,12 @@ void* test_client_connection(void* arg){
 }
 
 
+#ifdef __APPLE__
+TEST_F(RPCTest, DISABLED_Connection){
+    
+}
+
+#else
 TEST_F(RPCTest, Connection)
 {
     int err = 0;
@@ -410,4 +416,4 @@ TEST_F(RPCTest, Connection)
     EXPECT_FALSE(err);
 
 }
-
+#endif

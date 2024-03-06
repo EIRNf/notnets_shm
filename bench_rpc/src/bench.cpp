@@ -726,9 +726,15 @@ void bench_run_all(void){
 
     //Echo application, capture RTT latency and throughput
     //TODO: Modify to pass arguments
-    // single_rtt_test();
-    // single_connection_test();
-    // connection_stress_test();
+    single_rtt_test();
+    single_connection_test();
+
+#ifdef __APPLE__
+    //OSX does not support more than 8 shm segments per process 
+    //and 32 shm segments in total. The following benchmarks,
+    //break this limitation and thus can't be run in osx
+#else
+    connection_stress_test();
 
     //Connections are all pre-established, and we only measure steady-state
     rtt_steady_state_conn_test();
@@ -738,6 +744,7 @@ void bench_run_all(void){
     rtt_during_connection_test();
     // Connections are open and closed throughout the duration of the experiment.
     rtt_connect_disconnect_connection_test();
+#endif
 
 
     // single_rtt_during_connection_test();
