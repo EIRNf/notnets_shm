@@ -6,11 +6,11 @@ CPPFLAGS =
 
 INCLUDES = \
  	-I $(THISDIR)/../libnotnets/include \
-        -I /usr/src/googletest/googletest/include/ \
+        -I /opt/homebrew/Cellar/googletest/1.14.0/include \
 
 LDFLAGS = \
 	-L $(THISDIR)/../libnotnets/bin \
-	-L /usr/src/googletest/googletest/lib/ \
+	-L /opt/homebrew/Cellar/googletest/1.14.0/lib/ \
 	-lnotnets \
         -lgtest \
 
