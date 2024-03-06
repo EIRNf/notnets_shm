@@ -139,7 +139,7 @@ void boost_rtt(){
 
 int main(){
     // folly_spsc();
-    boost_rtt(); //FIXME
+    boost_rtt();
     // boost_lockfree_spes_queue();
     return 0;
 }
