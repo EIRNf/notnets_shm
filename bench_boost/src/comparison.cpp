@@ -37,7 +37,7 @@ void boost_rtt(){
     boost::lockfree::spsc_queue<u_int> q2(16024);
 
 
-    std::atomic<bool> stop_flag(false);
+    std::atomic<bool> stop_flag(true);
 
     std::chrono::steady_clock::time_point start;
     std::chrono::steady_clock::time_point stop;
@@ -48,7 +48,7 @@ void boost_rtt(){
     auto t = std::thread([&] {
       pinThread(cpu1);
       u_int i = 0;
-      while(!stop_flag){
+      while(!stop_flag.load()){
         u_int val;
         while (q.pop(&val, 1) != 1)
           ;
@@ -68,7 +68,7 @@ void boost_rtt(){
     auto t2 = std::thread([&] {
       u_int i = 0;
       start = std::chrono::steady_clock::now();
-      while(!stop_flag){
+      while(!stop_flag.load()){
         u_int val;
         while (!q.push(i))
           ;
@@ -85,8 +85,9 @@ void boost_rtt(){
       pthread_exit(0);
     });
     
+    stop_flag.store(false);
     sleep(EXECUTION_SEC);
-    stop_flag = true;
+    stop_flag.store(true);
     t.join();
     t2.join();
 
