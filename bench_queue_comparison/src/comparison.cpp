@@ -34,7 +34,7 @@ void boost_lockfree_spes_queue(){
   
     boost::lockfree::spsc_queue<u_int> q(16024);
 
-    std::atomic<bool> stop_flag(true);
+    std::atomic<bool> stop_flag(false);
 
     std::chrono::steady_clock::time_point start;
     std::chrono::steady_clock::time_point stop;
@@ -44,7 +44,7 @@ void boost_lockfree_spes_queue(){
       pinThread(cpu1);
       u_int i = 0;
       start = std::chrono::steady_clock::now();
-      while(!stop_flag.load()){
+      while(!stop_flag){
         u_int val;
         while (q.pop(&val, 1) != 1)
           ;
@@ -60,7 +60,7 @@ void boost_lockfree_spes_queue(){
     auto t2 = std::thread([&] {
       pinThread(cpu0);
       u_int i = 0;
-      while(!stop_flag.load()){
+      while(!stop_flag){
         while (!q.push(i))
           ;
         i++;
@@ -68,9 +68,8 @@ void boost_lockfree_spes_queue(){
       t.join();
     });
     
-    stop_flag.store(false);
     sleep(EXECUTION_SEC);
-    stop_flag.store(true);
+    stop_flag = true;
     t2.join();
 
 
