@@ -1,3 +1,6 @@
+#ifndef _BENCH_H_
+#define _BENCH_H_
+
 
 //Evaluate queue latency after connection has already been made
 void single_rtt_test();
@@ -19,3 +22,5 @@ void rtt_during_connection_test();
 void rtt_connect_disconnect_connection_test();
 
 void bench_run_all(void);
+
+#endif

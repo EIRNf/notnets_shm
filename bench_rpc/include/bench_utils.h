@@ -1,3 +1,5 @@
+#ifndef _BENCH_UTILS_H_
+#define _BENCH_UTILS_H_
 
 #include  <time.h>
 
@@ -49,3 +51,5 @@ void report_single_rtt_stats(struct connection_args *args);
 void report_connection_stats(struct connection_args *args);
 
 void report_rtt_stats_after_connect(struct connection_args *args);
+
+#endif
