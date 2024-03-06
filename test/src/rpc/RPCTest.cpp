@@ -7,7 +7,12 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+
+#ifdef __APPLE__
+#define TEST_CLIENTS 2
+#else
 #define TEST_CLIENTS 10
+#endif
 
 int cmpfunc(const void * a, const void * b) {
    return ( *(int*)a - *(int*)b );
@@ -326,12 +331,6 @@ void* test_client_connection(void* arg){
 }
 
 
-#ifdef __APPLE__
-TEST_F(RPCTest, DISABLED_Connection){
-    
-}
-
-#else
 TEST_F(RPCTest, Connection)
 {
     int err = 0;
@@ -416,4 +415,3 @@ TEST_F(RPCTest, Connection)
     EXPECT_FALSE(err);
 
 }
-#endif
