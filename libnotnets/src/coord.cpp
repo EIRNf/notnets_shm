@@ -212,7 +212,7 @@ int service_slot(coord_header* header,
                  int slot,
                  shm_pair (*allocation)(int,int)){
                     
-    pthread_mutex_lock(&header->mutex);
+    // pthread_mutex_lock(&header->mutex);
     int client_id = header->slots[slot].client_id;
 
     if (header->available_slots[slot].client_reserved &&
@@ -228,14 +228,14 @@ int service_slot(coord_header* header,
         atomic_thread_fence(memory_order_seq_cst);
 
         atomic_store(&header->slots[slot].shm_created, true);
-        pthread_mutex_unlock(&header->mutex);
+        // pthread_mutex_unlock(&header->mutex);
 
         // printf("SERVER: Post-Servicing:\n");
         // print_coord_header(header);
         return client_id;
     }
 
-    pthread_mutex_unlock(&header->mutex);
+    // pthread_mutex_unlock(&header->mutex);
     return -1;
 }
 

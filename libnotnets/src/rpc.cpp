@@ -112,17 +112,17 @@ void* _manage_pool_runner(void* handler) {
 
     while (true) {
         // check if need to shut down
-        pthread_mutex_lock(&sc->manage_pool_mutex);
+        // pthread_mutex_lock(&sc->manage_pool_mutex);
         if (sc->manage_pool_state == RUNNING_SHUTDOWN) {
             sc->manage_pool_state = NOT_RUNNING;
             pthread_mutex_unlock(&sc->manage_pool_mutex);
             return NULL;
         }
-        pthread_mutex_unlock(&sc->manage_pool_mutex);
+        // pthread_mutex_unlock(&sc->manage_pool_mutex);
 
         manage_pool(sc);
 
-        usleep(SERVER_SERVICE_POll_INTERVAL);  
+        // usleep(SERVER_SERVICE_POll_INTERVAL);  
         // sleep(1);
     }
 
