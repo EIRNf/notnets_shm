@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 #include  <time.h>
 #include <pthread.h>
@@ -10,6 +9,7 @@
 #include <stdbool.h>
 
 #include "tcp_bench_utils.h"
+
 
 void print_num_clients(){
      fprintf(stdout, "%d\t", MAX_CLIENTS);   

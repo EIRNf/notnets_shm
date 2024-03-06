@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 #include "../../src/rpc.h"
 #include  <time.h>

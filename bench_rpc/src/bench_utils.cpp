@@ -1,6 +1,5 @@
-#define _GNU_SOURCE
 #include <stdio.h>
-#include "../../src/rpc.h"
+#include "rpc.h"
 #include  <time.h>
 #include <pthread.h>
 #include <assert.h>
