@@ -246,7 +246,7 @@ void single_rtt_during_connection_test(){
     //Hash to identify client id
 
     char name[32];
-    sprintf(name, "%d", MAX_CLIENTS-1);
+    snprintf(name, 32, "%d", MAX_CLIENTS-1);
     int temp_client_id = (int)hash((unsigned char*) name);
    
     int client_list[MAX_CLIENTS];

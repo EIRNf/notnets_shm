@@ -122,7 +122,7 @@ void* pthread_connect_client(void* arg){
 
     char name[32];
 
-    sprintf(name, "%d", args->client_id);
+    snprintf(name, 32, "%d", args->client_id);
 
     while(!run_flag);
 
@@ -159,7 +159,7 @@ void* pthread_connect_measure_rtt(void* arg){
 
     char name[32];
 
-    sprintf(name, "%d", args->client_id);
+    snprintf(name, 32, "%d", args->client_id);
 
 
     // clock_gettime(CLOCK_MONOTONIC, &args->start);
@@ -196,7 +196,7 @@ void* pthread_measure_connect_and_rtt(void* arg){
 
     char name[32];
 
-    sprintf(name, "%d", args->client_id);
+    snprintf(name, 32, "%d", args->client_id);
 
     while(!run_flag);
 
@@ -265,7 +265,7 @@ void* pthread_measure_connect_and_rtt_and_disconnect(void* arg){
 
     char name[32];
 
-    sprintf(name, "%d", args->client_id);
+    snprintf(name, 32, "%d", args->client_id);
 
     while(!run_flag);
 
