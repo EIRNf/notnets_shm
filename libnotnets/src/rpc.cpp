@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "boost_queue.cpp"
 
 //NOTE ON ERROR HANDLING
 // As this is a low level C library we should use the global
@@ -189,6 +190,8 @@ queue_pair* client_open(char* source_addr,
  * @return int -1 for error, 0 if successfully pushed
  */
 int client_send_rpc(queue_pair* queues, const void *buf, size_t size) {
+    // queues->request_shmaddr;
+    // shm::bip::
     return push(queues->request_shmaddr, buf, size);
 }
 
