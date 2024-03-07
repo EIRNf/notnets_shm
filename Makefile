@@ -6,7 +6,7 @@ all:
 	make -C bench_boost all
 	make -C bench_tcp all
 	make -C bench_queue all
-	make -C bench_queue_comparison all
+	make -C bench_queue_boost all
 	make -C test all
 
 clean:
@@ -15,7 +15,7 @@ clean:
 	make -C bench_boost clean
 	make -C bench_tcp clean
 	make -C bench_queue clean
-	make -C bench_queue_comparison clean
+	make -C bench_queue_boost clean
 	make -C test clean
 
 
