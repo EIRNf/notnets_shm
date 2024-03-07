@@ -115,7 +115,7 @@ void* _manage_pool_runner(void* handler) {
         // pthread_mutex_lock(&sc->manage_pool_mutex);
         if (sc->manage_pool_state == RUNNING_SHUTDOWN) {
             sc->manage_pool_state = NOT_RUNNING;
-            pthread_mutex_unlock(&sc->manage_pool_mutex);
+            // pthread_mutex_unlock(&sc->manage_pool_mutex);
             return NULL;
         }
         // pthread_mutex_unlock(&sc->manage_pool_mutex);
