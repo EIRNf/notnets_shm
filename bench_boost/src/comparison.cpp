@@ -1,6 +1,7 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
+#include <stdatomic.h>
 
 #include <boost/lockfree/spsc_queue.hpp>
 // #include <folly/ProducerConsumerQueue.h>
@@ -59,13 +60,14 @@ void boost_rtt(){
         i++;
       }
       items_consumed = i;
+      
       pthread_exit(0);
     });
 
 
     //Client Thread
-    pinThread(cpu0);
     auto t2 = std::thread([&] {
+      pinThread(cpu0);
       u_int i = 0;
       start = std::chrono::steady_clock::now();
       while(!stop_flag.load()){
