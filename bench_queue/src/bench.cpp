@@ -27,9 +27,8 @@ typedef struct run_stats {
     
 
 run_stats run1 = {
-    .max_queue_depth = 0,
     .start_flag = false,
-    .stop_flag = false
+    .stop_flag = false,
     };
 
 // void* shmaddr; //pointer to queue
