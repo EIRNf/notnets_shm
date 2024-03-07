@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <time.h>
-#include <pthread.h>
 #include <assert.h>
-#include <stdatomic.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sched.h>
@@ -10,6 +8,7 @@
 #include "rpc.h"
 #include "bench.h"
 #include "bench_utils.h"
+
 
 
 //initialize run flag

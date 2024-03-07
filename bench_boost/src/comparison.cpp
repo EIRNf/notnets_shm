@@ -1,7 +1,6 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
-#include <stdatomic.h>
 
 #include <boost/lockfree/spsc_queue.hpp>
 // #include <folly/ProducerConsumerQueue.h>
