@@ -510,19 +510,19 @@ void shutdown(server_context* handler) {
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     // tell manage pool thread to shut down
-    // pthread_mutex_lock(&handler->manage_pool_mutex);
+    pthread_mutex_lock(&handler->manage_pool_mutex);
     handler->manage_pool_state = RUNNING_SHUTDOWN;
-    // pthread_mutex_unlock(&handler->manage_pool_mutex);
+    pthread_mutex_unlock(&handler->manage_pool_mutex);
 
     // wait for manage pool thread to shut down
     while (true) { //TODO figure out how to get rid of runnning thread
-        // pthread_mutex_lock(&handler->manage_pool_mutex);
+        pthread_mutex_lock(&handler->manage_pool_mutex);
         if (handler->manage_pool_state == NOT_RUNNING) {
-            // pthread_mutex_unlock(&handler->manage_pool_mutex);
+            pthread_mutex_unlock(&handler->manage_pool_mutex);
             pthread_join(handler->manage_pool_thread, NULL);
             break;
         }
-        // pthread_mutex_unlock(&handler->manage_pool_mutex);
+        pthread_mutex_unlock(&handler->manage_pool_mutex);
     }
 
     coord_shutdown(ch);
