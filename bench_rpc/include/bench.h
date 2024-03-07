@@ -1,5 +1,5 @@
-#ifndef _BENCH_H_
-#define _BENCH_H_
+#ifndef __BENCH_H_
+#define __BENCH_H_
 
 
 //Evaluate queue latency after connection has already been made

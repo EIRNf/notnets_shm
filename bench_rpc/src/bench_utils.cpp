@@ -3,28 +3,13 @@
 #include  <time.h>
 #include <pthread.h>
 #include <assert.h>
-#include <stdatomic.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sched.h>
 
-
-#define NUM_ITEMS 10000000
-#define MESSAGE_SIZE 4 //Int
-
-#ifndef MAX_CLIENTS
-#define MAX_CLIENTS 20
-#endif 
+#include "bench_utils.h"
 
 
-
-static atomic_bool run_flag = false; //control execution
-
-struct connection_args {
-    int client_id;
-    struct timespec start;
-    struct timespec end;
-};
 
 void print_num_clients(){
      fprintf(stdout, "%d\t", MAX_CLIENTS);   

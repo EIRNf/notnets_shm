@@ -1,14 +1,18 @@
-#ifndef _BENCH_UTILS_H_
-#define _BENCH_UTILS_H_
+#ifndef __BENCH_UTILS_H_
+#define __BENCH_UTILS_H_
 
 #include  <time.h>
+#include <stdatomic.h>
 
 #define NUM_ITEMS 10000000
 #define MESSAGE_SIZE 4 //Int
 
+
+extern atomic_bool run_flag; //control execution
+
 #ifndef MAX_CLIENTS
 #define MAX_CLIENTS 20
-#endif 
+#endif
 
 
 struct connection_args {

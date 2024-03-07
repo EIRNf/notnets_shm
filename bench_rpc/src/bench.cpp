@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include  <time.h>
+#include <time.h>
 #include <pthread.h>
 #include <assert.h>
 #include <stdatomic.h>
@@ -11,7 +11,9 @@
 #include "bench.h"
 #include "bench_utils.h"
 
-static atomic_bool run_flag = false; //control execution
+
+//initialize run flag
+atomic_bool run_flag = false; //control execution
 
 //Evaluate queue latency after connection has already been made
 void single_rtt_test(){ 
@@ -19,10 +21,10 @@ void single_rtt_test(){
     // pthread_t producer;
     pthread_t consumer;
 
-    server_context* sc = register_server((char*)"test_server_addr");
+    server_context* sc = register_server((char*)"single_rtt_test_server");
 
-    queue_pair* c_qp = client_open((char*)"test_client_addr",
-                                (char*)"test_server_addr",
+    queue_pair* c_qp = client_open((char*)"single_rtt_test_client",
+                                (char*)"single_rtt_test_server",
                                 sizeof(int));
 
     struct connection_args *args = (struct connection_args *)malloc(sizeof(struct connection_args));
@@ -733,6 +735,7 @@ void bench_run_all(void){
     //OSX does not support more than 8 shm segments per process 
     //and 32 shm segments in total. The following benchmarks,
     //break this limitation and thus can't be run in osx
+
 #else
     connection_stress_test();
 
@@ -751,3 +754,12 @@ void bench_run_all(void){
     //TODO: Make connection/desconection stress test
     //TODO: "Tune" Server Overhead
 }
+
+
+int main()
+{
+
+    bench_run_all();
+}
+
+
