@@ -9,7 +9,7 @@
 
 
 #ifdef __APPLE__
-#define TEST_CLIENTS 2
+#define TEST_CLIENTS 5
 #else
 #define TEST_CLIENTS 10
 #endif
