@@ -31,10 +31,65 @@ void ExampleExperiment::tearDown()
 void ExampleExperiment::makeExampleExperiment(ExperimentalData * exp)
 {
     cout << " ExampleExperiment::makeExampleExperiment()..." << endl;
+    exp->setDescription("SomeDescription");
+    exp->addField("configuration");
+    exp->addField("parameter");
+    exp->addField("metric");
+    exp->addField("deviation");
+    exp->setKeepValues(false);
 }
 
 void ExampleExperiment::process()
 {
 
     std::cout << "ExampleExperiment process" << std::endl;
+    util::AutoTimer timer;
+
+    ExperimentalData exampleExp("exampleExp");
+    auto expData = { &exampleExp };
+
+    makeExampleExperiment(&exampleExp);
+
+    for (auto exp : expData)
+        exp->open();
+
+    vector<util::RunningStat> someMetric;
+    vector<int> configurations =
+    {
+      1,
+      2,
+      3
+    };
+    
+    for (auto configuration : configurations) {
+        someMetric.push_back(util::RunningStat());
+    }
+    
+    std::cout << "Running experiments..." << std::endl;
+
+    for (auto parameter : parameters_) {
+      for (int i = 0; i < numRuns_; i++) {
+	for (auto configuration : configurations) {
+	  std::cout << "run i..." << configuration << std::endl;
+	  someMetric[configuration].push(i);
+	}
+      }
+
+      for (auto configuration : configurations) {
+	exampleExp.addRecord();
+	exampleExp.setFieldValue("configuration", "some configuration name");
+	exampleExp.setFieldValue("parameter", boost::lexical_cast<std::string>(parameter));
+	exampleExp.setFieldValue("metric", someMetric[configuration].getMean());
+        exampleExp.setFieldValue("deviation", someMetric[configuration].getStandardDeviation());
+        someMetric[configuration].clear();
+      }
+      
+    }
+    
+    std::cout << "done." << std::endl;
+
+    for (auto exp : expData)
+        exp->close();
+
+    
 };
