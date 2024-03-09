@@ -18,6 +18,9 @@ namespace notnets { namespace experiments
     protected:
         void setUp() override;
         void tearDown() override;
+        int numRuns_ = 3;
+        std::vector<int> parameters_ = { 1024, 2048, 4096 };
+
     };
 
 } } /* namespace */
