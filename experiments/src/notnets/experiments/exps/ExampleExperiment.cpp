@@ -70,14 +70,15 @@ void ExampleExperiment::process()
     for (auto parameter : parameters_) {
       for (int i = 0; i < numRuns_; i++) {
 	for (auto configuration : configurations) {
-	  std::cout << "run i..." << configuration << std::endl;
+	  std::cout << "run " << i << "..." << configuration << std::endl;
 	  someMetric[configuration].push(i);
 	}
       }
 
       for (auto configuration : configurations) {
 	exampleExp.addRecord();
-	exampleExp.setFieldValue("configuration", "some configuration name");
+	std::string s = "configuration_" + std::to_string(configuration);
+	exampleExp.setFieldValue("configuration", s);
 	exampleExp.setFieldValue("parameter", boost::lexical_cast<std::string>(parameter));
 	exampleExp.setFieldValue("metric", someMetric[configuration].getMean());
         exampleExp.setFieldValue("deviation", someMetric[configuration].getStandardDeviation());
