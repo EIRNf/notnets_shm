@@ -6,8 +6,7 @@ CPPFLAGS =
 
 INCLUDES = -I /opt/homebrew/Cellar/boost/1.84.0_1/include \
 
-
-LDFLAGS =  -std=c++23
+LDFLAGS =
 
 include ../Makefile.lib
 

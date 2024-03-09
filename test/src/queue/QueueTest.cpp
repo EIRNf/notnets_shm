@@ -108,7 +108,7 @@ TEST_F(QueueTest, MultiProcess)
         // queue
         int ipc_shmid = shm_create(ipc_key, sizeof(int), create_flag);
         void* ipc_shmaddr = shm_attach(ipc_shmid);
-        atomic_int* ipc = (atomic_int*) ipc_shmaddr;
+        std::atomic_int* ipc = (std::atomic_int*) ipc_shmaddr;
 
         // queue: create shm and attach to it
         int shmid = shm_create(key, shm_size, create_flag);
@@ -130,7 +130,7 @@ TEST_F(QueueTest, MultiProcess)
         }
 
         // wait until child has finished doing work
-        atomic_thread_fence(memory_order_acquire);
+        atomic_thread_fence(std::memory_order_acquire);
 
         while ((int)atomic_load(ipc) != 0){}
 
@@ -148,7 +148,7 @@ TEST_F(QueueTest, MultiProcess)
         }
 
         void* ipc_shmaddr = shm_attach(ipc_shmid);
-        atomic_int* ipc = (atomic_int*) ipc_shmaddr;
+        std::atomic_int* ipc = (std::atomic_int*) ipc_shmaddr;
         while ((int)atomic_load(ipc) != 1){}
 
         int shmid = shm_create(key, shm_size, create_flag);

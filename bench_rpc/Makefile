@@ -8,6 +8,7 @@ CPPFLAGS =
 
 INCLUDES = \
  	-I $(THISDIR)/../libnotnets/include \
+	-I /opt/homebrew/Cellar/boost/1.84.0_1/include \
 
 LDFLAGS = \
 	-L $(THISDIR)/../libnotnets/bin \
