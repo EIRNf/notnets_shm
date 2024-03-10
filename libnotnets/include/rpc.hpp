@@ -1,7 +1,8 @@
-#ifndef __RPC_H
-#define __RPC_H
+#ifndef __RPC_HPP
+#define __RPC_HPP
 
 #include "coord.h"
+#include "boost_queue.hpp"
 
 #include <errno.h>
 #include <pthread.h>

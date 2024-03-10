@@ -1,4 +1,5 @@
-#include "rpc.h"
+
+#include "rpc.hpp"
 #include "mem.h"
 #include "coord.h"
 #include "queue.h"
@@ -11,7 +12,11 @@
 #include <string.h>
 #include <sys/types.h>
 
-#include "boost_queue.cpp"
+
+#define QUEUE_TYPE 1
+ 
+#define POLL_QUEUE 0
+#define BOOST_QUEUE 1
 
 //NOTE ON ERROR HANDLING
 // As this is a low level C library we should use the global
@@ -190,9 +195,18 @@ queue_pair* client_open(char* source_addr,
  * @return int -1 for error, 0 if successfully pushed
  */
 int client_send_rpc(queue_pair* queues, const void *buf, size_t size) {
-    // queues->request_shmaddr;
-    // shm::bip::
-    return push(queues->request_shmaddr, buf, size);
+    int ret = 0;
+    switch (QUEUE_TYPE){
+            case POLL_QUEUE:
+                ret = push(queues->request_shmaddr, buf, size);
+                break;
+            case BOOST_QUEUE:
+                ret = boost_push(queues->request_shmaddr, buf, size);
+                break;
+            default:
+                ret = push(queues->request_shmaddr, buf, size);
+        }
+    return ret;
 }
 
 
@@ -209,7 +223,18 @@ int client_send_rpc(queue_pair* queues, const void *buf, size_t size) {
  * @return ssize_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
 size_t client_receive_buf(queue_pair* queues, void* buf, size_t size) {
-    return pop(queues->response_shmaddr, buf, &size);
+    size_t ret = 0;
+    switch (QUEUE_TYPE){
+            case POLL_QUEUE:
+                ret = pop(queues->response_shmaddr, buf, &size);
+                break;
+            case BOOST_QUEUE:
+                ret = boost_pop(queues->response_shmaddr, buf, &size);
+                break;
+            default:
+                ret = pop(queues->response_shmaddr, buf, &size);
+        }
+    return ret;
 }
 
 
@@ -373,7 +398,16 @@ void manage_pool(server_context* handler) {
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     for (int i = 0; i < SLOT_NUM; ++i) {
-        service_slot(ch, i, &_hash_shm_allocator);
+        switch (QUEUE_TYPE){
+            case POLL_QUEUE:
+                service_slot(ch, i, &_hash_shm_allocator);
+                break;
+            case BOOST_QUEUE:
+                service_slot(ch, i, &_boost_shm_allocator);
+                break;
+            default:
+                service_slot(ch, i, &_hash_shm_allocator);
+        }
         clear_slot(ch, i);
     }
 }
@@ -485,7 +519,18 @@ queue_pair* accept(server_context* handler) {
  * @return ssize_t  -1 for error, 0 for successful push
  */
 int server_send_rpc(queue_pair* queues, const void *buf, size_t size) {
-    return push(queues->response_shmaddr, buf, size);
+    int ret = 0;
+    switch (QUEUE_TYPE){
+            case POLL_QUEUE:
+                ret = push(queues->response_shmaddr, buf, size);
+                break;
+            case BOOST_QUEUE:
+                ret = boost_push(queues->response_shmaddr, buf, size);
+                break;
+            default:
+                ret = push(queues->response_shmaddr, buf, size);
+        }
+    return ret;
 }
 
 /**
@@ -500,7 +545,18 @@ int server_send_rpc(queue_pair* queues, const void *buf, size_t size) {
  * @return size_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
 size_t server_receive_buf(queue_pair* queues, void* buf, size_t size) {
-    return pop(queues->request_shmaddr, buf, &size);;
+        size_t ret = 0;
+    switch (QUEUE_TYPE){
+            case POLL_QUEUE:
+                ret = pop(queues->request_shmaddr, buf, &size);
+                break;
+            case BOOST_QUEUE:
+                ret = boost_pop(queues->request_shmaddr, buf, &size);
+                break;
+            default:
+                ret = pop(queues->request_shmaddr, buf, &size);
+        }
+    return ret;
 }
 
 /**

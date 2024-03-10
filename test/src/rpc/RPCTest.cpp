@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "rpc.h"
+#include "rpc.hpp"
 #include "mem.h"
 
 #include <assert.h>

@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "rpc.h"
+#include "rpc.hpp"
 #include <time.h>
 #include <pthread.h>
 #include <assert.h>
