@@ -1,5 +1,5 @@
 
-#include "rpc.hpp"
+#include "rpc.h"
 #include "mem.h"
 #include "coord.h"
 #include "queue.h"
@@ -12,11 +12,76 @@
 #include <string.h>
 #include <sys/types.h>
 
-
 #define QUEUE_TYPE 1
  
 #define POLL_QUEUE 0
 #define BOOST_QUEUE 1
+
+
+// typedef enum QUEUE_TYPE
+// {
+//     POLL_QUEUE,
+//     BOOST_QUEUE,
+//     SEM_QUEUE
+// };
+
+// typedef struct ctx {
+//     int (*func) (int arg);
+// }ctx;
+
+
+// typedef enum TYPE
+// {
+//   TYPE1,
+//   TYPE2
+// } TYPE;
+
+// typedef struct ctx
+// {
+//   int (*func) (int arg);
+// } ctx;
+
+// int func1 (int arg)
+// {
+//   printf("in func 1\n");
+//   return 0;
+// }
+
+// int func2 (int arg)
+// {
+//   printf("in func 2\n");
+//   return 0;
+// }
+
+
+// ctx* make_ctx(TYPE t)
+// {
+//   ctx* my_ctx =malloc(sizeof(struct ctx));
+//   if (t == TYPE1) {
+//     my_ctx->func = func1;
+//   } else {
+//     my_ctx->func = func2;
+//   }
+//   return my_ctx;
+// }
+
+// int main()
+// {
+//   ctx* my_ctxs[2];
+//   my_ctxs[0] = make_ctx(TYPE1);
+//   my_ctxs[1] = make_ctx(TYPE2);
+//   for (int i = 0; i< 2; i++)
+//   {
+//     my_ctxs[i]->func(i);
+//   }
+  
+
+//   free(my_ctxs[0]);
+//   free(my_ctxs[1]);
+
+
+// }
+
 
 //NOTE ON ERROR HANDLING
 // As this is a low level C library we should use the global
