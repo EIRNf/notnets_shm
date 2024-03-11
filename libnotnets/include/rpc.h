@@ -1,8 +1,8 @@
-#ifndef __RPC_HPP
-#define __RPC_HPP
+#ifndef __RPC_H
+#define __RPC_H
 
 #include "coord.h"
-#include "boost_queue.hpp"
+#include "boost_queue.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -26,6 +26,7 @@
 // pairs of keys, shmid, and ref? in case of an issue where reconnect might be attempted?
 typedef struct queue_pair {
     int client_id;
+    void* queue_type;
     void* request_shmaddr;
     void* response_shmaddr;
 } queue_pair;

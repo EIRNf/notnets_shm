@@ -1,12 +1,17 @@
-#include "boost_queue.hpp"
+#include "boost_queue.h"
 #include <boost/interprocess/xsi_key.hpp>
 #include <boost/interprocess/mapped_region.hpp>
 #include <boost/interprocess/xsi_shared_memory.hpp>
 #include <boost/any.hpp>
 #include <boost/pointer_cast.hpp>
+#include <boost/lockfree/spsc_queue.hpp> // ring buffer
+#include <boost/interprocess/managed_xsi_shared_memory.hpp>
+#include <boost/interprocess/interprocess_fwd.hpp>
 
 
-#define MESSAGE_SIZE 4
+namespace bip = boost::interprocess;
+
+#define MESSAGE_SIZE 10
 #define QUEUE_CAPACITY 100 //
 #define MEM_SIZE 10000
 #define OFFSET 224 //FIX

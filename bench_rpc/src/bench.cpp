@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <sched.h>
 
-#include "rpc.hpp"
+#include "rpc.h"
 #include "bench.h"
 #include "bench_utils.h"
 
