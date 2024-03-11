@@ -255,7 +255,7 @@ TEST_F(RPCTest, SendRecvStr)
         while (qp == NULL) {
             qp = client_open((char*)"SendRecvStrClient",
                              (char*)"SendRecvStrServer",
-                             sizeof(int));
+                             message_size);
         }
 
         char* buf = (char*)malloc(message_size);
