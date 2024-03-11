@@ -21,7 +21,8 @@ protected:
 
 TEST_F(MemTest, CreateDelete)  
 {
-    int shmid = shm_create(1, 10, create_flag);
+    key_t key = ftok("CreateDelete", 0);
+    int shmid = shm_create(key, 10, create_flag);
     int err = shm_remove(shmid);
     EXPECT_FALSE(err);
 

@@ -28,7 +28,7 @@ TEST_F(QueueTest, PartialBuffer)
 {
     // create shm and attach to it
     int err = 0;
-    key_t key = 1;
+    key_t key = ftok("PartialBuffer", 0);
     int shm_size = 1024;
     int shmid = shm_create(key, shm_size, create_flag);
 
@@ -91,7 +91,7 @@ TEST_F(QueueTest, PartialBuffer)
 TEST_F(QueueTest, MultiProcess)  
 {
     int err = 0;
-    key_t key = 2;
+    key_t key = ftok("MultiProcess", 0);
     key_t ipc_key = 22;
     int shm_size = 1024;
     int message_size = sizeof(int);
@@ -189,7 +189,7 @@ TEST_F(QueueTest, SingleProcess)
 {
     // create shm and attach to it
     int err = 0;
-    key_t key = 3;
+    key_t key = ftok("SingleProcess", 0);
     int shm_size = 1024;
     int shmid = shm_create(key, shm_size, create_flag);
 
