@@ -7,9 +7,8 @@
 
 #include "mem.h"
 #include "coord.h"
+#include "rpc.h"
 #include "queue.h"
-
-#define SIMPLE_KEY 17
 
 
 class CoordTest : public ::testing::Test
@@ -27,37 +26,6 @@ protected:
 
 };
 
-
-shm_pair fake_shm_allocator(int message_size, int client_id) {
-    shm_pair shms = {};
-
-
-    (void) client_id;
-
-    int request_shmid = shm_create(SIMPLE_KEY,
-                                   QUEUE_SIZE,
-                                   create_flag);
-    int response_shmid = shm_create(SIMPLE_KEY + 1,
-                                    QUEUE_SIZE,
-                                    create_flag);
-    notnets_shm_info request_shm = {SIMPLE_KEY, request_shmid};
-    notnets_shm_info response_shm = {SIMPLE_KEY + 1, response_shmid};
-
-    // set up shm regions as queues
-    void* request_addr = shm_attach(request_shmid);
-    void* response_addr = shm_attach(response_shmid);
-    queue_create(request_addr, QUEUE_SIZE, message_size);
-    queue_create(response_addr, QUEUE_SIZE, message_size);
-    // don't want to stay attached to the queue pairs
-    shm_detach(request_addr);
-    shm_detach(response_addr);
-
-    shms.request_shm = request_shm;
-    shms.response_shm = response_shm;
-
-    return shms;
-}
-
 TEST_F(CoordTest, QueueAllocation)  
 {
 
@@ -65,7 +33,7 @@ TEST_F(CoordTest, QueueAllocation)
     int iter = 10;
     int err = 0;
 
-    shm_pair shms = fake_shm_allocator(message_size, 1);
+    shm_pair shms = _fake_shm_allocator(message_size, 1);
 
     void* request_queue_addr = shm_attach(shms.request_shm.shmid);
     void* response_queue_addr = shm_attach(shms.response_shm.shmid);
@@ -171,7 +139,7 @@ TEST_F(CoordTest, SingleClientRecv)
         while (err == -1) {
             // TODO: what's the point of returning client_id? client_id won't
             // help us fetch anything, since most functions require the slot num
-            err = service_slot(coord_region, 0, &fake_shm_allocator);
+            err = service_slot(coord_region, 0, &_fake_shm_allocator);
         }
 
         shm_pair shms = check_slot(coord_region, 0);
@@ -225,7 +193,7 @@ TEST_F(CoordTest, SingleClientGetSlot)
 	  coord_region = coord_attach((char*)"SingleClientGetSlot");
         }
 
-        int client_id = 4;
+        int client_id = 5;
         int reserved_slot = request_slot(coord_region, client_id, sizeof(int));
         assert(reserved_slot == 0);
 
@@ -241,7 +209,7 @@ TEST_F(CoordTest, SingleClientGetSlot)
         err = shms.request_shm.key != SIMPLE_KEY ||
             shms.response_shm.key != SIMPLE_KEY + 1;
 
-	EXPECT_FALSE(err);
+	    EXPECT_FALSE(err);
         exit(0);
     } else {
         // PARENT PROCESS
@@ -249,7 +217,7 @@ TEST_F(CoordTest, SingleClientGetSlot)
         err = -1;
         while (err == -1) {
             // pthread_mutex_lock(&coord_region->mutex);
-            err = service_slot(coord_region, 0, &fake_shm_allocator);
+            err = service_slot(coord_region, 0, &_fake_shm_allocator);
             // pthread_mutex_unlock(&coord_region->mutex);
 
         }
