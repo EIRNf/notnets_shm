@@ -1,8 +1,8 @@
 #include "gtest/gtest.h"
 
-#include "rpc.hpp"
+#include "rpc.h"
 #include "mem.h"
-#include "boost_queue.hpp"
+#include "boost_queue.h"
 
 #include <assert.h>
 #include <sys/types.h>
@@ -123,8 +123,8 @@ TEST_F(RPCTest, Accept)
 TEST_F(RPCTest, SendRecvInt)
 {
     // shm for communication between parent and child process
-    key_t ipc_key = ftok((char*)"SendRecvInt",0);
-    int ipc_shm_size = sizeof(void*) * 2;
+    key_t ipc_key = ftok("SendRecvInt",1);
+    int ipc_shm_size = sizeof(atomic_int);
     int ipc_shmid = shm_create(ipc_key, ipc_shm_size, create_flag);
     void* ipc_shmaddr = shm_attach(ipc_shmid);
     atomic_int* ipc = (atomic_int*) ipc_shmaddr;
@@ -136,6 +136,7 @@ TEST_F(RPCTest, SendRecvInt)
         perror("fork");
     } else if (pid > 0) { // PARENT PROCESS
         server_context* sc = register_server((char*)"SendRecvIntServer");
+        atomic_store(ipc, -1); //Takes a while to return, must restrict client execution.
 
         queue_pair* qp;
         while ((qp = accept(sc)) == NULL);
@@ -160,7 +161,9 @@ TEST_F(RPCTest, SendRecvInt)
 
         shutdown(sc);
     } else { // CHILD PROCESS
-      queue_pair* qp = client_open((char*)"SendRecvIntClient",
+        while ((int)atomic_load(ipc) != -1){
+        }
+        queue_pair* qp = client_open((char*)"SendRecvIntClient",
                                      (char*)"SendRecvIntServer",
                                      sizeof(int));
 
@@ -210,24 +213,25 @@ TEST_F(RPCTest, SendRecvInt)
 TEST_F(RPCTest, SendRecvStr)
 {
     // shm for communication between parent and child process
-    key_t ipc_key = ftok((char*)"SendRecvStr",1);
-    int ipc_shm_size = sizeof(void*) * 2;
+    key_t ipc_key = ftok("SendRecvStr",1);
+    int ipc_shm_size = sizeof(atomic_int);
     int ipc_shmid = shm_create(ipc_key, ipc_shm_size, create_flag);
     void* ipc_shmaddr = shm_attach(ipc_shmid);
     atomic_int* ipc = (atomic_int*) ipc_shmaddr;
-
 
     pid_t pid = fork();
 
     if (pid == -1) {
         perror("fork");
-    } else if (pid > 0) { // PARENT PROCESS
+    } else if (pid == 0) { // PARENT PROCESS
         server_context* sc = register_server((char*)"SendRecvStrServer");
+        atomic_store(ipc, -1); //Takes a while to return, must restrict client execution.
+
 
         queue_pair* qp;
         while ((qp = accept(sc)) == NULL);
 
-        int message_size = sizeof(char[10]);
+        int message_size = sizeof(char[10]); 
         char *buf = (char*)malloc(message_size);
 
         for (int i = 0; i < 10; ++i) {
@@ -243,10 +247,14 @@ TEST_F(RPCTest, SendRecvStr)
         free(qp);
 
         // wait for client to finish reading responses
-        while ((int)atomic_load(ipc) != 1){}
-
+        while ((int)atomic_load(ipc) != 1){
+        }
+        shm_detach(ipc_shmaddr);
         shutdown(sc);
     } else { // CHILD PROCESS
+        while ((int)atomic_load(ipc) != -1){
+        }
+
         int message_size = sizeof(char[10]);
         queue_pair* qp = client_open((char*)"SendRecvStrClient",
                                      (char*)"SendRecvStrServer",
@@ -275,25 +283,23 @@ TEST_F(RPCTest, SendRecvStr)
             snprintf(expected, 10, "Hi, %d", i);
 
             if (strcmp(buf, expected) != 0) {
-                printf("expected, %d\n", expected[i]);
-                printf("buf, %s\n", buf);
                 err = 1;
             }
         }
 
 	    EXPECT_FALSE(err);
+        atomic_store(ipc, 1);
 
         // usually we would close client conn, but server will shutdown in its
         // process, which will handle deallocation of qp
         free(buf);
         free(qp);
 
-        atomic_store(ipc, 1);
+        shm_detach(ipc_shmaddr);
         exit(0);
     }
 
     // cleanup ipc shm
-    shm_detach(ipc_shmaddr);
     shm_remove(ipc_shmid);
 }
 
