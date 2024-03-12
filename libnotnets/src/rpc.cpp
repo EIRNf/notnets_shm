@@ -3,6 +3,8 @@
 #include "mem.h"
 #include "coord.h"
 #include "queue.h"
+#include "boost_queue.h"
+#include "sem_queue.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -12,18 +14,12 @@
 #include <string.h>
 #include <sys/types.h>
 
-#define QUEUE_TYPE 1
+#define QUEUE_TYPE 2
  
 #define POLL_QUEUE 0
 #define BOOST_QUEUE 1
+#define SEM_QUEUE 2
 
-
-// typedef enum QUEUE_TYPE
-// {
-//     POLL_QUEUE,
-//     BOOST_QUEUE,
-//     SEM_QUEUE
-// };
 
 // typedef struct ctx {
 //     int (*func) (int arg);
@@ -272,6 +268,9 @@ int client_send_rpc(queue_pair* queues, const void *buf, size_t size) {
             case BOOST_QUEUE:
                 ret = boost_push(queues->request_shmaddr, buf, size);
                 break;
+            case SEM_QUEUE:
+                ret = sem_push(queues->request_shmaddr, buf, size);
+                break;
             default:
                 ret = push(queues->request_shmaddr, buf, size);
         }
@@ -299,6 +298,9 @@ size_t client_receive_buf(queue_pair* queues, void* buf, size_t size) {
                 break;
             case BOOST_QUEUE:
                 ret = boost_pop(queues->response_shmaddr, buf, &size);
+                break;
+            case SEM_QUEUE:
+                ret = sem_pop(queues->response_shmaddr, buf, &size);
                 break;
             default:
                 ret = pop(queues->response_shmaddr, buf, &size);
@@ -474,6 +476,9 @@ void manage_pool(server_context* handler) {
             case BOOST_QUEUE:
                 service_slot(ch, i, &_boost_shm_allocator);
                 break;
+            case SEM_QUEUE:
+                service_slot(ch, i, &_hash_sem_shm_allocator);
+                break;
             default:
                 service_slot(ch, i, &_hash_shm_allocator);
         }
@@ -596,6 +601,9 @@ int server_send_rpc(queue_pair* queues, const void *buf, size_t size) {
             case BOOST_QUEUE:
                 ret = boost_push(queues->response_shmaddr, buf, size);
                 break;
+            case SEM_QUEUE:
+                ret = sem_push(queues->response_shmaddr, buf, size);
+                break;
             default:
                 ret = push(queues->response_shmaddr, buf, size);
         }
@@ -621,6 +629,9 @@ size_t server_receive_buf(queue_pair* queues, void* buf, size_t size) {
                 break;
             case BOOST_QUEUE:
                 ret = boost_pop(queues->request_shmaddr, buf, &size);
+                break;
+             case SEM_QUEUE:
+                ret = sem_pop(queues->request_shmaddr, buf, &size);
                 break;
             default:
                 ret = pop(queues->request_shmaddr, buf, &size);

@@ -53,14 +53,27 @@ void print_coord_header(const coord_header *header) {
 // need: hash function that can take a string of arbitrary length
 // and hash it to a positive value the size of int
 // djb2, dan bernstein
-unsigned long hash(unsigned char *str){
-    unsigned long hash = 5381;
-    int c;
+// unsigned long hash(unsigned char *str){
+//     unsigned long hash = 5381;
+//     int c;
 
-    while ((c = *str++))
-        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+//     while ((c = *str++))
+//         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 
-    return hash;
+//     return hash;
+// }
+
+static inline unsigned rol(unsigned r, int k) {return (r << k) | (r >> (32 - k));}
+
+int hash(unsigned char *input) { 
+    int result = 0x55555555;
+
+    while (*input) { 
+        result ^= *input++;
+        result = rol(result, 5);
+    }
+
+    return result;
 }
 
 // client

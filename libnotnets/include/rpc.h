@@ -2,7 +2,6 @@
 #define __RPC_H
 
 #include "coord.h"
-#include "boost_queue.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -30,6 +29,14 @@ typedef struct queue_pair {
     void* request_shmaddr;
     void* response_shmaddr;
 } queue_pair;
+
+// typedef enum QUEUE_TYPE
+// {
+//     POLL_QUEUE,
+//     BOOST_QUEUE,
+//     SEM_QUEUE
+// };
+
 
 // typedef struct shmid_pair {
 //     int client_id;

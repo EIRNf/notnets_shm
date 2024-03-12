@@ -52,7 +52,7 @@ void print_coord_row(const coord_row *row);
 void print_coord_header(const coord_header *header);
 
 // djb2, dan bernstein
-unsigned long hash(unsigned char *str);
+int hash(unsigned char *str);
 
 // client
 // checks creation, does shm stuff to get handle to it

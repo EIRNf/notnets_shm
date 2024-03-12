@@ -183,7 +183,6 @@ TEST_F(RPCTest, SendRecvInt)
             client_send_rpc(qp, buf, buf_size);
         }
 
-
         int err = 0;
         // get server responses
         for (int i = 0; i < 10; ++i) {
