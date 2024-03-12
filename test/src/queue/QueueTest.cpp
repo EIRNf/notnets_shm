@@ -8,10 +8,10 @@
 
 #include <atomic>
 
-class QueueTest : public ::testing::Test
+class PollQueueTest : public ::testing::Test
 {
 public:
-    QueueTest() {}
+    PollQueueTest() {}
 protected:
     virtual void SetUp()
     {
@@ -24,7 +24,7 @@ protected:
 };
 
 
-TEST_F(QueueTest, PartialBuffer)  
+TEST_F(PollQueueTest, PartialBuffer)  
 {
     // create shm and attach to it
     int err = 0;
@@ -88,7 +88,7 @@ TEST_F(QueueTest, PartialBuffer)
 
 }
 
-TEST_F(QueueTest, MultiProcess)  
+TEST_F(PollQueueTest, MultiProcess)  
 {
     int err = 0;
     key_t key = ftok("MultiProcess", 0);
@@ -185,7 +185,7 @@ TEST_F(QueueTest, MultiProcess)
     }
 }
 
-TEST_F(QueueTest, SingleProcess)  
+TEST_F(PollQueueTest, SingleProcess)  
 {
     // create shm and attach to it
     int err = 0;
