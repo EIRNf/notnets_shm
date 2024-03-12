@@ -45,32 +45,23 @@ void print_coord_header(const coord_header *header) {
     }
 }
 
-// djb2, dan bernstein, hacky implementation to avoid negative values
+//TODO: REALLY FIX HASHING. 
+//Current approach to hashing is a mess due to many reasons:
+// - not using a proper hash function
+// - casting from unsinged long to int
+//      - overflowing/underflowing happens all over the place
+// need: hash function that can take a string of arbitrary length
+// and hash it to a positive value the size of int
+// djb2, dan bernstein
 unsigned long hash(unsigned char *str){
-    int tabsize = 100000;
     unsigned long hash = 5381;
     int c;
 
     while ((c = *str++))
         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 
-    if (hash < 0) hash = -hash;
-    if (hash < 0) hash = hash; //Hash is max int
-    return hash % tabsize;
     return hash;
 }
-
-
-// djb2, dan bernstein
-// unsigned long hash(unsigned char *str){
-//     unsigned long hash = 5381;
-//     int c;
-
-//     while ((c = *str++))
-//         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-
-//     return hash;
-// }
 
 // client
 // checks creation, does shm stuff to get handle to it
