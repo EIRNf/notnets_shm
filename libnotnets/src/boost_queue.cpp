@@ -81,7 +81,6 @@ size_t boost_pop(void* shmaddr, void* buf, size_t* buf_size){
     //Make call blocking to fit API
     while (ret != 1){
         ret = queue->pop(t, 1);
-        usleep(100);
     }
 
     if (ret) { // ret == 1 if succesful as we are only pushing one at a time, sizeof(t->buf)
