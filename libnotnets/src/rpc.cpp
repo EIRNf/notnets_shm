@@ -239,8 +239,12 @@ queue_pair* client_open(char* source_addr,
         usleep(CLIENT_OPEN_WAIT_INTERVAL);
     }
 
-    while(!ch->slots[slot].shm_created){
-        usleep(CLIENT_OPEN_WAIT_INTERVAL);
+    //TODO:
+    //During testing, if shutdown is called during this poll interval
+    //the thread will deadlock and loop forever. This occurs as the 
+    //shutdown function will clear the reservation slots. 
+    while(!(ch->slots[slot].shm_created)){
+        usleep(CLIENT_OPEN_WAIT_INTERVAL); 
         continue;
     }
 
