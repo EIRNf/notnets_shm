@@ -11,7 +11,7 @@
 
 namespace bip = boost::interprocess;
 
-#define MESSAGE_SIZE 10
+#define MESSAGE_SIZE 10 // THIS REALLY NEEDS TO BE DYNAMIC AT RUNTIME
 #define QUEUE_CAPACITY 100 //
 #define MEM_SIZE 10000
 #define OFFSET 224 //FIX
@@ -59,7 +59,10 @@ int boost_push(void* shmaddr, const void* buf, size_t buf_size){
     //Cast pointer to underlying queue structure, which hopefully works
     boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>> *queue = boost::static_pointer_cast<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>((void*)((char*) shmaddr + OFFSET));
 
-    int ret = queue->push((buffer_wrapper*)buf, 1);
+    void * non_const_buf = const_cast<void *>(buf);
+    buffer_wrapper* t = boost::static_pointer_cast<buffer_wrapper>(non_const_buf);
+
+    int ret = queue->push(*t);
     if (ret){ // ret == 1 if succesful as we are only pushing one at a time
         return 0;
     }
