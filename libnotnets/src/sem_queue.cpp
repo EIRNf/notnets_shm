@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdatomic.h>
 #include <sys/sem.h>
+#include <semaphore.h>
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -54,27 +55,27 @@ shm_pair _hash_sem_shm_allocator(int message_size, int client_id) {
 }
 
 
-int sem_wait(int semid, int sem_num){
-    struct sembuf sb;
+// int sem_wait(int semid, int sem_num){
+//     struct sembuf sb;
 
-    sb.sem_num = sem_num;
-    sb.sem_op = -1; //Block the calling process until the value of the semaphore is greater than or equal to the absolute value of sem_op.
-    sb.sem_flg = SEM_UNDO;
+//     sb.sem_num = sem_num;
+//     sb.sem_op = -1; //Block the calling process until the value of the semaphore is greater than or equal to the absolute value of sem_op.
+//     sb.sem_flg = SEM_UNDO;
 
-    //Carry our semaphore operatior
-    return semop(semid, &sb, 1);
-}
+//     //Carry our semaphore operatior
+//     return semop(semid, &sb, 1);
+// }
 
-int sem_post(int semid, int sem_num){
-    struct sembuf sb;
+// int sem_post(int semid, int sem_num){
+//     struct sembuf sb;
 
-    sb.sem_num = sem_num;
-    sb.sem_op = 1; //Increment and permit those waiting on the semaphore to enter critical section
-    sb.sem_flg = SEM_UNDO;
+//     sb.sem_num = sem_num;
+//     sb.sem_op = 1; //Increment and permit those waiting on the semaphore to enter critical section
+//     sb.sem_flg = SEM_UNDO;
 
-    //Carry our semaphore operatior
-    return semop(semid, &sb, 1);
-}
+//     //Carry our semaphore operatior
+//     return semop(semid, &sb, 1);
+// }
 
 /*
 ** initsem() -- more-than-inspired by W. Richard Stevens' UNIX Network
@@ -164,20 +165,24 @@ ssize_t queue_create(void* shmaddr, key_t key_seed, size_t shm_size, size_t mess
     header.stop_producer_polling = false;
 
 
-    key_t slots_free_key = key_seed;
-    //must be set size of number of elements, 
-    if ((header.sem_slots_free = _initsem(slots_free_key, num_elements)) == -1) {
-            perror("initsem");
-            exit(1);
-    }
+    // key_t slots_free_key = key_seed;
+    // //must be set size of number of elements, 
+    // if ((header.sem_slots_free = _initsem(slots_free_key, num_elements)) == -1) {
+    //         perror("initsem");
+    //         exit(1);
+    // }
+    //Hmmmm deprecated don't we need the semaphore to live in the shared memory?
+    sem_init(&header.sem_slots_free, 0, num_elements);
 
 
-    key_t slots_full_key = key_seed * 2;
-    //Initialize with 1, as the slots can only be full or not
-    if ((header.sem_slots_full = _initsem(slots_full_key, num_elements)) == -1) {
-            perror("initsem");
-            exit(1);
-    }
+    // key_t slots_full_key = key_seed * 2;
+    // //Initialize with 1, as the slots can only be full or not
+    // if ((header.sem_slots_full = _initsem(slots_full_key, num_elements)) == -1) {
+    //         perror("initsem");
+    //         exit(1);
+    // }
+    sem_init(&header.sem_slots_full, 0, 0);
+
 
     atomic_thread_fence(memory_order_seq_cst);
     sem_spsc_queue_header* header_ptr = get_sem_queue_header(shmaddr); //Necessary???
@@ -223,7 +228,7 @@ int sem_push(void* shmaddr, const void* buf, size_t buf_size) {
         return -1;
     }
 
-    sem_wait(header->sem_slots_free,header->tail); //Thread should wait until semaphore is incremented???
+    sem_wait(&header->sem_slots_free); //Thread should wait until semaphore is incremented???
         if (header->stop_producer_polling) {
             return -1;
         }
@@ -234,7 +239,7 @@ int sem_push(void* shmaddr, const void* buf, size_t buf_size) {
             ret = 0;
             enqueue(header, buf, buf_size);
         }
-    sem_post(header->sem_slots_full,0); //increment, permit sem_pop to dequeue 
+    sem_post(&header->sem_slots_full); //increment, permit sem_pop to dequeue 
     return ret;
 }
 
@@ -283,7 +288,7 @@ size_t sem_pop(void* shmaddr, void* buf, size_t* buf_size) {
     sem_spsc_queue_header* header = get_sem_queue_header(shmaddr);
     size_t ret = 0;
     
-    sem_wait(header->sem_slots_full,0); //Block until semaphore is incremented ie something has been pushed.
+    sem_wait(&header->sem_slots_full); //Block until semaphore is incremented ie something has been pushed.
         if (header->stop_consumer_polling) {
             return 0;
         }
@@ -293,7 +298,7 @@ size_t sem_pop(void* shmaddr, void* buf, size_t* buf_size) {
         } else {
             ret = dequeue(header, buf, buf_size);
         }
-    sem_post(header->sem_slots_free,header->head); 
+    sem_post(&header->sem_slots_free); 
     return ret;
 }
 
