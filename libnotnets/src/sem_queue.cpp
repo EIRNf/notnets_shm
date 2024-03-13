@@ -190,19 +190,21 @@ ssize_t queue_create(void* shmaddr, key_t key_seed, size_t shm_size, size_t mess
     int num_elements = (shm_size - sizeof(sem_spsc_queue_header)) / message_size;
     int leftover_bytes = (shm_size - sizeof(sem_spsc_queue_header)) % message_size;
 
-    sem_spsc_queue_header header;
-    header.head = 0;
-    header.tail = 0;
-    header.message_size = message_size;
-    header.message_offset = 0;
-    header.queue_size = num_elements;
-    header.current_count = 0;
-    header.total_count = 0;
-    header.stop_consumer_polling = false;
-    header.stop_producer_polling = false;
 
     sem_spsc_queue_header* header_ptr = get_sem_queue_header(shmaddr); //Necessary???
-    *header_ptr = header;
+    header_ptr->head = 0;
+    header_ptr->tail = 0;
+    header_ptr->message_size = message_size;
+    header_ptr->message_offset = 0;
+    header_ptr->queue_size = num_elements;
+    header_ptr->current_count = 0;
+    header_ptr->total_count = 0;
+    header_ptr->stop_consumer_polling = false;
+    header_ptr->stop_producer_polling = false;
+
+
+
+
 
     key_t slots_free_key = abs(key_seed)/2;
     //must be set size of number of elements, 

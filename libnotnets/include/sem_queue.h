@@ -3,6 +3,8 @@
 
 #include <sys/types.h>
 #include <semaphore.h>
+#include <stdatomic.h>
+
 
 
 #include "coord.h"
