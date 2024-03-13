@@ -25,8 +25,7 @@
 // pairs of keys, shmid, and ref? in case of an issue where reconnect might be attempted?
 typedef struct queue_pair {
     int client_id;
-    void* queue_type;
-    void* request_shmaddr;
+    void* request_shmaddr; //pointers!!!!
     void* response_shmaddr;
 } queue_pair;
 
