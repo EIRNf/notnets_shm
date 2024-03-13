@@ -452,6 +452,31 @@ shm_pair _rand_shm_allocator(int message_size, int client_id) {
     return shms;
 }
 
+void clean_up_queue_resources(coord_header *header, int slot){
+
+    if (header->available_slots[slot].client_reserved){
+         if (header->slots[slot].detach ){
+         switch (QUEUE_TYPE){
+            case POLL_QUEUE:
+                break;
+            case BOOST_QUEUE:
+                break;
+            case SEM_QUEUE:
+                destroy_semaphores(header,slot);
+                break;
+            default:
+        }
+        
+    // if (header->slots[slot].shms.request_shm.queue_type == 2||
+    //     header->slots[slot].shms.response_shm.queue_type == 2){
+    // }
+    }
+    }
+   
+    
+}
+
+
 /**
  * @brief
  *
@@ -482,7 +507,8 @@ void manage_pool(server_context* handler) {
             default:
                 service_slot(ch, i, &_hash_shm_allocator);
         }
-        clear_slot(ch, i);
+        clean_up_queue_resources(ch,i);
+        clear_slot(ch, i); // cleanups those that requested detach
     }
 }
 

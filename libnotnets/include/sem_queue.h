@@ -16,13 +16,16 @@ typedef struct sem_spsc_queue_header {
     int queue_size;
     int current_count;
     int total_count;
-    bool stop_producer_polling;
+    bool stop_producer_polling; //TODO: Need to update stop function if in the middle of communication
     bool stop_consumer_polling;
 
     sem_t sem_slots_free;
     sem_t sem_slots_full;
 } sem_spsc_queue_header;
 
+
+
+void destroy_semaphores(coord_header *header, int slot);
 
 shm_pair _hash_sem_shm_allocator(int message_size, int client_id);
 
