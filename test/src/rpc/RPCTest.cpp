@@ -10,7 +10,7 @@
 
 
 #ifdef __APPLE__
-#define TEST_CLIENTS 1
+#define TEST_CLIENTS 3
 #else
 #define TEST_CLIENTS 10
 #endif
@@ -338,15 +338,6 @@ void* test_client_connection(void* arg){
     pthread_exit(0);
 }
 
-#ifdef __APPLE__
-
-
-TEST_F(RPCTest, Connection)
-{
-    ASSERT_TRUE(true);
-}
-
-#else
 TEST_F(RPCTest, Connection)
 {
     int err = 0;
@@ -431,5 +422,3 @@ TEST_F(RPCTest, Connection)
     EXPECT_FALSE(err);
 
 }
-#endif
-
