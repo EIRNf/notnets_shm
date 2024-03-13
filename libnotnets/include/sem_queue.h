@@ -9,8 +9,8 @@
 
 
 typedef struct sem_spsc_queue_header {
-    int head;
-    int tail;
+    atomic_int head;
+    atomic_int tail;
     size_t message_size;
     int message_offset;
     int queue_size;

@@ -273,20 +273,21 @@ int sem_push(void* shmaddr, const void* buf, size_t buf_size) {
         return -1; 
     }
 
-
-    //Change this to single semaphore
-    sem_wait(header->sem_slots_free,header->tail); //Thread should wait until semaphore is incremented???
+    for(;;){
         if (header->stop_producer_polling) {
             ret = -1;
         }
-        // This should not happen as semaphore should block if we are full
-        if (is_full(header)) { //What do when full? 
-            ret = -1; //-1 for it being full?
+        // (header->tail + 1) % header->queue_size == header->head;
+        int tail_pos = (atomic_load(&header->tail) + 1) % header->queue_size;
+        if (tail_pos == atomic_load(&header->head)) { //What do when full? 
+                continue;
         } else {
-        enqueue(header, buf, buf_size);
-        }
-    sem_post(header->sem_slots_full,0); //increment, permit sem_pop to dequeue 
-
+        //Change this to single semaphore
+        sem_wait(header->sem_slots_free,header->tail); //Thread should wait until semaphore is incremented???
+            enqueue(header, buf, buf_size);
+            }
+        sem_post(header->sem_slots_full,0); //increment, permit sem_pop to dequeue
+    }
     return ret;
 }
 
