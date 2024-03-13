@@ -82,7 +82,6 @@ int sem_wait(int semid, int sem_num){
 
     sb.sem_num = sem_num;
     sb.sem_op = -1; //Block the calling process until the value of the semaphore is greater than or equal to the absolute value of sem_op.
-    sb.sem_flg ;
 
     int ret = semop(semid, &sb, 1);
     if (ret == -1 ){
@@ -102,7 +101,6 @@ int sem_post(int semid, int sem_num){
 
     sb.sem_num = sem_num;
     sb.sem_op = 1; //Increment and permit those waiting on the semaphore to enter critical section
-    sb.sem_flg ;
 
     int ret = semop(semid, &sb, 1);
     if (ret == -1 ){
@@ -268,18 +266,17 @@ int sem_push(void* shmaddr, const void* buf, size_t buf_size) {
         return -1;
     }
 
-    int wait, post = 0;
-    wait = sem_wait(header->sem_slots_free,header->tail); //Thread should wait until semaphore is incremented???
+    sem_wait(header->sem_slots_free,header->tail); //Thread should wait until semaphore is incremented???
         if (header->stop_producer_polling) {
             ret = -1;
         }
         // This should not happen as semaphore should block if we are full
-        // if (is_full(header)) {//What do when full? The semaphore should block no?
-        //     ret = -1; //-1 for it being full?
-        // } else {
+        if (is_full(header)) { //What do when full? 
+            ret = -1; //-1 for it being full?
+        } else {
         enqueue(header, buf, buf_size);
-        // }
-    post = sem_post(header->sem_slots_full,0); //increment, permit sem_pop to dequeue 
+        }
+    sem_post(header->sem_slots_full,0); //increment, permit sem_pop to dequeue 
     return ret;
 }
 
@@ -327,18 +324,17 @@ size_t sem_pop(void* shmaddr, void* buf, size_t* buf_size) {
     sem_spsc_queue_header* header = get_sem_queue_header(shmaddr);
     size_t ret = 0;
     
-    int wait, post = 0;
-    wait = sem_wait(header->sem_slots_full, 0); //Block until semaphore is incremented ie something has been pushed.
+    sem_wait(header->sem_slots_full, 0); //Block until semaphore is incremented ie something has been pushed.
         if (header->stop_consumer_polling) {
             return 0;
         }
         // Panic, this should not happen as semaphore should block the thread if we are empty
-        // if (is_empty(header)) { 
-        //     ret = 0;
-        // } else {
+        if (is_empty(header)) { 
+            ret = 0;
+        } else {
         ret = dequeue(header, buf, buf_size);
-        // }
-    post = sem_post(header->sem_slots_free,header->head); 
+        }
+    sem_post(header->sem_slots_free,header->head); 
     return ret;
 }
 
