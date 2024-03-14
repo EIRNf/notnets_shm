@@ -229,7 +229,7 @@ ssize_t queue_create(void* shmaddr, key_t key_seed, size_t shm_size, size_t mess
 
 
 bool is_full(sem_spsc_queue_header *header) {
-    return (header->tail + 1) % header->queue_size == header->head;
+    return (header->head + 1) % header->queue_size == header->tail  ;
 }
 
 
@@ -237,36 +237,19 @@ void enqueue(sem_spsc_queue_header* header, const void* buf, size_t buf_size) {
     void* array_start = get_message_array(header);
 
     int message_size = header->message_size;
-    int tail = header->tail;
+    int head = header->head;
 
-    memcpy((char*) array_start + tail*message_size, buf, buf_size);
+    memcpy((char*) array_start + head*message_size, buf, buf_size);
     
     header->current_count++;
     header->total_count++;
 
     // TODO: fence?
-    header->tail = (header->tail + 1) % header->queue_size;
+    header->head = (header->head + 1) % header->queue_size;
 }
 
 
 int sem_push(void* shmaddr, const void* buf, size_t buf_size) {
-
-
-    // Wait on SemPush semaphore:
-    //Push
-    // SemPush    // decrement operator 
-        //if (isFull){
-            // wait  
-        // }
-        //enqueue
-    // SemPop    // decrement
-
-    //Pop
-    // SemPop    // increment operator 
-        //deqeue
-    // SemPush   // decrement 
-
-
 
     sem_spsc_queue_header* header = get_sem_queue_header(shmaddr);
     int ret = 0;
@@ -274,28 +257,17 @@ int sem_push(void* shmaddr, const void* buf, size_t buf_size) {
     if (buf_size > header->message_size) {
         return -1; 
     }
-
-    for(;;){
-        if (header->stop_producer_polling) {
-            ret = -1;
-        }
-        // (header->tail + 1) % header->queue_size == header->head;
-        int tail_pos = (atomic_load(&header->tail) + 1) % header->queue_size;
-        if (tail_pos == atomic_load(&header->head)) { //What do when full? 
-                continue;
-        } else {
         //Change this to single semaphore
-        sem_wait(header->sem_slots_free,header->tail); //Thread should wait until semaphore is incremented???
-            enqueue(header, buf, buf_size);
-            }
-        sem_post(header->sem_slots_full,0); //increment, permit sem_pop to dequeue
-    }
+    sem_wait(header->sem_slots_free,header->head); //Thread should wait until semaphore is incremented???
+        enqueue(header, buf, buf_size); 
+    sem_post(header->sem_slots_full,0); //increment, permit sem_pop to dequeue
+    
     return ret;
 }
 
 
 bool is_empty(sem_spsc_queue_header *header) {
-    return header->head == header->tail;
+    return  header->tail == header->head;
 }
 
 
@@ -313,14 +285,14 @@ size_t dequeue(sem_spsc_queue_header* header, void* buf, size_t* buf_size) {
 
     memcpy(
         buf,
-        (char*) array_start + header->head*header->message_size + header->message_offset,
+        (char*) array_start + header->tail*header->message_size + header->message_offset,
         *buf_size
     );
 
     header->message_offset += *buf_size;
 
     if ((size_t) header->message_offset == header->message_size) {
-        header->head = (header->head + 1) % header->queue_size;
+        header->tail = (header->tail + 1) % header->queue_size;
         header->current_count--;
         header->message_offset = 0;
     }
@@ -333,18 +305,14 @@ size_t dequeue(sem_spsc_queue_header* header, void* buf, size_t* buf_size) {
 size_t sem_pop(void* shmaddr, void* buf, size_t* buf_size) {
     sem_spsc_queue_header* header = get_sem_queue_header(shmaddr);
     size_t ret = 0;
+
+    if (header->stop_consumer_polling) {
+        return 0;
+    }
     
     sem_wait(header->sem_slots_full, 0); //Block until semaphore is incremented ie something has been pushed.
-        if (header->stop_consumer_polling) {
-            return 0;
-        }
-        // Panic, this should not happen as semaphore should block the thread if we are empty
-        if (is_empty(header)) { 
-            ret = 0;
-        } else {
         ret = dequeue(header, buf, buf_size);
-        }
-    sem_post(header->sem_slots_free,header->head); 
+    sem_post(header->sem_slots_free,header->tail); 
     return ret;
 }
 
