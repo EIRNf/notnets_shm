@@ -128,6 +128,7 @@ TEST_F(RPCTest, SendRecvInt)
     int ipc_shmid = shm_create(ipc_key, ipc_shm_size, create_flag);
     void* ipc_shmaddr = shm_attach(ipc_shmid);
     atomic_int* ipc = (atomic_int*) ipc_shmaddr;
+    atomic_store(ipc, 0);
 
 
     pid_t pid = fork();
@@ -135,33 +136,7 @@ TEST_F(RPCTest, SendRecvInt)
     if (pid == -1) {
         perror("fork");
     } else if (pid > 0) { // PARENT PROCESS
-        server_context* sc = register_server((char*)"SendRecvIntServer");
-        atomic_store(ipc, -1); //Takes a while to return, must restrict client execution.
-
-        queue_pair* qp;
-        while ((qp = accept(sc)) == NULL);
-
-        int *buf = (int*)malloc(sizeof(int));
-        int buf_size = sizeof(int);
-
-        for (int i = 0; i < 10; ++i) {
-            int pop_size = server_receive_buf(qp, buf, buf_size);
-            assert(pop_size == 0);
-
-            // do work on client rpc
-            *buf *= 2;
-            server_send_rpc(qp, buf, buf_size);
-        }
-
-        free(buf);
-        free(qp);
-
-        // wait for client to finish reading responses
-        while ((int)atomic_load(ipc) != 1){}
-
-        shutdown(sc);
-    } else { // CHILD PROCESS
-        while ((int)atomic_load(ipc) != -1){
+         while ((int)atomic_load(ipc) != -1){
         }
         queue_pair* qp = client_open((char*)"SendRecvIntClient",
                                      (char*)"SendRecvIntServer",
@@ -193,7 +168,8 @@ TEST_F(RPCTest, SendRecvInt)
                 err = 1;
             }
         }
-	EXPECT_FALSE(err);
+
+	    EXPECT_FALSE(err);
 
         // usually we would close client conn, but server will shutdown in its
         // process, which will handle deallocation of qp
@@ -202,6 +178,35 @@ TEST_F(RPCTest, SendRecvInt)
 
         atomic_store(ipc, 1);
         exit(0);
+
+
+    } else { // CHILD PROCESS
+       
+        server_context* sc = register_server((char*)"SendRecvIntServer");
+
+        atomic_store(ipc, -1); //Takes a while to return, must restrict client execution.
+
+        queue_pair* qp;
+        while ((qp = accept(sc)) == NULL);
+
+        int *buf = (int*)malloc(sizeof(int));
+        int buf_size = sizeof(int);
+
+        for (int i = 0; i < 10; ++i) {
+            int pop_size = server_receive_buf(qp, buf, buf_size);
+            assert(pop_size == 0);
+
+            // do work on client rpc
+            *buf *= 2;
+            server_send_rpc(qp, buf, buf_size);
+        }
+
+        free(buf);
+        free(qp);
+
+        // wait for client to finish reading responses
+        while ((int)atomic_load(ipc) != 1){}
+        shutdown(sc);
     }
 
     // cleanup ipc shm

@@ -27,6 +27,7 @@ typedef struct queue_pair {
     int client_id;
     void* request_shmaddr; //pointers!!!!
     void* response_shmaddr;
+    int offset;
 } queue_pair;
 
 // typedef enum QUEUE_TYPE

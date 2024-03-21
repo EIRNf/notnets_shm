@@ -4,6 +4,7 @@
 #include <boost/interprocess/xsi_shared_memory.hpp>
 #include <boost/any.hpp>
 #include <boost/pointer_cast.hpp>
+#include <boost/bind/bind.hpp> 
 #include <boost/lockfree/spsc_queue.hpp> // ring buffer
 #include <boost/interprocess/managed_xsi_shared_memory.hpp>
 #include <boost/interprocess/interprocess_fwd.hpp>
@@ -14,7 +15,7 @@ namespace bip = boost::interprocess;
 #define MESSAGE_SIZE 10 // THIS REALLY NEEDS TO BE DYNAMIC AT RUNTIME
 #define QUEUE_CAPACITY 100 //
 #define MEM_SIZE 10000
-#define OFFSET 224 //FIX
+#define OFFSET 224 //FIX, FUCKING DUMBASS
 
 long offset1, offset2;
 
@@ -41,7 +42,7 @@ shm_pair _boost_shm_allocator(int message_size, int client_id) {
     boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>> *queue2 = mem2.construct<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>("queue")();
 
     offset1 = mem1.get_handle_from_address(queue1);    
-    offset2 = mem2.get_handle_from_address(queue2);
+    // offset2 = mem2.get_handle_from_address(queue2);
 
 
     notnets_shm_info request_shm = {key1,mem1.get_shmid()};
@@ -49,18 +50,34 @@ shm_pair _boost_shm_allocator(int message_size, int client_id) {
 
     shms.request_shm = request_shm;
     shms.response_shm = response_shm;
+    shms.offset = mem1.get_handle_from_address(queue1);
 
     return shms;
 }
 
 
-int boost_push(void* shmaddr, const void* buf, size_t buf_size){
+int boost_push(void* shmaddr, const void* buf, size_t buf_size,int offset){    
+
+    // boost::static_pointer_cast<bip::managed_xsi_shared_memory>(shmaddr);
+
+    // bip::managed_xsi_shared_memory *mem =  bip::addressof<bip::managed_xsi_shared_memory>( (bip::managed_xsi_shared_memory*)shmaddr);
+
+
+    // bip::managed_xsi_shared_memory *mem = std::auto_ptr< bip::m / anaged_xsi_shared_memory*>(shmaddr);
+
+
+    // bip::managed_xsi_shared_memory *mem = static_cast<bip::managed_xsi_shared_memory*>((bip::managed_xsi_shared_memory*)shmaddr);
     
+    // // boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>> *queue =  boost::bind(bip::managed_xsi_shared_memory::find<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>, mem,_1)("queue");
+    // boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>> *queue = mem->find<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>("queue")();
+
+
     //Cast pointer to underlying queue structure, which hopefully works
-    boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>> *queue = boost::static_pointer_cast<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>((void*)((char*) shmaddr + OFFSET));
+    boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>> *queue = boost::static_pointer_cast<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>((void*)((char*) shmaddr + offset));
 
     void * non_const_buf = const_cast<void *>(buf);
     buffer_wrapper* t = boost::static_pointer_cast<buffer_wrapper>(non_const_buf);
+
 
     int ret = queue->push(*t);
     if (ret){ // ret == 1 if succesful as we are only pushing one at a time
@@ -71,9 +88,14 @@ int boost_push(void* shmaddr, const void* buf, size_t buf_size){
     }
 }
 
-size_t boost_pop(void* shmaddr, void* buf, size_t* buf_size){
+size_t boost_pop(void* shmaddr, void* buf, size_t* buf_size,int offset){
     //Cast pointer to underlying queue structure, which hopefully works
-    boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>> *queue = boost::static_pointer_cast<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>((void*)((char*) shmaddr + OFFSET));
+    boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>> *queue = boost::static_pointer_cast<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>((void*)((char*) shmaddr + offset));
+
+    // bip::managed_xsi_shared_memory *mem = dynamic_cast<bip::managed_xsi_shared_memory*>((bip::managed_xsi_shared_memory*)shmaddr);
+    // boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>> *queue = mem->find<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>("queue")();
+
+
 
     buffer_wrapper* t = boost::static_pointer_cast<buffer_wrapper>(buf);
 

@@ -5,7 +5,6 @@
 #include <string.h>
 #include <stdatomic.h>
 #include <sys/sem.h>
-#include <semaphore.h>
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -113,6 +112,14 @@ int sem_post(int semid, int sem_num){
     //Carry our semaphore operation
     return ret;
 }
+
+union semun {
+    int              val;    /* Value for SETVAL */
+    struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
+    unsigned short  *array;  /* Array for GETALL, SETALL */
+    struct seminfo  *__buf;  /* Buffer for IPC_INFO
+                                (Linux-specific) */
+};
 
 /*
 ** initsem() -- more-than-inspired by W. Richard Stevens' UNIX Network

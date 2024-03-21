@@ -24,6 +24,7 @@ typedef struct notnets_shm_info {
 typedef struct shm_pair {
     notnets_shm_info request_shm;
     notnets_shm_info response_shm;
+    int offset;
 } shm_pair;
 
 //Modify to be templatable, permit

@@ -2,13 +2,10 @@
 #define __SEM_QUEUE_H
 
 #include <sys/types.h>
-#include <semaphore.h>
 #include <stdatomic.h>
-
-
+#include <sys/sem.h>
 
 #include "coord.h"
-
 
 typedef struct sem_spsc_queue_header {
     atomic_int head;
@@ -21,8 +18,8 @@ typedef struct sem_spsc_queue_header {
     bool stop_producer_polling; //TODO: Need to update stop function if in the middle of communication
     bool stop_consumer_polling;
 
-    sem_t sem_slots_free;
-    sem_t sem_slots_full;
+    int sem_slots_free;
+    int sem_slots_full;
 } sem_spsc_queue_header;
 
 

@@ -14,7 +14,7 @@
 #include <string.h>
 #include <sys/types.h>
 
-#define QUEUE_TYPE 2
+#define QUEUE_TYPE 1
  
 #define POLL_QUEUE 0
 #define BOOST_QUEUE 1
@@ -127,11 +127,13 @@ queue_pair* _create_client_queue_pair(coord_header* ch, int slot) {
         qp->request_shmaddr = NULL;
         qp->response_shmaddr = NULL;
         qp->client_id = id;
+        qp->offset= shms.offset;
     } else {
         set_client_attach_state(ch, slot,true);
         qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
         qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
         qp->client_id = id;
+        qp->offset= shms.offset;
     } 
     atomic_thread_fence(memory_order_seq_cst);
 
@@ -157,11 +159,13 @@ queue_pair* _create_server_queue_pair(coord_header* ch, int slot) {
         qp->request_shmaddr = NULL;
         qp->response_shmaddr = NULL;
         qp->client_id = id;
+        qp->offset= shms.offset;
     } else {
         set_server_attach_state(ch, slot,true);
         qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
         qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
         qp->client_id = id;
+        qp->offset= shms.offset;
     } 
 
     atomic_thread_fence(memory_order_seq_cst);
@@ -261,12 +265,13 @@ queue_pair* client_open(char* source_addr,
  */
 int client_send_rpc(queue_pair* queues, const void *buf, size_t size) {
     int ret = 0;
+
     switch (QUEUE_TYPE){
             case POLL_QUEUE:
                 ret = push(queues->request_shmaddr, buf, size);
                 break;
             case BOOST_QUEUE:
-                ret = boost_push(queues->request_shmaddr, buf, size);
+                ret = boost_push(queues->request_shmaddr, buf, size,queues->offset);
                 break;
             case SEM_QUEUE:
                 ret = sem_push(queues->request_shmaddr, buf, size);
@@ -297,7 +302,7 @@ size_t client_receive_buf(queue_pair* queues, void* buf, size_t size) {
                 ret = pop(queues->response_shmaddr, buf, &size);
                 break;
             case BOOST_QUEUE:
-                ret = boost_pop(queues->response_shmaddr, buf, &size);
+                ret = boost_pop(queues->response_shmaddr, buf, &size,queues->offset);
                 break;
             case SEM_QUEUE:
                 ret = sem_pop(queues->response_shmaddr, buf, &size);
@@ -465,6 +470,7 @@ void clean_up_queue_resources(coord_header *header, int slot){
                 destroy_semaphores(header,slot);
                 break;
             default:
+                break;
         }
         
     // if (header->slots[slot].shms.request_shm.queue_type == 2||
@@ -625,7 +631,7 @@ int server_send_rpc(queue_pair* queues, const void *buf, size_t size) {
                 ret = push(queues->response_shmaddr, buf, size);
                 break;
             case BOOST_QUEUE:
-                ret = boost_push(queues->response_shmaddr, buf, size);
+                ret = boost_push(queues->response_shmaddr, buf, size,queues->offset);
                 break;
             case SEM_QUEUE:
                 ret = sem_push(queues->response_shmaddr, buf, size);
@@ -654,7 +660,7 @@ size_t server_receive_buf(queue_pair* queues, void* buf, size_t size) {
                 ret = pop(queues->request_shmaddr, buf, &size);
                 break;
             case BOOST_QUEUE:
-                ret = boost_pop(queues->request_shmaddr, buf, &size);
+                ret = boost_pop(queues->request_shmaddr, buf, &size,queues->offset);
                 break;
              case SEM_QUEUE:
                 ret = sem_pop(queues->request_shmaddr, buf, &size);
