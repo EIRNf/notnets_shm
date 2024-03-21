@@ -4,11 +4,12 @@ EXECUTABLE = experiments
 
 UNAME    := $(shell uname)
 
-CPPFLAGS = -v
+CPPFLAGS = 
 
 INCLUDES = \
 	-I  /usr/include/boost \
 	-I $(THISDIR)/../libnotnets/include \
+	-I $(THISDIR)/../bench_rpc/include 
 
 LDFLAGS = \
 	-L $(THISDIR)/../libnotnets/bin \

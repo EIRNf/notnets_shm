@@ -3,21 +3,27 @@
 
 #include  <time.h>
 #include <stdatomic.h>
+#include "rpc.h"
 
 
-#define NUM_ITEMS 10000000
+#define NUM_ITEMS 100000
 #define MESSAGE_SIZE 4 //Int
 
 
 extern atomic_bool run_flag; //control execution
 
 #ifndef MAX_CLIENTS
-#define MAX_CLIENTS 20
+#define MAX_CLIENTS 10
 #endif
 
+struct single_connect_args {
+    queue_pair *qp;
+    int num_items;
+};
 
 struct connection_args {
     int client_id;
+    int num_items;
     struct timespec start;
     struct timespec end;
 };

@@ -75,7 +75,7 @@ void pthread_client_rtt_post_connect(queue_pair* qp, struct connection_args *arg
  
 void *pthread_server_rtt(void* s_qp){
 
-    queue_pair* qp = (queue_pair*) s_qp;
+    single_connect_args* args = (single_connect_args*) s_qp;
 
     int* buf = (int*)malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
@@ -86,19 +86,20 @@ void *pthread_server_rtt(void* s_qp){
     //hold until flag is set to true
     while(!run_flag);
 
-    for(int i=1;i<NUM_ITEMS;i++) {
+    for(int i=1;i < args->num_items;i++) {
 
-        server_receive_buf(qp, pop_buf, pop_buf_size);
+        server_receive_buf(args->qp, pop_buf, pop_buf_size);
 
         //Business logic or something
         *buf = *pop_buf;
 
-        server_send_rpc(qp,buf,buf_size);
+        server_send_rpc(args->qp,buf,buf_size);
      }
 
     free(pop_buf);
     free(buf);
-    free(qp);
+    free(args->qp);
+    free(args);
     pthread_exit(0);
 }
 
