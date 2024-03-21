@@ -81,11 +81,12 @@ int sem_wait(int semid, int sem_num){
 
     sb.sem_num = sem_num;
     sb.sem_op = -1; //Block the calling process until the value of the semaphore is greater than or equal to the absolute value of sem_op.
+    sb.sem_flg = 0;
 
     int ret = semop(semid, &sb, 1);
     if (ret == -1 ){
         int errnum = errno;
-        fprintf(stderr, "Value of errno: %d\n", errno);
+        fprintf(stderr, "Sem_Wait: Value of errno: %d\n", errno);
         perror("Error printed by perror");
         fprintf(stderr, "Error opening file: %s\n", strerror( errnum ));
 
@@ -100,11 +101,12 @@ int sem_post(int semid, int sem_num){
 
     sb.sem_num = sem_num;
     sb.sem_op = 1; //Increment and permit those waiting on the semaphore to enter critical section
+    sb.sem_flg = 0;
 
     int ret = semop(semid, &sb, 1);
     if (ret == -1 ){
         int errnum = errno;
-        fprintf(stderr, "Value of errno: %d\n", errno);
+        fprintf(stderr, "Sem_Push: Value of errno: %d\n", errno);
         perror("Error printed by perror");
         fprintf(stderr, "Error opening file: %s\n", strerror( errnum ));
 
@@ -208,8 +210,6 @@ ssize_t queue_create(void* shmaddr, key_t key_seed, size_t shm_size, size_t mess
     header_ptr->total_count = 0;
     header_ptr->stop_consumer_polling = false;
     header_ptr->stop_producer_polling = false;
-
-
 
 
 

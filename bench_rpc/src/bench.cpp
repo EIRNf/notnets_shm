@@ -738,6 +738,7 @@ void bench_run_all(void){
 #else
     connection_stress_test();
 
+    fprintf(stdout, "num_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | \n");
     //Connections are all pre-established, and we only measure steady-state
     rtt_steady_state_conn_test();
     
