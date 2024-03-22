@@ -6,11 +6,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdatomic.h>
+
 
 
 typedef struct spsc_queue_header {
-    int head;
-    int tail;
+    atomic_int head;
+    atomic_int tail;
     size_t message_size;
     int message_offset;
     int queue_size;

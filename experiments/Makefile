@@ -4,7 +4,7 @@ EXECUTABLE = experiments
 
 UNAME    := $(shell uname)
 
-CPPFLAGS = -v
+CPPFLAGS = 
 
 INCLUDES = \
 	-I  /usr/include/boost \

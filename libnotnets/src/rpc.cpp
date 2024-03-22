@@ -14,7 +14,7 @@
 #include <string.h>
 #include <sys/types.h>
 
-#define QUEUE_TYPE 2
+#define QUEUE_TYPE 0
  
 #define POLL_QUEUE 0
 #define BOOST_QUEUE 1
