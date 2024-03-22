@@ -89,7 +89,7 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
 
     //Enqueue
     void* array_start = get_message_array(header);
-    memmove((char*)array_start + writer_head * message_size, buf, buf_size);
+    memcpy((char*)array_start + writer_head * message_size, buf, buf_size);
     
     atomic_store_explicit(&header->head, next_writer_head, memory_order_release);
 
@@ -160,7 +160,7 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) {
 
     //dequeue, TODO, Partial writes
     void* array_start = get_message_array(header);
-    memmove(
+    memcpy(
         buf,
         (char*) array_start + (reader_tail * header->message_size) + header->message_offset,
         *buf_size
