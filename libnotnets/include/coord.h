@@ -11,6 +11,12 @@
 #include <stdlib.h>
 #include <stdatomic.h>
 
+typedef enum QUEUE_TYPE
+{
+  POLL,
+  BOOST,
+  SEM
+} QUEUE_TYPE;
 
 typedef struct reserve_pair {
     bool client_reserved;
@@ -31,6 +37,7 @@ typedef struct shm_pair {
 typedef struct coord_row {
     int client_id; //Only written to by Client, how do we even know id?
     int message_size;
+    QUEUE_TYPE type;
     atomic_bool shm_created;  //Only written to by Server
     atomic_bool client_attached;
     atomic_bool server_attached;

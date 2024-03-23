@@ -69,19 +69,21 @@ TEST_F(RPCTest, OpenClose)
         shutdown(sc);
     } else { // CHILD PROCESS
         // if returns, then open was successful
-      queue_pair* qp = client_open((char*)"OpenCloseClient",
+      queue_ctx* qp = client_open((char*)"OpenCloseClient",
 				   (char*)"OpenCloseServer",
-                                     sizeof(int));
+                                     sizeof(int),
+                                     POLL);
 
         while (qp == NULL) {
 	  qp = client_open((char*)"OpenCloseClient",
 			   (char*)"OpenCloseServer",
-                             sizeof(int));
+                             sizeof(int),
+                             POLL);
         }
 
         int err = client_close((char*)"OpenCloseClient", (char*)"OpenCloseServer");
-	EXPECT_FALSE(err);
-        free(qp);
+	    EXPECT_FALSE(err);
+        free_queue_ctx(qp);
         exit(0);
     }
 }
@@ -96,26 +98,28 @@ TEST_F(RPCTest, Accept)
     } else if (pid > 0) { // PARENT PROCESS
         server_context* sc = register_server((char*)"AcceptServer");
 
-        queue_pair* qp;
+        queue_ctx* qp;
         while ((qp = accept(sc)) == NULL);
 
         int expected_client_id = (int)hash((unsigned char*)"AcceptClient");
 
-        EXPECT_EQ(expected_client_id,qp->client_id);
+        EXPECT_EQ(expected_client_id,qp->queues->client_id);
 
-        free(qp);
+        free_queue_ctx(qp);
         shutdown(sc);
     } else { // CHILD PROCESS
-        queue_pair* qp = client_open((char*)"AcceptClient",
+        queue_ctx* qp = client_open((char*)"AcceptClient",
 				   (char*)"AcceptServer",
-                                     sizeof(int));
+                                     sizeof(int),
+                                     POLL);
         while (qp == NULL) {
 	    qp = client_open((char*)"AcceptClient",
 			   (char*)"AcceptServer",
-                             sizeof(int));
+                             sizeof(int),
+                             POLL);
         }
 
-        free(qp);
+        free_queue_ctx(qp);
         exit(0);
     }
 }
@@ -138,14 +142,16 @@ TEST_F(RPCTest, SendRecvInt)
     } else if (pid > 0) { // PARENT PROCESS
          while ((int)atomic_load(ipc) != -1){
         }
-        queue_pair* qp = client_open((char*)"SendRecvIntClient",
+        queue_ctx* qp = client_open((char*)"SendRecvIntClient",
                                      (char*)"SendRecvIntServer",
-                                     sizeof(int));
+                                     sizeof(int),
+                                     POLL);
 
         while (qp == NULL) {
             qp = client_open((char*)"SendRecvIntClient",
                              (char*)"SendRecvIntServer",
-                             sizeof(int));
+                             sizeof(int),
+                             POLL);
         }
 
         // currently the shm_allocator only handles int
@@ -174,7 +180,7 @@ TEST_F(RPCTest, SendRecvInt)
         // usually we would close client conn, but server will shutdown in its
         // process, which will handle deallocation of qp
         free(buf);
-        free(qp);
+        free_queue_ctx(qp);
 
         atomic_store(ipc, 1);
         exit(0);
@@ -186,7 +192,7 @@ TEST_F(RPCTest, SendRecvInt)
 
         atomic_store(ipc, -1); //Takes a while to return, must restrict client execution.
 
-        queue_pair* qp;
+        queue_ctx* qp;
         while ((qp = accept(sc)) == NULL);
 
         int *buf = (int*)malloc(sizeof(int));
@@ -202,7 +208,7 @@ TEST_F(RPCTest, SendRecvInt)
         }
 
         free(buf);
-        free(qp);
+        free_queue_ctx(qp);
 
         // wait for client to finish reading responses
         while ((int)atomic_load(ipc) != 1){}
@@ -232,7 +238,7 @@ TEST_F(RPCTest, SendRecvStr)
         atomic_store(ipc, -1); //Takes a while to return, must restrict client execution.
 
 
-        queue_pair* qp;
+        queue_ctx* qp;
         while ((qp = accept(sc)) == NULL);
 
         int message_size = sizeof(char[10]); 
@@ -248,7 +254,7 @@ TEST_F(RPCTest, SendRecvStr)
         }
 
         free(buf);
-        free(qp);
+        free_queue_ctx(qp);
 
         // wait for client to finish reading responses
         while ((int)atomic_load(ipc) != 1){
@@ -260,14 +266,16 @@ TEST_F(RPCTest, SendRecvStr)
         }
 
         int message_size = sizeof(char[10]);
-        queue_pair* qp = client_open((char*)"SendRecvStrClient",
+        queue_ctx* qp = client_open((char*)"SendRecvStrClient",
                                      (char*)"SendRecvStrServer",
-                                     message_size);
+                                     message_size,
+                                     POLL);
 
         while (qp == NULL) {
             qp = client_open((char*)"SendRecvStrClient",
                              (char*)"SendRecvStrServer",
-                             message_size);
+                             message_size,
+                             POLL);
         }
 
         char* buf = (char*)malloc(message_size);
@@ -316,13 +324,15 @@ void* test_client_connection(void* arg){
 
     while(!run_flag);
 
-    queue_pair* c_qp = client_open(name,
+    queue_ctx* c_qp = client_open(name,
                                 (char*)"ConnectionServer",
-                                 sizeof(int));
+                                 sizeof(int),
+                                 POLL);
     while (c_qp == NULL) {
         c_qp = client_open(name,
                              (char*)"ConnectionServer",
-                             sizeof(int));
+                             sizeof(int),
+                             POLL);
         }
     
     args->err = 0;
@@ -331,13 +341,13 @@ void* test_client_connection(void* arg){
         args->err = 1;
         fprintf(stdout, "Missed Connection: %d \n", args->client_id);
     }
-    if (c_qp->request_shmaddr == NULL || c_qp->response_shmaddr == NULL ){
+    if (c_qp->queues->request_shmaddr == NULL || c_qp->queues->response_shmaddr == NULL ){
         args->err = 1;
         fprintf(stdout, "Repeat Connection: %d \n", (int)hash((unsigned char*)name));
         fprintf(stdout, "Repeat Connection: %d \n", args->client_id);
-        fprintf(stdout, "Client Id: %d \n", c_qp->client_id);
-        fprintf(stdout, "Request_Queue: %p \n", c_qp->request_shmaddr);
-        fprintf(stdout, "Response_Queue: %p \n", c_qp->response_shmaddr);
+        fprintf(stdout, "Client Id: %d \n", c_qp->queues->client_id);
+        fprintf(stdout, "Request_Queue: %p \n", c_qp->queues->request_shmaddr);
+        fprintf(stdout, "Response_Queue: %p \n", c_qp->queues->response_shmaddr);
     }
     free(c_qp);
     pthread_exit(0);
@@ -373,7 +383,7 @@ TEST_F(RPCTest, Connection)
         pthread_create(clients[i], NULL, test_client_connection, args[i]);
     }
     
-    queue_pair* s_qp;
+    queue_ctx* s_qp;
 
     //Synchronization variable to begin attempting to open connections
     run_flag = true;
@@ -387,7 +397,7 @@ TEST_F(RPCTest, Connection)
         if (s_qp != NULL){ 
             
             //Check for repeat entries!!!!!!!!!
-            key = s_qp->client_id;
+            key = s_qp->queues->client_id;
             item = (int*) bsearch(&key, client_list,TEST_CLIENTS,sizeof(int),cmpfunc);
             //Client already accepted, reject
             if(item != NULL){
@@ -395,12 +405,12 @@ TEST_F(RPCTest, Connection)
                 continue;
             }
 
-            if(s_qp->request_shmaddr != NULL){
-                client_list[i] = s_qp->client_id;
+            if(s_qp->queues->request_shmaddr != NULL){
+                client_list[i] = s_qp->queues->client_id;
                 // client_queues[i] = s_qp;
                 i++;
             }
-            free(s_qp);
+            free_queue_ctx(s_qp);
         }
     }
 

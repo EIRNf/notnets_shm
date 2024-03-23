@@ -22,13 +22,14 @@ void single_rtt_test(){
 
     server_context* sc = register_server((char*)"single_rtt_test_server");
 
-    queue_pair* c_qp = client_open((char*)"single_rtt_test_client",
+    queue_ctx* c_qp = client_open((char*)"single_rtt_test_client",
                                 (char*)"single_rtt_test_server",
-                                sizeof(int));
+                                sizeof(int),
+                                POLL);
 
     struct connection_args *args = (struct connection_args *)malloc(sizeof(struct connection_args));
 
-    queue_pair* s_qp;
+    queue_ctx* s_qp;
     while ((s_qp = accept(sc)) == NULL);
 
     //producer thread
@@ -65,7 +66,7 @@ void single_connection_test(){
 
     pthread_create(&client, NULL, pthread_connect_client,args);
 
-    queue_pair* s_qp;
+    queue_ctx* s_qp;
     //Synchronization variable to begin attempting to open connections
     run_flag = true;
     while ((s_qp = accept(sc)) == NULL);
@@ -76,7 +77,7 @@ void single_connection_test(){
     fprintf(stdout, "Num Clients: %d \n", 1);
     fprintf(stdout, "Available Slots: %d \n", SLOT_NUM);
     report_connection_stats(args);
-    free(s_qp);
+    free_queue_ctx(s_qp);
     shutdown(sc);
     free(args);
     run_flag = false;
@@ -113,14 +114,14 @@ void connection_stress_test(){
     }
     
 
-    queue_pair* s_qp;
+    queue_ctx* s_qp;
 
     //Synchronization variable to begin attempting to open connections
     run_flag = true;
     
    
     int client_list[MAX_CLIENTS];
-    queue_pair *client_queues[MAX_CLIENTS];
+    queue_ctx *client_queues[MAX_CLIENTS];
     int *item;
     int key;
     for (int i=0;i < MAX_CLIENTS;){
@@ -128,7 +129,7 @@ void connection_stress_test(){
         //Check for repeat entries!!!!!!!!!
         if (s_qp != NULL){ //Ocasional Leak here, discover why TODO
             
-            key = s_qp->client_id;
+            key = s_qp->queues->client_id;
             item = (int*) bsearch(&key, client_list,MAX_CLIENTS,sizeof(int),cmpfunc);
             //Client already accepted, reject
             if(item != NULL){
@@ -136,8 +137,8 @@ void connection_stress_test(){
                 continue;
             }
 
-            if(s_qp->request_shmaddr != NULL){
-                client_list[i] = s_qp->client_id;
+            if(s_qp->queues->request_shmaddr != NULL){
+                client_list[i] = s_qp->queues->client_id;
                 client_queues[i] = s_qp;
                 i++;
             }
@@ -151,7 +152,7 @@ void connection_stress_test(){
         pthread_join(*clients[i],NULL);
         // report_connection_stats(args[i]);
         //Free heap allocated data
-        free(client_queues[i]);
+        free_queue_ctx(client_queues[i]);
         // free(args[i]);
         free(clients[i]);
     }   
@@ -238,7 +239,7 @@ void single_rtt_during_connection_test(){
         pthread_create(clients[i], NULL, pthread_connect_client, args[i]);
     }
 
-    queue_pair* s_qp;
+    queue_ctx* s_qp;
 
     //Synchronization variable to begin attempting to open connections
     run_flag = true;
@@ -260,7 +261,7 @@ void single_rtt_during_connection_test(){
         if (s_qp != NULL){ //Ocasional Leak here, discover why TODO
 
             //Check for repeat entries!!!!!!!!!
-            key = s_qp->client_id;
+            key = s_qp->queues->client_id;
             item = (int*) bsearch(&key, client_list,MAX_CLIENTS,sizeof(int),cmpfunc);
             
             //Client already accepted, reject
@@ -269,18 +270,18 @@ void single_rtt_during_connection_test(){
                 continue;
             }
 
-            if (s_qp->request_shmaddr != NULL){
+            if (s_qp->queues->request_shmaddr != NULL){
 
                 //Found RTT client handle
-                if (s_qp->client_id == temp_client_id){
-                    client_list[i] = s_qp->client_id;
+                if (s_qp->queues->client_id == temp_client_id){
+                    client_list[i] = s_qp->queues->client_id;
                     handler = (pthread_t*)malloc(sizeof(pthread_t));
                     atomic_thread_fence(memory_order_seq_cst);
                     pthread_create(handler, NULL, pthread_server_rtt, s_qp);
                     i++;
                 }
 
-                client_list[i] = s_qp->client_id;
+                client_list[i] = s_qp->queues->client_id;
                 atomic_thread_fence(memory_order_seq_cst);
                 i++;
             }
@@ -376,7 +377,7 @@ void rtt_steady_state_conn_test(){
     }
     
 
-    queue_pair* s_qp;
+    queue_ctx* s_qp;
 
     int client_list[MAX_CLIENTS];
     int *item;
@@ -387,7 +388,7 @@ void rtt_steady_state_conn_test(){
         if (s_qp != NULL){ //Ocasional Leak here, discover why TODO
 
             //Check for repeat entries!!!!!!!!!
-            key = s_qp->client_id;
+            key = s_qp->queues->client_id;
             item = (int*) bsearch(&key, client_list,MAX_CLIENTS,sizeof(int),cmpfunc);
             
             //Client already accepted, reject
@@ -396,8 +397,8 @@ void rtt_steady_state_conn_test(){
                 continue;
             }
 
-            if (s_qp->request_shmaddr != NULL){
-                client_list[i] = s_qp->client_id;
+            if (s_qp->queues->request_shmaddr != NULL){
+                client_list[i] = s_qp->queues->client_id;
                 pthread_t *new_handler = (pthread_t*)malloc(sizeof(pthread_t));
                 handlers[i] = new_handler;
                 atomic_thread_fence(memory_order_seq_cst);
@@ -498,7 +499,7 @@ void rtt_during_connection_test(){
     }
     
 
-    queue_pair* s_qp;
+    queue_ctx* s_qp;
 
     //Synchronization variable to begin attempting to open connections
     run_flag = true;
@@ -512,7 +513,7 @@ void rtt_during_connection_test(){
         if (s_qp != NULL){ //Ocasional Leak here, discover why TODO
 
             //Check for repeat entries!!!!!!!!!
-            key = s_qp->client_id;
+            key = s_qp->queues->client_id;
             item = (int*) bsearch(&key, client_list,MAX_CLIENTS,sizeof(int),cmpfunc);
             
             //Client already accepted, reject
@@ -521,8 +522,8 @@ void rtt_during_connection_test(){
                 continue;
             }
 
-            if (s_qp->request_shmaddr != NULL){
-                client_list[i] = s_qp->client_id;
+            if (s_qp->queues->request_shmaddr != NULL){
+                client_list[i] = s_qp->queues->client_id;
                 pthread_t *new_handler = (pthread_t*)malloc(sizeof(pthread_t));
                 handlers[i] = new_handler;
                 atomic_thread_fence(memory_order_seq_cst);
@@ -576,7 +577,7 @@ void rtt_during_connection_test(){
     long average_ns = total_ns/MAX_CLIENTS;
 
     // fprintf(stdout, "num_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | \n");
-    fprintf(stdout, "\nnotnets/%s/\t", __func__);
+    fprintf(stdout, "notnets/%s/\t", __func__);
     print_num_clients();
     print_coord_slots();
     print_rtt_num_items();
@@ -584,6 +585,8 @@ void rtt_during_connection_test(){
     print_ns_op(average_ns);
     print_avg_ops_ms(average_ns);
     print_ops_ms(average_ns);
+    fprintf(stdout, "\n");
+
 
     for (int i=0; i< MAX_CLIENTS; i++){
         free(args[i]);
@@ -624,7 +627,7 @@ void rtt_connect_disconnect_connection_test(){
     }
     
 
-    queue_pair* s_qp;
+    queue_ctx* s_qp;
 
     //Synchronization variable to begin attempting to open connections
     run_flag = true;
@@ -638,7 +641,7 @@ void rtt_connect_disconnect_connection_test(){
         if (s_qp != NULL){ //Ocasional Leak here, discover why TODO
 
             //Check for repeat entries!!!!!!!!!
-            key = s_qp->client_id;
+            key = s_qp->queues->client_id;
             item = (int*) bsearch(&key, client_list,MAX_CLIENTS,sizeof(int),cmpfunc);
             
             //Client already accepted, reject
@@ -647,8 +650,8 @@ void rtt_connect_disconnect_connection_test(){
                 continue;
             }
 
-            if (s_qp->request_shmaddr != NULL){
-                client_list[i] = s_qp->client_id;
+            if (s_qp->queues->request_shmaddr != NULL){
+                client_list[i] = s_qp->queues->client_id;
                 pthread_t *new_handler = (pthread_t*)malloc(sizeof(pthread_t));
                 handlers[i] = new_handler;
                 atomic_thread_fence(memory_order_seq_cst);
@@ -727,8 +730,8 @@ void bench_run_all(void){
 
     //Echo application, capture RTT latency and throughput
     //TODO: Modify to pass arguments
-    single_rtt_test();
-    single_connection_test();
+    // single_rtt_test();
+    // single_connection_test();
 
 #ifdef __APPLE__
     //OSX does not support more than 8 shm segments per process 
