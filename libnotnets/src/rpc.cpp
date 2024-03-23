@@ -170,12 +170,12 @@ queue_ctx* client_open(char* source_addr,
     }
     
     int client_id = (int) hash((unsigned char*) source_addr);
-    int slot = request_slot(ch, client_id, message_size);
+    int slot = request_slot(ch, client_id, message_size, type);
 
 
     // keep on trying to reserve slot, if all slots are taken but no one detaches you wait forever
     while (slot == -1) {
-        slot = request_slot(ch, client_id, message_size);
+        slot = request_slot(ch, client_id, message_size, type);
         usleep(CLIENT_OPEN_WAIT_INTERVAL);
     }
 

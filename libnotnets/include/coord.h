@@ -70,7 +70,7 @@ void coord_detach(coord_header* header);
 
 // Client
 // Returns reserved slot to check back against, if -1 failed to get a slot
-int request_slot(coord_header* header, int client_id, int message_size);
+int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TYPE type);
 
 shm_pair check_slot(coord_header* header, int slot);
 
