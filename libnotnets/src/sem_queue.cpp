@@ -26,11 +26,15 @@ void destroy_semaphores(coord_header *header, int slot){
     sem_spsc_queue_header* hResp = (sem_spsc_queue_header*) shm_attach(response_slot.shmid);
 
     //Get semaphores IDs.
-    semctl(hReq->sem_slots_free, 0, IPC_RMID);
-    semctl(hReq->sem_slots_full, 0, IPC_RMID);
+    semctl(hReq->sem_full, 0, IPC_RMID);
+    semctl(hReq->sem_empty, 0, IPC_RMID);
+    semctl(hReq->sem_lock, 0, IPC_RMID);
 
-    semctl(hResp->sem_slots_free, 0, IPC_RMID);
-    semctl(hResp->sem_slots_full, 0, IPC_RMID);
+
+    semctl(hResp->sem_full, 0, IPC_RMID);
+    semctl(hResp->sem_empty, 0, IPC_RMID);
+    semctl(hResp->sem_lock, 0, IPC_RMID);
+
     //Call Delete on Semaphores.
 
     shm_detach(hReq);
@@ -212,70 +216,91 @@ ssize_t queue_create(void* shmaddr, key_t key_seed, size_t shm_size, size_t mess
     header_ptr->stop_producer_polling = false;
 
 
-
-    key_t slots_free_key = abs(key_seed)/2;
+    key_t sem_full_key = abs(key_seed)/2;
     //must be set size of number of elements, 
-    if ((header_ptr->sem_slots_free = _initsem(slots_free_key, num_elements)) == -1) {
+    if ((header_ptr->sem_full = _initsem(sem_full_key, 1)) == -1) {
             perror("initsem");
             exit(1);
     }
+    // Increment full_sem
+    // for(int i = 0; i < header_ptr->queue_size ; i++){//subtle, as the semaphores get initialized to one, this must be incremented only header_ptr->queue_size - 1 times
+        // sem_post(header_ptr->sem_full,0); 
+    // }
 
 
-    key_t slots_full_key = abs(key_seed)/20;
+    key_t sem_empty_key = abs(key_seed)/20;
     //Initialize with 1, as the slots can only be full or not
-    if ((header_ptr->sem_slots_full = _initsem(slots_full_key, 1)) == -1) {
+    if ((header_ptr->sem_empty = _initsem(sem_empty_key, 1)) == -1) {
             perror("initsem");
             exit(1);
     }
     //decrement semaphore as it will start off empty.
-    sem_wait(header_ptr->sem_slots_full, 0);
+    sem_wait(header_ptr->sem_empty, 0);
 
+
+    key_t lock_key = abs(key_seed)/200;
+    //Initialized with 1, you can grab or realease lock
+    if ((header_ptr->sem_lock = _initsem(lock_key, 1)) == -1) {
+            perror("initsem");
+            exit(1);
+    }
     return shm_size - leftover_bytes;
 }
 
+int succ(int index, int queue_size){
+    return (index + 1) % queue_size;
 
-
-bool is_full(sem_spsc_queue_header *header) {
-    return (header->head + 1) % header->queue_size == header->tail  ;
 }
 
+bool is_full(sem_spsc_queue_header *header) {
+    return succ(header->head, header->queue_size) == header->tail;
+}
+bool is_empty(sem_spsc_queue_header *header) {
+    return  header->head == header->tail;
+}
 
 void enqueue(sem_spsc_queue_header* header, const void* buf, size_t buf_size) {
     void* array_start = get_message_array(header);
 
     int message_size = header->message_size;
-    int head = header->head;
 
-    memcpy((char*) array_start + head*message_size, buf, buf_size);
+    memcpy((char*) array_start + header->head * message_size, buf, buf_size);
     
     header->current_count++;
     header->total_count++;
 
-    // TODO: fence?
-    header->head = (header->head + 1) % header->queue_size;
+    header->head = succ(header->head, header->queue_size);
 }
 
 
 int sem_push(void* shmaddr, const void* buf, size_t buf_size) {
-
     sem_spsc_queue_header* header = get_sem_queue_header(shmaddr);
     int ret = 0;
-
     if (buf_size > header->message_size) {
         return -1; 
     }
-        //Change this to single semaphore
-    sem_wait(header->sem_slots_free,header->head); //Thread should wait until semaphore is incremented???
-        enqueue(header, buf, buf_size); 
-    sem_post(header->sem_slots_full,0); //increment, permit sem_pop to dequeue
+
+    sem_wait(header->sem_lock, 0);
+    bool const was_empty = is_empty(header);
+
+    if (is_full(header)){
+        sem_post(header->sem_lock, 0);
+        while (is_full(header)){
+            sem_wait(header->sem_full, 0); //wait on full
+        }
+        sem_wait(header->sem_lock, 0);
+    }
     
+    enqueue(header, buf, buf_size); 
+    sem_post(header->sem_lock,0);
+
+    if (was_empty){
+        sem_post(header->sem_empty,0); //increment, permit sem_pop to dequeue
+    }
     return ret;
 }
 
 
-bool is_empty(sem_spsc_queue_header *header) {
-    return  header->tail == header->head;
-}
 
 
 size_t dequeue(sem_spsc_queue_header* header, void* buf, size_t* buf_size) {
@@ -292,14 +317,15 @@ size_t dequeue(sem_spsc_queue_header* header, void* buf, size_t* buf_size) {
 
     memcpy(
         buf,
-        (char*) array_start + header->tail*header->message_size + header->message_offset,
+        (char*) array_start + header->tail * header->message_size + header->message_offset,
         *buf_size
     );
 
     header->message_offset += *buf_size;
-
     if ((size_t) header->message_offset == header->message_size) {
-        header->tail = (header->tail + 1) % header->queue_size;
+
+        header->tail = succ(header->tail, header->queue_size);
+
         header->current_count--;
         header->message_offset = 0;
     }
@@ -316,10 +342,23 @@ size_t sem_pop(void* shmaddr, void* buf, size_t* buf_size) {
     if (header->stop_consumer_polling) {
         return 0;
     }
-    
-    sem_wait(header->sem_slots_full, 0); //Block until semaphore is incremented ie something has been pushed.
-        ret = dequeue(header, buf, buf_size);
-    sem_post(header->sem_slots_free,header->tail); 
+
+    sem_wait(header->sem_lock, 0);
+    bool const was_full= is_full(header);
+    if(is_empty(header)){
+        sem_post(header->sem_lock,0);
+        while (is_empty(header)){
+            sem_wait(header->sem_empty,0); // This doesnt work cause sem and tail fall out of sync
+        }
+        sem_wait(header->sem_lock,0);
+    }
+   
+    ret = dequeue(header, buf, buf_size);
+    sem_post(header->sem_lock, 0);
+
+    if(was_full){
+        sem_post(header->sem_full,0); 
+    }
     return ret;
 }
 
