@@ -18,8 +18,9 @@ typedef struct sem_spsc_queue_header {
     bool stop_producer_polling; //TODO: Need to update stop function if in the middle of communication
     bool stop_consumer_polling;
 
-    int sem_slots_free;
-    int sem_slots_full;
+    int sem_lock;
+    int sem_full;
+    int sem_empty;
 } sem_spsc_queue_header;
 
 
