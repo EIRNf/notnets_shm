@@ -23,6 +23,8 @@ protected:
     {
     }
 protected:
+    QUEUE_TYPE test_queue = BOOST;
+
 
 };
 
@@ -92,7 +94,7 @@ TEST_F(CoordTest, SingleClientRecv)
         }
 
         int client_id = 4;
-        int reserved_slot = request_slot(coord_region, client_id, sizeof(int));
+        int reserved_slot = request_slot(coord_region, client_id, sizeof(int),test_queue);
         assert(reserved_slot == 0);
 
         shm_pair shms = {};
@@ -194,7 +196,7 @@ TEST_F(CoordTest, SingleClientGetSlot)
         }
 
         int client_id = 5;
-        int reserved_slot = request_slot(coord_region, client_id, sizeof(int));
+        int reserved_slot = request_slot(coord_region, client_id, sizeof(int), test_queue);
         assert(reserved_slot == 0);
 
         shm_pair shms = {};

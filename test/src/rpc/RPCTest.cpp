@@ -20,7 +20,7 @@ int cmpfunc(const void * a, const void * b) {
 }
 
 atomic_bool run_flag = false; //control execution
-
+QUEUE_TYPE test_queue = SEM;
 
 class RPCTest : public ::testing::Test
 {
@@ -72,13 +72,13 @@ TEST_F(RPCTest, OpenClose)
       queue_ctx* qp = client_open((char*)"OpenCloseClient",
 				   (char*)"OpenCloseServer",
                                      sizeof(int),
-                                     POLL);
+                                     test_queue);
 
         while (qp == NULL) {
 	  qp = client_open((char*)"OpenCloseClient",
 			   (char*)"OpenCloseServer",
                              sizeof(int),
-                             POLL);
+                             test_queue);
         }
 
         int err = client_close((char*)"OpenCloseClient", (char*)"OpenCloseServer");
@@ -111,12 +111,12 @@ TEST_F(RPCTest, Accept)
         queue_ctx* qp = client_open((char*)"AcceptClient",
 				   (char*)"AcceptServer",
                                      sizeof(int),
-                                     POLL);
+                                     test_queue);
         while (qp == NULL) {
 	    qp = client_open((char*)"AcceptClient",
 			   (char*)"AcceptServer",
                              sizeof(int),
-                             POLL);
+                             test_queue);
         }
 
         free_queue_ctx(qp);
@@ -145,13 +145,13 @@ TEST_F(RPCTest, SendRecvInt)
         queue_ctx* qp = client_open((char*)"SendRecvIntClient",
                                      (char*)"SendRecvIntServer",
                                      sizeof(int),
-                                     POLL);
+                                     test_queue);
 
         while (qp == NULL) {
             qp = client_open((char*)"SendRecvIntClient",
                              (char*)"SendRecvIntServer",
                              sizeof(int),
-                             POLL);
+                             test_queue);
         }
 
         // currently the shm_allocator only handles int
@@ -269,13 +269,13 @@ TEST_F(RPCTest, SendRecvStr)
         queue_ctx* qp = client_open((char*)"SendRecvStrClient",
                                      (char*)"SendRecvStrServer",
                                      message_size,
-                                     POLL);
+                                     test_queue);
 
         while (qp == NULL) {
             qp = client_open((char*)"SendRecvStrClient",
                              (char*)"SendRecvStrServer",
                              message_size,
-                             POLL);
+                             test_queue);
         }
 
         char* buf = (char*)malloc(message_size);
@@ -327,12 +327,12 @@ void* test_client_connection(void* arg){
     queue_ctx* c_qp = client_open(name,
                                 (char*)"ConnectionServer",
                                  sizeof(int),
-                                 POLL);
+                                 test_queue);
     while (c_qp == NULL) {
         c_qp = client_open(name,
                              (char*)"ConnectionServer",
                              sizeof(int),
-                             POLL);
+                             test_queue);
         }
     
     args->err = 0;
