@@ -43,29 +43,10 @@ ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
 }
 
 bool is_full(spsc_queue_header *header) {
-    // atomic_thread_fence(memory_order_acquire);
-    return (header->tail + 1) % header->queue_size == header->head;
+    return 0;
 }
 
 void enqueue(spsc_queue_header* header, const void* buf, size_t buf_size) {
-    // void* array_start = get_message_array(header);
-
-    // int message_size = header->message_size;
-    // int tail = header->tail;
-
-    // memcpy((char*) array_start + tail*message_size, buf, buf_size);
-
-    // atomic_thread_fence(memory_order_release);
-    
-    // header->current_count++;
-    // header->total_count++;
-
-    // // TODO: fence?
-
-    // header->tail = (header->tail + 1) % header->queue_size;
-    // atomic_thread_fence(memory_order_release);
-
-    // // atomic_thread_fence(memory_order_seq_cst);
 }
 
 int push(void* shmaddr, const void* buf, size_t buf_size) {
@@ -97,42 +78,12 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
 }
 
 bool is_empty(spsc_queue_header *header) {
-    // atomic_thread_fence(memory_order_acquire);
-    return header->head == header->tail;
+    return 0;
 }
 
 
 size_t dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
-    // void* array_start = get_message_array(header);
-
-
-    // if(*buf_size > header->message_size+1){
-    //     printf("not supposed to happen");
-    // }
-
-    // // handle offset math
-    // if (*buf_size + header->message_offset > header->message_size) {
-    //     *buf_size = header->message_size - header->message_offset;
-    // }
-
-    // memcpy(
-    //     buf,
-    //     (char*) array_start + header->head*header->message_size + header->message_offset,
-    //     *buf_size
-    // );
-    // atomic_thread_fence(memory_order_release);
-
-    // header->message_offset += *buf_size;
-
-    // if ((size_t) header->message_offset == header->message_size) {
-    //     header->head = (header->head + 1) % header->queue_size;
-    //     header->current_count--;
-    //     header->message_offset = 0;
-    // }
-    // atomic_thread_fence(memory_order_release);
-
-    return header->message_offset;
-
+    return 0;
 }
 
 size_t pop(void* shmaddr, void* buf, size_t* buf_size) {
@@ -187,15 +138,7 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) {
 
 
 const void* peek(void* shmaddr, ssize_t *size) {
-    spsc_queue_header* header = get_queue_header(shmaddr);
-
-    int message_size = header->message_size;
-    int queue_head = header->head;
-
-    void* array_start = get_message_array(header);
-
-    *size = header->message_size;
-    return (const void*) ((char*) array_start + queue_head*message_size);
+    return 0;
 }
 
 
