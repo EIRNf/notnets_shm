@@ -43,29 +43,29 @@ ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
 }
 
 bool is_full(spsc_queue_header *header) {
-    atomic_thread_fence(memory_order_acquire);
+    // atomic_thread_fence(memory_order_acquire);
     return (header->tail + 1) % header->queue_size == header->head;
 }
 
 void enqueue(spsc_queue_header* header, const void* buf, size_t buf_size) {
-    void* array_start = get_message_array(header);
+    // void* array_start = get_message_array(header);
 
-    int message_size = header->message_size;
-    int tail = header->tail;
+    // int message_size = header->message_size;
+    // int tail = header->tail;
 
-    memcpy((char*) array_start + tail*message_size, buf, buf_size);
+    // memcpy((char*) array_start + tail*message_size, buf, buf_size);
 
-    atomic_thread_fence(memory_order_release);
+    // atomic_thread_fence(memory_order_release);
     
-    header->current_count++;
-    header->total_count++;
+    // header->current_count++;
+    // header->total_count++;
 
-    // TODO: fence?
+    // // TODO: fence?
 
-    header->tail = (header->tail + 1) % header->queue_size;
-    atomic_thread_fence(memory_order_release);
+    // header->tail = (header->tail + 1) % header->queue_size;
+    // atomic_thread_fence(memory_order_release);
 
-    // atomic_thread_fence(memory_order_seq_cst);
+    // // atomic_thread_fence(memory_order_seq_cst);
 }
 
 int push(void* shmaddr, const void* buf, size_t buf_size) {
@@ -97,39 +97,39 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
 }
 
 bool is_empty(spsc_queue_header *header) {
-    atomic_thread_fence(memory_order_acquire);
+    // atomic_thread_fence(memory_order_acquire);
     return header->head == header->tail;
 }
 
 
 size_t dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
-    void* array_start = get_message_array(header);
+    // void* array_start = get_message_array(header);
 
 
-    if(*buf_size > header->message_size+1){
-        printf("not supposed to happen");
-    }
+    // if(*buf_size > header->message_size+1){
+    //     printf("not supposed to happen");
+    // }
 
-    // handle offset math
-    if (*buf_size + header->message_offset > header->message_size) {
-        *buf_size = header->message_size - header->message_offset;
-    }
+    // // handle offset math
+    // if (*buf_size + header->message_offset > header->message_size) {
+    //     *buf_size = header->message_size - header->message_offset;
+    // }
 
-    memcpy(
-        buf,
-        (char*) array_start + header->head*header->message_size + header->message_offset,
-        *buf_size
-    );
-    atomic_thread_fence(memory_order_release);
+    // memcpy(
+    //     buf,
+    //     (char*) array_start + header->head*header->message_size + header->message_offset,
+    //     *buf_size
+    // );
+    // atomic_thread_fence(memory_order_release);
 
-    header->message_offset += *buf_size;
+    // header->message_offset += *buf_size;
 
-    if ((size_t) header->message_offset == header->message_size) {
-        header->head = (header->head + 1) % header->queue_size;
-        header->current_count--;
-        header->message_offset = 0;
-    }
-    atomic_thread_fence(memory_order_release);
+    // if ((size_t) header->message_offset == header->message_size) {
+    //     header->head = (header->head + 1) % header->queue_size;
+    //     header->current_count--;
+    //     header->message_offset = 0;
+    // }
+    // atomic_thread_fence(memory_order_release);
 
     return header->message_offset;
 
