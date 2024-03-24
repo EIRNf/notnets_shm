@@ -18,7 +18,7 @@ INCDIR  = $(THISDIR)/include
 
 ## Implicit Section: change the following only when necessary.
 CXX      = clang++ 
-CXXFLAGS = -g -O2 -fPIC -Wall  -std=c++23
+CXXFLAGS = -g -O2 -fPIC -Wall  -std=c++2b
 SRCDIRS  = $(shell find $(SRCDIR) -type d)
 INCFLAGS = -I $(INCDIR) $(INCLUDES)
 

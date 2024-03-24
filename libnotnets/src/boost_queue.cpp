@@ -39,7 +39,7 @@ shm_pair _boost_shm_allocator(int message_size, int client_id) {
 
     bip::xsi_key x_key2(key2);
     bip::managed_xsi_shared_memory mem2(bip::open_or_create, x_key2,  MEM_SIZE);
-    boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>> *queue2 = mem2.construct<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>("queue")();
+    mem2.construct<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>("queue")();
 
     offset1 = mem1.get_handle_from_address(queue1);    
     // offset2 = mem2.get_handle_from_address(queue2);
