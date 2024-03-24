@@ -40,7 +40,7 @@ int items_consumed = 0;
 int cpu0 = 0;
 int cpu1 = 1;
 
-void bench_report_stats(run_stats run, char* name) {
+void bench_report_stats(char* name) {
     
     fprintf(stdout, "\n%s\n", name);
     //nanosecond ns 1.0e-09
@@ -48,8 +48,8 @@ void bench_report_stats(run_stats run, char* name) {
     //millisecond ms 1.0e-03
     fprintf(stdout, "Time: %ld sec, ItemsConsumed: %d  \n", run1.total.tv_sec ,items_consumed);
 
-    fprintf(stdout, "MaxQueueDepth: %d \n", run.max_queue_depth);
-    fprintf(stdout, "AverageQueueDepth: %d \n", run.average_queue_depth);
+    fprintf(stdout, "MaxQueueDepth: %d \n", run1.max_queue_depth);
+    fprintf(stdout, "AverageQueueDepth: %d \n", run1.average_queue_depth);
 
     //microsecond scane 
     double total_us = run1.total.tv_sec * 1.0e+06;
@@ -223,7 +223,7 @@ void notnets_bench_enqueue_dequeue(){
     // run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
     run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
     run1.total.tv_nsec = run1.end.tv_nsec - run1.start.tv_nsec;
-    bench_report_stats(run1, (char*)"batch-notnets/spsc");
+    bench_report_stats((char*)"batch-notnets/spsc");
 
     // cleanup
     shm_detach(run1.shmaddr);
@@ -273,7 +273,7 @@ void notnets_bench_enqueue_dequeue_interval(){
     pthread_join(consumer,NULL);    
   
 
-    bench_report_stats(run1, (char*)"iterative-notnets/spsc");
+    bench_report_stats((char*)"iterative-notnets/spsc");
 
     // cleanup
     shm_detach(run1.shmaddr);

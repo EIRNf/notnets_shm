@@ -11,6 +11,12 @@
 #include <stdlib.h>
 #include <stdatomic.h>
 
+typedef enum QUEUE_TYPE
+{
+  POLL,
+  BOOST,
+  SEM
+} QUEUE_TYPE;
 
 typedef struct reserve_pair {
     bool client_reserved;
@@ -24,12 +30,14 @@ typedef struct notnets_shm_info {
 typedef struct shm_pair {
     notnets_shm_info request_shm;
     notnets_shm_info response_shm;
+    int offset;
 } shm_pair;
 
 //Modify to be templatable, permit
 typedef struct coord_row {
     int client_id; //Only written to by Client, how do we even know id?
     int message_size;
+    QUEUE_TYPE type;
     atomic_bool shm_created;  //Only written to by Server
     atomic_bool client_attached;
     atomic_bool server_attached;
@@ -52,7 +60,7 @@ void print_coord_row(const coord_row *row);
 void print_coord_header(const coord_header *header);
 
 // djb2, dan bernstein
-unsigned long hash(unsigned char *str);
+int hash(unsigned char *str);
 
 // client
 // checks creation, does shm stuff to get handle to it
@@ -62,7 +70,7 @@ void coord_detach(coord_header* header);
 
 // Client
 // Returns reserved slot to check back against, if -1 failed to get a slot
-int request_slot(coord_header* header, int client_id, int message_size);
+int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TYPE type);
 
 shm_pair check_slot(coord_header* header, int slot);
 

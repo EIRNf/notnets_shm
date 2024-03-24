@@ -25,15 +25,31 @@
 // pairs of keys, shmid, and ref? in case of an issue where reconnect might be attempted?
 typedef struct queue_pair {
     int client_id;
-    void* request_shmaddr;
+    void* request_shmaddr; //pointers!!!!
     void* response_shmaddr;
+    int offset;
 } queue_pair;
 
-// typedef struct shmid_pair {
-//     int client_id;
-//     void* request_shmaddr;
-//     void* response_shmaddr;
-// } shmid_pair;
+//Would be good to split up the queue ctx between server and client
+typedef struct queue_ctx {
+    QUEUE_TYPE type;
+
+    queue_pair *queues;
+    //Client
+    int (*client_send_rpc)(queue_pair* conn, const void* buf, size_t size);
+    size_t (*client_receive_buf)(queue_pair* conn, void* buf, size_t size);
+
+    //Server
+    int (*server_send_rpc)(queue_pair* client, const void *buf, size_t size);
+    size_t (*server_receive_buf)(queue_pair* client, void* buf, size_t size);
+}queue_ctx;
+
+// typedef enum QUEUE_TYPE
+// {
+//     POLL_QUEUE,
+//     BOOST_QUEUE,
+//     SEM_QUEUE
+// };
 
 typedef struct server_context {
     void* coord_shmaddr;
@@ -55,25 +71,30 @@ typedef struct server_context {
 // forward declaration of functions
 // ===============================================================
 // PRIVATE HELPER FUNCTIONS
-queue_pair* _create_client_queue_pair(coord_header* ch, int slot);
+queue_pair* _create_client_queue_pair(coord_header* ch, int slot, QUEUE_TYPE type);
 queue_pair* _create_server_queue_pair(coord_header* ch, int slot);
 
 void* _manage_pool_runner(void* handler);
 
+queue_ctx* select_queue_ctx(QUEUE_TYPE t);
+void free_queue_ctx(queue_ctx * ctx);
+
 // CLIENT
-queue_pair* client_open(char* source_addr,
+queue_ctx* client_open(char* source_addr,
                         char* destination_addr,
-                        int message_size);
-int client_send_rpc(queue_pair* conn, const void* buf, size_t size);
-size_t client_receive_buf(queue_pair* conn, void* buf, size_t size);
+                        int message_size,
+                        QUEUE_TYPE type);
+
+int client_send_rpc(queue_ctx* conn, const void* buf, size_t size);
+size_t client_receive_buf(queue_ctx* conn, void* buf, size_t size);
 int client_close(char* source_addr, char* destination_addr);
 
 // SERVER
 void manage_pool(server_context* handler);
 server_context* register_server(char* source_addr);
-queue_pair* accept(server_context* handler);
-int server_send_rpc(queue_pair* client, const void *buf, size_t size);
-size_t server_receive_buf(queue_pair* client, void* buf, size_t size);
+queue_ctx* accept(server_context* handler);
+int server_send_rpc(queue_ctx* client, const void *buf, size_t size);
+size_t server_receive_buf(queue_ctx* client, void* buf, size_t size);
 void shutdown(server_context* handler);
 // ===============================================================
 
@@ -106,9 +127,10 @@ void* _manage_pool_runner(void* handler);
  * usually IP/Port pair
  * @return connection* If NULL, no connection was achieved
  */
-queue_pair* client_open(char* source_addr,
+queue_ctx* client_open(char* source_addr,
                         char* destination_addr,
-                        int message_size);
+                        int message_size,
+                        QUEUE_TYPE type);
 
 /**
  * @brief Client writes to the request queue in given connection.
@@ -121,7 +143,7 @@ queue_pair* client_open(char* source_addr,
  * @param size[IN] size of buf
  * @return int -1 for error, 0 if successfully pushed
  */
-int client_send_rpc(queue_pair* queues, const void *buf, size_t size);
+int client_send_rpc(queue_ctx* queues, const void *buf, size_t size);
 
 
 /**
@@ -136,7 +158,7 @@ int client_send_rpc(queue_pair* queues, const void *buf, size_t size);
  * @param size [IN] size of buf
  * @return ssize_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
-size_t client_receive_buf(queue_pair* queues, void* buf, size_t size);
+size_t client_receive_buf(queue_ctx* queues, void* buf, size_t size);
 
 /**
  * @brief Closes the client connection. Signal to server
@@ -205,7 +227,7 @@ server_context* register_server(char* source_addr);
  * @param handler[IN/OUT] server client connection handler
  * @return queue_pair
  */
-queue_pair* accept(server_context* handler);
+queue_ctx* accept(server_context* handler);
 
 /**
  * @brief The client must be identified before written to.
@@ -215,7 +237,7 @@ queue_pair* accept(server_context* handler);
  * @param size[IN] size of buf
  * @return ssize_t  -1 for error, 0 for successful push
  */
-int server_send_rpc(queue_pair* queues, const void *buf, size_t size);
+int server_send_rpc(queue_ctx* queues, const void *buf, size_t size);
 
 /**
  * @brief Buffer provided by user. Called until all data has been read from
@@ -228,7 +250,7 @@ int server_send_rpc(queue_pair* queues, const void *buf, size_t size);
  * @param size [IN] size of buf
  * @return size_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
-size_t server_receive_buf(queue_pair* queues, void* buf, size_t size);
+size_t server_receive_buf(queue_ctx* queues, void* buf, size_t size);
 
 /**
  * @brief Gracefully shutdown coord and all queues. Signal

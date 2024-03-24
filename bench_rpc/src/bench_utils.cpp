@@ -44,7 +44,7 @@ int cmpfunc(const void * a, const void * b) {
    return ( *(int*)a - *(int*)b );
 }
 
-void pthread_client_rtt_post_connect(queue_pair* qp, struct connection_args *args){
+void pthread_client_rtt_post_connect(queue_ctx* qp, struct connection_args *args){
 
   int *buf = (int*)malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
@@ -70,12 +70,12 @@ void pthread_client_rtt_post_connect(queue_pair* qp, struct connection_args *arg
     clock_gettime(CLOCK_MONOTONIC, &args->end);
     free(pop_buf);
     free(buf);
-    free(qp);
+    free_queue_ctx(qp);
 }
  
 void *pthread_server_rtt(void* s_qp){
 
-    queue_pair* qp = (queue_pair*) s_qp;
+    queue_ctx* qp = (queue_ctx*) s_qp;
 
     int* buf = (int*)malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
@@ -98,7 +98,7 @@ void *pthread_server_rtt(void* s_qp){
 
     free(pop_buf);
     free(buf);
-    free(qp);
+    free_queue_ctx(qp);
     pthread_exit(0);
 }
 
@@ -112,13 +112,15 @@ void* pthread_connect_client(void* arg){
     while(!run_flag);
 
     clock_gettime(CLOCK_MONOTONIC, &args->start);
-    queue_pair* c_qp = client_open(name,
+    queue_ctx* c_qp = client_open(name,
                                 (char*)"test_server_addr",
-                                 sizeof(int));
+                                 sizeof(int),
+                                 POLL);
     while (c_qp == NULL) {
         c_qp = client_open(name,
                              (char*)"test_server_addr",
-                             sizeof(int));
+                             sizeof(int),
+                             POLL);
         }
     
     clock_gettime(CLOCK_MONOTONIC, &args->end);
@@ -127,15 +129,15 @@ void* pthread_connect_client(void* arg){
     if (c_qp == NULL){
         fprintf(stdout, "Missed Connection: %d \n", args->client_id);
     }
-    if (c_qp->request_shmaddr == NULL || c_qp->response_shmaddr == NULL ){
+    if (c_qp->queues->request_shmaddr == NULL || c_qp->queues->response_shmaddr == NULL ){
         fprintf(stdout, "Repeat Connection: %d \n", (int)hash((unsigned char*)name));
         fprintf(stdout, "Repeat Connection: %d \n", args->client_id);
-        fprintf(stdout, "Client Id: %d \n", c_qp->client_id);
-        fprintf(stdout, "Request_Queue: %p \n", c_qp->request_shmaddr);
-        fprintf(stdout, "Response_Queue: %p \n", c_qp->response_shmaddr);
+        fprintf(stdout, "Client Id: %d \n", c_qp->queues->client_id);
+        fprintf(stdout, "Request_Queue: %p \n", c_qp->queues->request_shmaddr);
+        fprintf(stdout, "Response_Queue: %p \n", c_qp->queues->response_shmaddr);
 
     }
-    free(c_qp);
+    free_queue_ctx(c_qp);
     pthread_exit(0);
 }
 
@@ -148,13 +150,15 @@ void* pthread_connect_measure_rtt(void* arg){
 
 
     // clock_gettime(CLOCK_MONOTONIC, &args->start);
-    queue_pair* c_qp = client_open(name,
+    queue_ctx* c_qp = client_open(name,
                                 (char*)"test_server_addr",
-                                 sizeof(int));
+                                 sizeof(int),
+                                 POLL);
     while (c_qp == NULL) {
         c_qp = client_open(name,
                              (char*)"test_server_addr",
-                             sizeof(int));
+                             sizeof(int),
+                             POLL);
         }
 
     while(!run_flag);
@@ -165,11 +169,11 @@ void* pthread_connect_measure_rtt(void* arg){
         fprintf(stdout, "Missed Connection: %d \n", args->client_id);
     }
 
-    if (c_qp->request_shmaddr == NULL || c_qp->response_shmaddr == NULL ){
+    if (c_qp->queues->request_shmaddr == NULL || c_qp->queues->response_shmaddr == NULL ){
         fprintf(stdout, "Repeat Connection: %d \n", (int)hash((unsigned char*)name));
-        fprintf(stdout, "Client Id: %d \n", c_qp->client_id);
-        fprintf(stdout, "Request_Queue: %p \n", c_qp->request_shmaddr);
-        fprintf(stdout, "Response_Queue: %p \n", c_qp->response_shmaddr);
+        fprintf(stdout, "Client Id: %d \n", c_qp->queues->client_id);
+        fprintf(stdout, "Request_Queue: %p \n", c_qp->queues->request_shmaddr);
+        fprintf(stdout, "Response_Queue: %p \n", c_qp->queues->response_shmaddr);
 
     }
     pthread_client_rtt_post_connect(c_qp, args);
@@ -186,13 +190,15 @@ void* pthread_measure_connect_and_rtt(void* arg){
     while(!run_flag);
 
     clock_gettime(CLOCK_MONOTONIC, &args->start);
-    queue_pair* c_qp = client_open(name,
+    queue_ctx* c_qp = client_open(name,
                                 (char*)"test_server_addr",
-                                 sizeof(int));
+                                 sizeof(int),
+                                 POLL);
     while (c_qp == NULL) {
         c_qp = client_open(name,
                              (char*)"test_server_addr",
-                             sizeof(int));
+                             sizeof(int),
+                             POLL);
         }
     
       // No connection was achieved :()
@@ -200,11 +206,11 @@ void* pthread_measure_connect_and_rtt(void* arg){
         fprintf(stdout, "Missed Connection: %d \n", args->client_id);
     }
 
-    if (c_qp->request_shmaddr == NULL || c_qp->response_shmaddr == NULL ){
+    if (c_qp->queues->request_shmaddr == NULL || c_qp->queues->response_shmaddr == NULL ){
         fprintf(stdout, "Repeat Connection: %d \n", (int)hash((unsigned char*)name));
-        fprintf(stdout, "Client Id: %d \n", c_qp->client_id);
-        fprintf(stdout, "Request_Queue: %p \n", c_qp->request_shmaddr);
-        fprintf(stdout, "Response_Queue: %p \n", c_qp->response_shmaddr);
+        fprintf(stdout, "Client Id: %d \n", c_qp->queues->client_id);
+        fprintf(stdout, "Request_Queue: %p \n", c_qp->queues->request_shmaddr);
+        fprintf(stdout, "Response_Queue: %p \n", c_qp->queues->response_shmaddr);
 
     }
 
@@ -240,7 +246,7 @@ void* pthread_measure_connect_and_rtt(void* arg){
 
     free(pop_buf);
     free(buf);
-    free(c_qp);
+    free_queue_ctx(c_qp);
     
     pthread_exit(0);
 }
@@ -255,13 +261,15 @@ void* pthread_measure_connect_and_rtt_and_disconnect(void* arg){
     while(!run_flag);
 
     clock_gettime(CLOCK_MONOTONIC, &args->start);
-    queue_pair* c_qp = client_open(name,
+    queue_ctx* c_qp = client_open(name,
                                 (char*)"test_server_addr",
-                                 sizeof(int));
+                                 sizeof(int),
+                                 POLL);
     while (c_qp == NULL) {
         c_qp = client_open(name,
                              (char*)"test_server_addr",
-                             sizeof(int));
+                             sizeof(int),
+                             POLL);
         }
     
       // No connection was achieved :()
@@ -269,11 +277,11 @@ void* pthread_measure_connect_and_rtt_and_disconnect(void* arg){
         fprintf(stdout, "Missed Connection: %d \n", args->client_id);
     }
 
-    if (c_qp->request_shmaddr == NULL || c_qp->response_shmaddr == NULL ){
+    if (c_qp->queues->request_shmaddr == NULL || c_qp->queues->response_shmaddr == NULL ){
         fprintf(stdout, "Repeat Connection: %d \n", (int)hash((unsigned char*)name));
-        fprintf(stdout, "Client Id: %d \n", c_qp->client_id);
-        fprintf(stdout, "Request_Queue: %p \n", c_qp->request_shmaddr);
-        fprintf(stdout, "Response_Queue: %p \n", c_qp->response_shmaddr);
+        fprintf(stdout, "Client Id: %d \n", c_qp->queues->client_id);
+        fprintf(stdout, "Request_Queue: %p \n", c_qp->queues->request_shmaddr);
+        fprintf(stdout, "Response_Queue: %p \n", c_qp->queues->response_shmaddr);
 
     }
 
@@ -308,7 +316,7 @@ void* pthread_measure_connect_and_rtt_and_disconnect(void* arg){
 
     free(pop_buf);
     free(buf);
-    free(c_qp);
+    free_queue_ctx(c_qp);
     
     pthread_exit(0);
 }

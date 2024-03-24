@@ -5,7 +5,7 @@
 #include <stdatomic.h>
 
 
-#define NUM_ITEMS 10000000
+#define NUM_ITEMS 100000
 #define MESSAGE_SIZE 4 //Int
 
 
@@ -38,7 +38,7 @@ void print_ops_ms(long average_ns);
 
 int cmpfunc(const void * a, const void * b);
 
-void pthread_client_rtt_post_connect(queue_pair* qp, struct connection_args *args);
+void pthread_client_rtt_post_connect(queue_ctx* qp, struct connection_args *args);
 
  
 void *pthread_server_rtt(void* s_qp);

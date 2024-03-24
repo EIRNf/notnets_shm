@@ -45,15 +45,35 @@ void print_coord_header(const coord_header *header) {
     }
 }
 
+//TODO: REALLY FIX HASHING. 
+//Current approach to hashing is a mess due to many reasons:
+// - not using a proper hash function
+// - casting from unsinged long to int
+//      - overflowing/underflowing happens all over the place
+// need: hash function that can take a string of arbitrary length
+// and hash it to a positive value the size of int
 // djb2, dan bernstein
-unsigned long hash(unsigned char *str){
-    unsigned long hash = 5381;
-    int c;
+// unsigned long hash(unsigned char *str){
+//     unsigned long hash = 5381;
+//     int c;
 
-    while ((c = *str++))
-        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+//     while ((c = *str++))
+//         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 
-    return hash;
+//     return hash;
+// }
+
+static inline unsigned rol(unsigned r, int k) {return (r << k) | (r >> (32 - k));}
+
+int hash(unsigned char *input) { 
+    int result = 0x55555555;
+
+    while (*input) { 
+        result ^= *input++;
+        result = rol(result, 5);
+    }
+
+    return result;
 }
 
 // client
@@ -86,7 +106,7 @@ void coord_detach(coord_header* header){
 
 // Client
 // Returns reserved slot to check back against, if -1 failed to get a slot
-int request_slot(coord_header* header, int client_id, int message_size){
+int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TYPE type){
 
     // try to reserve a slot, if not available wait and try again
     pthread_mutex_lock(&header->mutex);
@@ -97,6 +117,7 @@ int request_slot(coord_header* header, int client_id, int message_size){
             header->slots[i].client_id = client_id;
             header->slots[i].message_size = message_size;
             header->slots[i].detach = false;
+            header->slots[i].type = type;
             atomic_store(&header->slots[i].client_attached,false);
             atomic_store(&header->slots[i].server_attached,false);
             header->slots[i].shm_created = false;

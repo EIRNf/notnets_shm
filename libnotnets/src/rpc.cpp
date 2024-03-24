@@ -1,7 +1,10 @@
+
 #include "rpc.h"
 #include "mem.h"
 #include "coord.h"
 #include "queue.h"
+#include "boost_queue.h"
+#include "sem_queue.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -10,7 +13,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-
 
 //NOTE ON ERROR HANDLING
 // As this is a low level C library we should use the global
@@ -27,20 +29,24 @@ queue_pair* _create_server_queue_pair(coord_header* ch, int slot);
 
 void* _manage_pool_runner(void* handler);
 
+queue_ctx* select_queue_ctx(QUEUE_TYPE t);
+void free_queue_ctx(queue_ctx * ctx);
+
 // CLIENT
-queue_pair* client_open(char* source_addr,
+queue_ctx* client_open(char* source_addr,
                         char* destination_addr,
-                        int message_size);
-int client_send_rpc(queue_pair* conn, const void* buf, size_t size);
-size_t client_receive_buf(queue_pair* conn, void* buf, size_t size);
+                        int message_size,
+                        QUEUE_TYPE type);
+int client_send_rpc(queue_ctx* conn, const void* buf, size_t size);
+size_t client_receive_buf(queue_ctx* conn, void* buf, size_t size);
 int client_close(char* source_addr, char* destination_addr);
 
 // SERVER
 void manage_pool(server_context* handler);
 server_context* register_server(char* source_addr);
-queue_pair* accept(server_context* handler);
-int server_send_rpc(queue_pair* client, const void *buf, size_t size);
-size_t server_receive_buf(queue_pair* client, void* buf, size_t size);
+queue_ctx* accept(server_context* handler);
+int server_send_rpc(queue_ctx* client, const void *buf, size_t size);
+size_t server_receive_buf(queue_ctx* client, void* buf, size_t size);
 void shutdown(server_context* handler);
 // ===============================================================
 
@@ -60,11 +66,13 @@ queue_pair* _create_client_queue_pair(coord_header* ch, int slot) {
         qp->request_shmaddr = NULL;
         qp->response_shmaddr = NULL;
         qp->client_id = id;
+        qp->offset= shms.offset;
     } else {
         set_client_attach_state(ch, slot,true);
         qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
         qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
         qp->client_id = id;
+        qp->offset= shms.offset;
     } 
     atomic_thread_fence(memory_order_seq_cst);
 
@@ -90,11 +98,13 @@ queue_pair* _create_server_queue_pair(coord_header* ch, int slot) {
         qp->request_shmaddr = NULL;
         qp->response_shmaddr = NULL;
         qp->client_id = id;
+        qp->offset= shms.offset;
     } else {
-        set_server_attach_state(ch, slot,true);
+        set_server_attach_state(ch, slot, true);
         qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
         qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
         qp->client_id = id;
+        qp->offset= shms.offset;
     } 
 
     atomic_thread_fence(memory_order_seq_cst);
@@ -146,9 +156,10 @@ void* _manage_pool_runner(void* handler) {
  * usually IP/Port pair
  * @return connection* If NULL, no connection was achieved
  */
-queue_pair* client_open(char* source_addr,
+queue_ctx* client_open(char* source_addr,
                         char* destination_addr,
-                        int message_size) {
+                        int message_size,
+                        QUEUE_TYPE type) {
 
     // printf("CLIENT: OPEN:\n");
 
@@ -159,22 +170,28 @@ queue_pair* client_open(char* source_addr,
     }
     
     int client_id = (int) hash((unsigned char*) source_addr);
-    int slot = request_slot(ch, client_id, message_size);
+    int slot = request_slot(ch, client_id, message_size, type);
 
 
     // keep on trying to reserve slot, if all slots are taken but no one detaches you wait forever
     while (slot == -1) {
-        slot = request_slot(ch, client_id, message_size);
+        slot = request_slot(ch, client_id, message_size, type);
         usleep(CLIENT_OPEN_WAIT_INTERVAL);
     }
 
-    while(!ch->slots[slot].shm_created){
-        usleep(CLIENT_OPEN_WAIT_INTERVAL);
+    //TODO:
+    //During testing, if shutdown is called during this poll interval
+    //the thread will deadlock and loop forever. This occurs as the 
+    //shutdown function will clear the reservation slots. 
+    while(!(ch->slots[slot].shm_created)){
+        usleep(CLIENT_OPEN_WAIT_INTERVAL); 
         continue;
     }
 
-    
-    return _create_client_queue_pair(ch, slot);
+    queue_ctx* q_ctx= select_queue_ctx(type);
+    q_ctx->queues = _create_client_queue_pair(ch, slot);
+
+    return q_ctx;
 }
 
 /**
@@ -188,8 +205,8 @@ queue_pair* client_open(char* source_addr,
  * @param size[IN] size of buf
  * @return int -1 for error, 0 if successfully pushed
  */
-int client_send_rpc(queue_pair* queues, const void *buf, size_t size) {
-    return push(queues->request_shmaddr, buf, size);
+int client_send_rpc(queue_ctx* queues, const void *buf, size_t size) {
+        return queues->client_send_rpc(queues->queues,buf,size);
 }
 
 
@@ -205,8 +222,8 @@ int client_send_rpc(queue_pair* queues, const void *buf, size_t size) {
  * @param size [IN] size of buf
  * @return ssize_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
-size_t client_receive_buf(queue_pair* queues, void* buf, size_t size) {
-    return pop(queues->response_shmaddr, buf, &size);
+size_t client_receive_buf(queue_ctx* queues, void* buf, size_t size) {
+    return queues->client_receive_buf(queues->queues, buf, size);
 }
 
 
@@ -353,6 +370,33 @@ shm_pair _rand_shm_allocator(int message_size, int client_id) {
     return shms;
 }
 
+void clean_up_queue_resources(coord_header *header, int slot){
+
+    if (header->available_slots[slot].client_reserved){
+         if (header->slots[slot].detach ){
+
+         switch (header->slots[slot].type){
+            case POLL:
+                break;
+            case BOOST:
+                break;
+            case SEM:
+                destroy_semaphores(header,slot);
+                break;
+            default:
+                break;
+        }
+        
+    // if (header->slots[slot].shms.request_shm.queue_type == 2||
+    //     header->slots[slot].shms.response_shm.queue_type == 2){
+    // }
+    }
+    }
+   
+    
+}
+
+
 /**
  * @brief
  *
@@ -370,8 +414,21 @@ void manage_pool(server_context* handler) {
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     for (int i = 0; i < SLOT_NUM; ++i) {
-        service_slot(ch, i, &_hash_shm_allocator);
-        clear_slot(ch, i);
+        switch (ch->slots[i].type){
+            case POLL:
+                service_slot(ch, i, &_hash_shm_allocator);
+                break;
+            case BOOST:
+                service_slot(ch, i, &_boost_shm_allocator);
+                break;
+            case SEM:
+                service_slot(ch, i, &_hash_sem_shm_allocator);
+                break;
+            default:
+                service_slot(ch, i, &_hash_shm_allocator);
+        }
+        clean_up_queue_resources(ch,i);
+        clear_slot(ch, i); // cleanups those that requested detach
     }
 }
 
@@ -439,7 +496,7 @@ server_context* register_server(char* source_addr) {
  * @param handler[IN/OUT] server client connection handler
  * @return queue_pair
  */
-queue_pair* accept(server_context* handler) {
+queue_ctx* accept(server_context* handler) {
     // printf("SERVER: ACCEPT:\n");
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
@@ -457,12 +514,15 @@ queue_pair* accept(server_context* handler) {
             continue;
         } else if (ch->slots[slot].shm_created) {
 
-            //TODO: Prevent double attach 
             ch->accept_slot = (slot + 1) % SLOT_NUM;
 
 
             pthread_mutex_unlock(&ch->mutex);
-            return _create_server_queue_pair(ch, slot);
+            //Server must take the Client's requested queue type
+            queue_ctx* q_ctx= select_queue_ctx(ch->slots[slot].type);
+            q_ctx->queues = _create_server_queue_pair(ch, slot);
+
+            return q_ctx;
         } 
 
         // if over here, then slot has been reserved, but has not been allocated
@@ -481,8 +541,8 @@ queue_pair* accept(server_context* handler) {
  * @param size[IN] size of buf
  * @return ssize_t  -1 for error, 0 for successful push
  */
-int server_send_rpc(queue_pair* queues, const void *buf, size_t size) {
-    return push(queues->response_shmaddr, buf, size);
+int server_send_rpc(queue_ctx* queues, const void *buf, size_t size) {
+    return queues->server_send_rpc(queues->queues, buf,size);
 }
 
 /**
@@ -496,8 +556,8 @@ int server_send_rpc(queue_pair* queues, const void *buf, size_t size) {
  * @param size [IN] size of buf
  * @return size_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
-size_t server_receive_buf(queue_pair* queues, void* buf, size_t size) {
-    return pop(queues->request_shmaddr, buf, &size);;
+size_t server_receive_buf(queue_ctx* queues, void* buf, size_t size) {
+    return queues->server_receive_buf(queues->queues, buf, size);
 }
 
 /**
@@ -531,3 +591,78 @@ void shutdown(server_context* handler) {
     free(handler);
 }
 
+
+int client_send_poll(queue_pair* conn, const void* buf, size_t size){
+    return push(conn->request_shmaddr, buf, size);
+}
+size_t client_receive_poll(queue_pair* conn, void* buf, size_t size){
+    return pop(conn->response_shmaddr, buf, &size);
+}
+int server_send_poll(queue_pair* client, const void *buf, size_t size){
+    return push(client->response_shmaddr, buf, size);
+}
+size_t server_receive_poll(queue_pair* client, void* buf, size_t size){
+    return pop(client->request_shmaddr, buf, &size);
+}
+
+int client_send_boost(queue_pair* conn, const void* buf, size_t size){
+    return boost_push(conn->request_shmaddr, buf, size, conn->offset);
+}
+size_t client_receive_boost(queue_pair* conn, void* buf, size_t size){
+    return boost_pop(conn->response_shmaddr, buf, &size, conn->offset);
+}
+int server_send_boost(queue_pair* client, const void *buf, size_t size){
+    return boost_push(client->response_shmaddr, buf, size, client->offset);
+}
+size_t server_receive_boost(queue_pair* client, void* buf, size_t size){
+    return boost_pop(client->request_shmaddr, buf, &size, client->offset);
+}
+
+int client_send_sem(queue_pair* conn, const void* buf, size_t size){
+    return sem_push(conn->request_shmaddr, buf, size);
+}
+size_t client_receive_sem(queue_pair* conn, void* buf, size_t size){
+    return sem_pop(conn->response_shmaddr, buf, &size);
+}
+int server_send_sem(queue_pair* client, const void *buf, size_t size){
+    return sem_push(client->response_shmaddr, buf, size);
+}
+size_t server_receive_sem(queue_pair* client, void* buf, size_t size){
+    return sem_pop(client->request_shmaddr, buf, &size);
+}
+
+void free_queue_ctx(queue_ctx * ctx){
+    free(ctx->queues);
+    free(ctx);
+}
+
+queue_ctx* select_queue_ctx(QUEUE_TYPE t)
+{
+  queue_ctx* my_ctx = (queue_ctx*)malloc(sizeof(struct queue_ctx));
+  switch(t){
+    case POLL:
+        my_ctx->client_send_rpc = client_send_poll;
+        my_ctx->client_receive_buf = client_receive_poll;
+        my_ctx->server_send_rpc = server_send_poll;
+        my_ctx->server_receive_buf = server_receive_poll;
+        break;
+    case BOOST:
+        my_ctx->client_send_rpc = client_send_boost;
+        my_ctx->client_receive_buf = client_receive_boost;
+        my_ctx->server_send_rpc = server_send_boost;
+        my_ctx->server_receive_buf = server_receive_boost;
+        break;
+    case SEM:
+        my_ctx->client_send_rpc = client_send_sem;
+        my_ctx->client_receive_buf = client_receive_sem;
+        my_ctx->server_send_rpc = server_send_sem;
+        my_ctx->server_receive_buf = server_receive_sem;
+        break;
+    default:
+        my_ctx->client_send_rpc = client_send_poll;
+        my_ctx->client_receive_buf = client_receive_poll;
+        my_ctx->server_send_rpc = server_send_poll;
+        my_ctx->server_receive_buf = server_receive_poll;
+  }
+  return my_ctx;
+}
