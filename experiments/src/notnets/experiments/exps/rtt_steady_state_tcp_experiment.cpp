@@ -29,6 +29,8 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <fcntl.h>
+
 
 #include <arpa/inet.h> // inet_addr()
 #include <netdb.h>
@@ -64,7 +66,7 @@ void rtt_steady_state_tcp_experiment::make_rtt_steady_state_tcp_experiment(Exper
 {
   cout << " rtt_steady_state_tcp_experiment::make_rtt_steady_state_tcp_experiment()..." << endl;
   exp->setDescription("RTT after connections have been established");
-  exp->addField("queue");
+  exp->addField("tcp");
   exp->addField("num_clients");
   // exp->addField("latency(ns/op)");
   exp->addField("throughput(ops/ms)");
@@ -79,7 +81,8 @@ void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
 
   int sockfd = args->connfd;
 
-  while (!args->experiment_instance->run_flag);
+  while (!args->experiment_instance->run_flag)
+    ;
 
   int *buf = (int *)malloc(MESSAGE_SIZE);
   int buf_size = MESSAGE_SIZE;
@@ -88,7 +91,7 @@ void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
   int pop_buf_size = MESSAGE_SIZE;
 
   // Run messages
-  for (int i = 1; i <= NUM_ITEMS; i++)
+  for (int i = 1; i <= args->experiment_instance->num_items; i++)
   {
     read(sockfd, pop_buf, pop_buf_size);
     *buf = *pop_buf;
@@ -115,7 +118,7 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
   }
   else
     // printf("Socket successfully created..\n");
-  bzero(&servaddr, sizeof(servaddr));
+    bzero(&servaddr, sizeof(servaddr));
   struct experiment_args *args = (struct experiment_args *)arg;
 
   char name[4];
@@ -123,7 +126,7 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
 
   // assign IP, PORT
   servaddr.sin_family = AF_INET;
-  servaddr.sin_addr.s_addr = INADDR_ANY;
+  servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
   servaddr.sin_port = htons(PORT);
 
   // connect the client socket to server socket
@@ -140,7 +143,8 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
   int pop_buf_size = MESSAGE_SIZE;
 
   // hold until flag is set to true
-  while (!args->experiment_instance->run_flag);
+  while (!args->experiment_instance->run_flag)
+    ;
 
   clock_gettime(CLOCK_MONOTONIC, &args->metrics.start);
   for (int i = 1; i <= args->experiment_instance->num_items; i++)
@@ -182,8 +186,7 @@ void rtt_steady_state_tcp_experiment::process()
 
   // What possible queue do we have?
   // Queue Type certainly
-  vector<int> queue_type =
-      {1};
+  vector<int> queue_type = {0};
 
   for (auto __attribute__((unused)) queue : queue_type)
   {
@@ -225,6 +228,18 @@ void rtt_steady_state_tcp_experiment::process()
           perror("Failed to set socket option");
           exit(1);
         }
+
+        // struct linger
+        // {
+        //   int l_onoff;  /* 0=off, nonzero=on */
+        //   int l_linger; /* linger time, POSIX specifies units as seconds */
+        // } linger = {0,0};
+        // const int disable = 0;
+        // if (setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &disable, sizeof(int)) < 0)
+        // {
+        //   perror("Failed to set socket option");
+        //   exit(1);
+        // }
 
         bzero(&servaddr, sizeof(servaddr));
 
@@ -273,16 +288,29 @@ void rtt_steady_state_tcp_experiment::process()
           pthread_create(clients[i], NULL, rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection, client_args[i]);
         }
 
-        run_flag = true;
 
+        fd_set set;
+        struct timeval timeout;
+        FD_ZERO(&set);        /* clear the set */
+        FD_SET(sockfd, &set); /* add our file descriptor to the set */
+
+        timeout.tv_sec = 20;
+        timeout.tv_usec = 0;
 
         for (int i = 0; i < num_clients;)
         {
-          connfd = accept(sockfd, (SA *)&cli, &len);
-          if (connfd < 0)
+          if (select(sockfd + 1, &set, NULL, NULL, &timeout))
           {
-            printf("server accept failed...\n");
-            // exit(0);
+            connfd = accept(sockfd, (SA *)&cli, &len);
+            if (connfd < 0)
+            {
+              printf("server accept failed...\n");
+              exit(0);
+            }
+          }
+          else
+          {
+            continue;
           }
 
           if (connfd)
@@ -298,6 +326,8 @@ void rtt_steady_state_tcp_experiment::process()
         }
 
         // Run
+        run_flag = true;
+
 
         // Join threads
         for (int i = 0; i < num_clients; i++)
@@ -307,6 +337,7 @@ void rtt_steady_state_tcp_experiment::process()
 
           // Free heap allocated data
           free(clients[i]);
+          free(handlers[i]);
         }
 
         // What metrics do we care about?
@@ -347,6 +378,7 @@ void rtt_steady_state_tcp_experiment::process()
         }
 
         run_flag = false;
+        close(sockfd);
       }
     }
 
@@ -359,7 +391,7 @@ void rtt_steady_state_tcp_experiment::process()
       exp.setFieldValue("throughput(ops/ms)", throughput[queue].getMean());
 
       // exp.setFieldValue("latency_deviation", latency[queue].getStandardDeviation());
-      exp.setFieldValue("throughput_deviation", latency[queue].getStandardDeviation());
+      exp.setFieldValue("throughput_deviation", throughput[queue].getStandardDeviation());
 
       latency[queue].clear();
       throughput[queue].clear();

@@ -37,7 +37,7 @@ void ExperimentalRun::run()
   cout << "Experiment '" + getClassName() + "' started..." << endl;
   AutoTimer timer;
   timer.start();
-  process();
+  // process();
 
   try {
     process();

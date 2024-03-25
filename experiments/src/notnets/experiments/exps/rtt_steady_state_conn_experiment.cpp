@@ -321,7 +321,7 @@ void rtt_steady_state_conn_experiment::process()
       exp.setFieldValue("throughput(ops/ms)", throughput[queue].getMean());
 
       // exp.setFieldValue("latency_deviation", latency[queue].getStandardDeviation());
-      exp.setFieldValue("throughput_deviation", latency[queue].getStandardDeviation());
+      exp.setFieldValue("throughput_deviation", throughput[queue].getStandardDeviation());
 
       latency[queue].clear();
       throughput[queue].clear();
