@@ -94,7 +94,7 @@ namespace notnets
           void setUp() override;
             void tearDown() override;
             int numRuns_ = 10;
-            std::vector<int> num_clients_ = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+            std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20,22,24};
 
             int num_items = 100000;
             atomic_bool run_flag;
@@ -133,7 +133,7 @@ namespace notnets
           void setUp() override;
             void tearDown() override;
             int numRuns_ = 10;
-            std::vector<int> num_clients_ = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+            std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20,22,24};
 
             int num_items = 100000;
             atomic_bool run_flag;

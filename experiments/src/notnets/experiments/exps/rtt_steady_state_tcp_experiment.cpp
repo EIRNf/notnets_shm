@@ -81,14 +81,15 @@ void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
 
   int sockfd = args->connfd;
 
-  while (!args->experiment_instance->run_flag)
-    ;
 
   int *buf = (int *)malloc(MESSAGE_SIZE);
   int buf_size = MESSAGE_SIZE;
 
   int *pop_buf = (int *)malloc(MESSAGE_SIZE);
   int pop_buf_size = MESSAGE_SIZE;
+
+  while (!args->experiment_instance->run_flag)
+    ;
 
   // Run messages
   for (int i = 1; i <= args->experiment_instance->num_items; i++)
