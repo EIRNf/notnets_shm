@@ -46,7 +46,7 @@ int cmpfunc(const void * a, const void * b) {
 
 void pthread_client_rtt_post_connect(queue_ctx* qp, struct connection_args *args){
 
-  int *buf = (int*)malloc(MESSAGE_SIZE);
+    int *buf = (int*)malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
 
     int* pop_buf = (int*)malloc(MESSAGE_SIZE);

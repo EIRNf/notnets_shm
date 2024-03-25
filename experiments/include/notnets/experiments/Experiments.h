@@ -9,7 +9,6 @@ namespace notnets
 {
     namespace experiments
     {   
-
         //Struct to collect info from spawned threads
         struct connection_args
         {
@@ -32,7 +31,7 @@ namespace notnets
         protected:
             void setUp() override;
             void tearDown() override;
-            int numRuns_ = 10;
+            int numRuns_ = 3;
             std::vector<int> parameters_ = {1024, 2048, 4096};
         };
 
@@ -57,10 +56,9 @@ namespace notnets
         protected:
             void setUp() override;
             void tearDown() override;
-            int numRuns_ = 3;
+            int numRuns_ = 10;
             std::vector<int> num_clients_ = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
-            // int num_items = 100000;
             atomic_bool run_flag;
             pthread_t **clients;
             struct experiment_args **client_args;
@@ -68,6 +66,18 @@ namespace notnets
 
         class rtt_steady_state_conn_experiment : public ExperimentalRun
         {
+
+            struct experiment_args
+            {
+                rtt_steady_state_conn_experiment *experiment_instance;
+                struct connection_args metrics;
+            };
+
+            struct handler_args
+            {
+                rtt_steady_state_conn_experiment *experiment_instance;
+                void *queue_ctx;
+            };
 
         public:
             void process() override;
@@ -77,12 +87,58 @@ namespace notnets
         private:
             void make_rtt_steady_state_conn_experiment(ExperimentalData *exp);
 
+            static void *pthread_connect_measure_rtt(void *arg);
+            static void *pthread_server_rtt(void *arg);
+
         protected:
-            void setUp() override;
+          void setUp() override;
             void tearDown() override;
-            int numRuns_ = 3;
-            std::vector<int> parameters_ = {1024, 2048, 4096};
+            int numRuns_ = 10;
+            std::vector<int> num_clients_ = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+
+            int num_items = 100000;
             atomic_bool run_flag;
+            pthread_t **clients;
+            pthread_t **handlers;
+            struct experiment_args **client_args;
+        };
+
+        class rtt_steady_state_tcp_experiment : public ExperimentalRun
+        {
+
+            struct experiment_args
+            {
+                rtt_steady_state_tcp_experiment *experiment_instance;
+                struct connection_args metrics;
+            };
+
+            struct handler_args
+            {
+                rtt_steady_state_tcp_experiment *experiment_instance;
+            };
+
+        public:
+            void process() override;
+
+            rtt_steady_state_tcp_experiment();
+
+        private:
+            void make_rtt_steady_state_tcp_experiment(ExperimentalData *exp);
+
+            static void *pthread_client_tcp_load_connection(void *arg);
+            static void *pthread_server_tcp_handler(void *arg);
+
+        protected:
+          void setUp() override;
+            void tearDown() override;
+            int numRuns_ = 10;
+            std::vector<int> num_clients_ = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+
+            int num_items = 100000;
+            atomic_bool run_flag;
+            pthread_t **clients;
+            pthread_t **handlers;
+            struct experiment_args **client_args;
         };
 
         class rtt_during_connection_experiment : public ExperimentalRun
