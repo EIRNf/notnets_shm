@@ -7,8 +7,11 @@ using namespace notnets::experiments;
 
 void experiment()
 {
-    (ExampleExperiment()).run();
-    (connection_stress_experiment()).run();
+    // (ExampleExperiment()).run();
+    // (connection_stress_experiment()).run();
+    (rtt_steady_state_conn_experiment()).run();
+    (rtt_steady_state_tcp_experiment()).run();
+
 }
 
 int main()

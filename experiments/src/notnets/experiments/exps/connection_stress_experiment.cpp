@@ -131,14 +131,14 @@ void connection_stress_experiment::process()
         std::cout << "run " << i << "..." << queue << std::endl;
 
         // Create pointer array to keep track of client threads
-        clients = new pthread_t*[num_clients];
+        clients = new pthread_t *[num_clients];
         // clients = (pthread_t **)malloc(sizeof(pthread_t *) * num_clients);
 
         // Spin up server
         server_context *sc = register_server((char *)"test_server_addr");
 
         // Create metric structs for clients
-        client_args = new experiment_args*[num_clients];
+        client_args = new experiment_args *[num_clients];
         // client_args = (struct experiment_args **)malloc(sizeof(struct experiment_args *) * num_clients);
 
         // Create client threads, will maintain a holding pattern until
@@ -213,22 +213,23 @@ void connection_stress_experiment::process()
         }
 
         // What metrics do we care about?
-        long total_ms = 0.0;
         long total_ns = 0.0;
         for (int i = 0; i < num_clients; i++)
         {
           struct timespec start = client_args[i]->metrics.start;
           struct timespec end = client_args[i]->metrics.end;
+
           if ((end.tv_sec - start.tv_sec) > 0)
           { // we have atleast 1 sec
 
             long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
             ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
 
-            total_ms += ms;
+            total_ns += (ms * 1.0e+06);
           }
           else
           { // nanosecond scale, probably not very accurate
+
             long ns = 0.0;
             ns = (end.tv_sec - start.tv_sec) * 1.0e+09;
             ns += (end.tv_nsec - start.tv_nsec);
@@ -236,7 +237,6 @@ void connection_stress_experiment::process()
             total_ns += ns;
           }
         }
-
 
         latency[queue].push(util::get_ns_op(total_ns, num_clients));
         throughput[queue].push(util::get_ops_ms(total_ns, num_clients));
@@ -251,7 +251,6 @@ void connection_stress_experiment::process()
 
         run_flag = false;
         shutdown(sc);
-
       }
     }
 
