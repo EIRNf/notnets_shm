@@ -12,6 +12,16 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+const char* getQueueName(QUEUE_TYPE type) 
+{
+   switch (type) 
+   {
+      case POLL: return "POLL_QUEUE";
+      case BOOST: return "BOOST_QUEUE";
+      case SEM: return "SEM_QUEUE";
+   }
+}
+
 void print_coord_row(const coord_row *row) {
     printf("  client_id: %d\n", row->client_id);
     if (row->client_id == 0){

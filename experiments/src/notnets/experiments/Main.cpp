@@ -8,6 +8,7 @@ using namespace notnets::experiments;
 void experiment()
 {
     (ExampleExperiment()).run();
+    (connection_stress_experiment()).run();
 }
 
 int main()

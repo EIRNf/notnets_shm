@@ -18,6 +18,9 @@ typedef enum QUEUE_TYPE
   SEM
 } QUEUE_TYPE;
 
+const char* getQueueName(QUEUE_TYPE type);
+
+
 typedef struct reserve_pair {
     bool client_reserved;
 } reserve_pair;

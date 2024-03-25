@@ -61,7 +61,7 @@ void ExampleExperiment::process()
       3
     };
     
-    for (auto configuration : configurations) {
+    for (auto __attribute__((unused)) configuration : configurations) {
         someMetric.push_back(util::RunningStat());
     }
     
