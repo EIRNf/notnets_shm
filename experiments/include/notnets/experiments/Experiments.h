@@ -115,6 +115,7 @@ namespace notnets
             struct handler_args
             {
                 rtt_steady_state_tcp_experiment *experiment_instance;
+                int connfd;
             };
 
         public:

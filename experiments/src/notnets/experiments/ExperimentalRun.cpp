@@ -38,7 +38,7 @@ void ExperimentalRun::run()
   AutoTimer timer;
   timer.start();
   process();
-/*
+
   try {
     process();
   } catch (exception const & e) {
@@ -46,7 +46,7 @@ void ExperimentalRun::run()
   } catch (...) {
     cerr << "Exception caught, desc: <unknown>" << endl;
   }
-*/
+
   timer.stop();
   cout << "Experiment '" + getClassName() + "' ended (took " + 
     boost::lexical_cast<string>(timer.getRealTimeInSeconds()) + " seconds)." << endl;

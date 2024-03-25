@@ -46,7 +46,7 @@ using namespace notnets;
 using namespace notnets::experiments;
 
 #define SA struct sockaddr
-#define PORT 8080
+#define PORT 8888
 
 rtt_steady_state_tcp_experiment::rtt_steady_state_tcp_experiment() {}
 
@@ -77,10 +77,9 @@ void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
 {
   handler_args *args = (handler_args *)arg;
 
-  int sockfd = *(int *)socket;
+  int sockfd = args->connfd;
 
-  while (!args->experiment_instance->run_flag)
-    ;
+  while (!args->experiment_instance->run_flag);
 
   int *buf = (int *)malloc(MESSAGE_SIZE);
   int buf_size = MESSAGE_SIZE;
@@ -89,14 +88,13 @@ void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
   int pop_buf_size = MESSAGE_SIZE;
 
   // Run messages
-  for (int i = 1; i < NUM_ITEMS; i++)
+  for (int i = 1; i <= NUM_ITEMS; i++)
   {
     read(sockfd, pop_buf, pop_buf_size);
     *buf = *pop_buf;
     write(sockfd, buf, buf_size);
   }
   close(sockfd);
-  pthread_exit(0);
 
   args->experiment_instance = NULL;
   free(args);
@@ -117,20 +115,19 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
   }
   else
     // printf("Socket successfully created..\n");
-    bzero(&servaddr, sizeof(servaddr));
-
-  // assign IP, PORT
-  servaddr.sin_family = AF_INET;
-  servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-  servaddr.sin_port = htons(PORT);
-
+  bzero(&servaddr, sizeof(servaddr));
   struct experiment_args *args = (struct experiment_args *)arg;
 
   char name[4];
   snprintf(name, 4, "%d", args->metrics.client_id);
 
+  // assign IP, PORT
+  servaddr.sin_family = AF_INET;
+  servaddr.sin_addr.s_addr = INADDR_ANY;
+  servaddr.sin_port = htons(PORT);
+
   // connect the client socket to server socket
-  if (connect(sockfd, (SA *)&servaddr, sizeof(servaddr)) != 0)
+  while (connect(sockfd, (SA *)&servaddr, sizeof(servaddr)) != 0)
   {
     printf("connection with the server failed...\n");
     exit(0);
@@ -143,11 +140,10 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
   int pop_buf_size = MESSAGE_SIZE;
 
   // hold until flag is set to true
-  while (!args->experiment_instance->run_flag)
-    ;
+  while (!args->experiment_instance->run_flag);
 
   clock_gettime(CLOCK_MONOTONIC, &args->metrics.start);
-  for (int i = 1; i < args->experiment_instance->num_items; i++)
+  for (int i = 1; i <= args->experiment_instance->num_items; i++)
   {
     *buf = i;
     // client_send_rpc(qp, buf, buf_size);
@@ -162,6 +158,8 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
   }
   clock_gettime(CLOCK_MONOTONIC, &args->metrics.end);
   close(sockfd);
+  free(buf);
+  free(pop_buf);
   pthread_exit(0);
 }
 
@@ -201,6 +199,7 @@ void rtt_steady_state_tcp_experiment::process()
     {
       for (auto queue : queue_type)
       {
+        // usleep(1000);
         std::cout << "run " << i << "..." << queue << std::endl;
 
         int sockfd, connfd;
@@ -211,8 +210,20 @@ void rtt_steady_state_tcp_experiment::process()
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (sockfd == -1)
         {
-          printf("socket creation failed...\n");
-          exit(0);
+          perror("Failed to open server socket");
+          exit(1);
+        }
+
+        const int enable = 1;
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+        {
+          perror("Failed to set socket option");
+          exit(1);
+        }
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int)) < 0)
+        {
+          perror("Failed to set socket option");
+          exit(1);
         }
 
         bzero(&servaddr, sizeof(servaddr));
@@ -222,14 +233,15 @@ void rtt_steady_state_tcp_experiment::process()
         servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
         servaddr.sin_port = htons(PORT);
         // Binding newly created socket to given IP and verification
-        if ((bind(sockfd, (SA *)&servaddr, sizeof(servaddr))) != 0)
+        if (int ret = (bind(sockfd, (SA *)&servaddr, sizeof(servaddr))) != 0)
         {
-          printf("socket bind failed...\n");
+
+          printf("socket bind failed...%d\n", ret);
           exit(0);
         }
 
         // Now server is ready to listen and verification
-        if ((listen(sockfd, MAX_CLIENTS)) != 0)
+        if ((listen(sockfd, num_clients)) != 0)
         {
           printf("Listen failed...\n");
           exit(0);
@@ -241,9 +253,6 @@ void rtt_steady_state_tcp_experiment::process()
         clients = new pthread_t *[num_clients];
         handlers = new pthread_t *[num_clients];
 
-        // Spin up server
-        server_context *sc = register_server((char *)"test_server_addr");
-
         // Create metric structs for clients
         client_args = new experiment_args *[num_clients];
 
@@ -254,8 +263,8 @@ void rtt_steady_state_tcp_experiment::process()
 
           struct experiment_args *client_arg = (struct experiment_args *)malloc(sizeof(struct experiment_args));
           client_arg->experiment_instance = this;
-
           client_args[i] = client_arg;
+
           pthread_t *new_client = (pthread_t *)malloc(sizeof(pthread_t));
           clients[i] = new_client;
 
@@ -264,8 +273,8 @@ void rtt_steady_state_tcp_experiment::process()
           pthread_create(clients[i], NULL, rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection, client_args[i]);
         }
 
-        // Keep track of client_ids to avoid repeat values
-        int client_list[num_clients];
+        run_flag = true;
+
 
         for (int i = 0; i < num_clients;)
         {
@@ -273,21 +282,22 @@ void rtt_steady_state_tcp_experiment::process()
           if (connfd < 0)
           {
             printf("server accept failed...\n");
-            exit(0);
+            // exit(0);
           }
 
           if (connfd)
           {
-            client_list[i] = connfd;
+            handler_args *handler_arg = (handler_args *)malloc(sizeof(handler_args));
+            handler_arg->experiment_instance = this;
+            handler_arg->connfd = connfd;
             pthread_t *new_handler = (pthread_t *)malloc(sizeof(pthread_t));
             handlers[i] = new_handler;
-            pthread_create(handlers[i], NULL, rtt_steady_state_tcp_experiment::pthread_server_tcp_handler, &client_list[i]); // server handler
+            pthread_create(handlers[i], NULL, rtt_steady_state_tcp_experiment::pthread_server_tcp_handler, handler_arg); // server handler
             i++;
           }
         }
 
         // Run
-        run_flag = true;
 
         // Join threads
         for (int i = 0; i < num_clients; i++)
@@ -296,7 +306,6 @@ void rtt_steady_state_tcp_experiment::process()
           pthread_join(*handlers[i], NULL);
 
           // Free heap allocated data
-          // free(handlers[i]); //handled by pthreads
           free(clients[i]);
         }
 
@@ -338,7 +347,6 @@ void rtt_steady_state_tcp_experiment::process()
         }
 
         run_flag = false;
-        shutdown(sc);
       }
     }
 
