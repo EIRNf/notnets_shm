@@ -22,7 +22,9 @@ namespace notnets
 
         void rtt_print_ops_ms(long average_ns, int num_items, int num_clients);
 
-        int rtt_get_ops_ms(long average_ns, int num_items, int num_clients);
+        int rtt_get_total_ops_ms_from_avg(long average_ns, int num_items, int num_clients);
+        int rtt_get_total(long total_ns, int num_items, int num_clients);
+
 
         int cmpfunc(const void *a, const void *b);
 

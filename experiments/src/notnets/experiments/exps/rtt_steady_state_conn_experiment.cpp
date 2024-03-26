@@ -42,13 +42,14 @@ void rtt_steady_state_conn_experiment::make_rtt_steady_state_conn_experiment(Exp
   exp->addField("throughput(ops/ms)");
   // exp->addField("latency_deviation");
   exp->addField("throughput_deviation");
+  // exp->addField("CPU%");
 
   exp->setKeepValues(false);
 }
 void *rtt_steady_state_conn_experiment::pthread_server_rtt(void *arg)
 {
   handler_args *args = (handler_args *)arg;
-  queue_ctx* qp = (queue_ctx*) args->queue_ctx;
+  queue_ctx *qp = (queue_ctx *)args->queue_ctx;
 
   int *buf = (int *)malloc(MESSAGE_SIZE);
   int buf_size = MESSAGE_SIZE;
@@ -57,7 +58,8 @@ void *rtt_steady_state_conn_experiment::pthread_server_rtt(void *arg)
   int pop_buf_size = MESSAGE_SIZE;
 
   // hold until flag is set to true
-  while (!args->experiment_instance->run_flag);
+  while (!args->experiment_instance->run_flag)
+    ;
 
   for (int i = 1; i < NUM_ITEMS; i++)
   {
@@ -157,6 +159,7 @@ void rtt_steady_state_conn_experiment::process()
 
   vector<util::RunningStat> latency;
   vector<util::RunningStat> throughput;
+  vector<util::RunningStat> cpu;
 
   // What possible queue do we have?
   // Queue Type certainly
@@ -170,6 +173,7 @@ void rtt_steady_state_conn_experiment::process()
   {
     latency.push_back(util::RunningStat());
     throughput.push_back(util::RunningStat());
+    cpu.push_back(util::RunningStat());
   }
 
   std::cout << "Running experiments..." << std::endl;
@@ -192,6 +196,8 @@ void rtt_steady_state_conn_experiment::process()
         // Create metric structs for clients
         client_args = new experiment_args *[num_clients];
 
+        timer.start();
+
         // Create client threads, will maintain a holding pattern until
         // flag is flipped
         for (int i = 0; i < num_clients; i++)
@@ -212,9 +218,6 @@ void rtt_steady_state_conn_experiment::process()
 
         // Pointer to keep track of accepted queues
         queue_ctx *s_qp;
-
-        // Synchronization variable to begin attempting to open connections
-        run_flag = true;
 
         // Keep track of client_ids to avoid repeat values
         int client_list[num_clients];
@@ -266,6 +269,7 @@ void rtt_steady_state_conn_experiment::process()
           // free_queue_ctx(client_queues[i]);
           free(clients[i]);
         }
+        timer.stop();
 
         // What metrics do we care about?
         long total_ns = 0.0;
@@ -293,12 +297,13 @@ void rtt_steady_state_conn_experiment::process()
           }
         }
 
-        long average_ns = total_ns/MAX_CLIENTS;
+        long average_ns = total_ns / num_clients;
 
+        latency[queue].push(util::get_ns_op(average_ns, num_items)); // per client average latency
+        // throughput[queue].push(util::rtt_get_total_ops_ms_from_avg(average_ns, num_items, num_clients)); // total throughput
+        throughput[queue].push(util::rtt_get_total(total_ns, num_items, num_clients)); // total throughput
 
-        latency[queue].push(util::get_ns_op(average_ns, num_items));                      // per client average latency
-
-        throughput[queue].push(util::rtt_get_ops_ms(average_ns, num_items, num_clients)); // total throughput
+        cpu[queue].push(timer.getCPUUtilization());
 
         for (int i = 0; i < num_clients; i++)
         {
@@ -322,6 +327,7 @@ void rtt_steady_state_conn_experiment::process()
 
       // exp.setFieldValue("latency_deviation", latency[queue].getStandardDeviation());
       exp.setFieldValue("throughput_deviation", throughput[queue].getStandardDeviation());
+      // exp.setFieldValue("CPU%", cpu[queue].getMean());
 
       latency[queue].clear();
       throughput[queue].clear();

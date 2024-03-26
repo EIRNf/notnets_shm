@@ -93,10 +93,10 @@ namespace notnets
         protected:
           void setUp() override;
             void tearDown() override;
-            int numRuns_ = 10;
-            std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20,22,24};
-
+            int numRuns_ = 3;
+            std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20};
             int num_items = 100000;
+
             atomic_bool run_flag;
             pthread_t **clients;
             pthread_t **handlers;
@@ -132,8 +132,10 @@ namespace notnets
         protected:
           void setUp() override;
             void tearDown() override;
-            int numRuns_ = 10;
-            std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20,22,24};
+            int numRuns_ = 3;
+            // std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36};
+            std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20};
+
 
             int num_items = 100000;
             atomic_bool run_flag;

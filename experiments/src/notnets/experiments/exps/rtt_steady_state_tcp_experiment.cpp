@@ -31,7 +31,6 @@
 #include <stdbool.h>
 #include <fcntl.h>
 
-
 #include <arpa/inet.h> // inet_addr()
 #include <netdb.h>
 #include <stdio.h>
@@ -80,7 +79,6 @@ void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
   handler_args *args = (handler_args *)arg;
 
   int sockfd = args->connfd;
-
 
   int *buf = (int *)malloc(MESSAGE_SIZE);
   int buf_size = MESSAGE_SIZE;
@@ -289,7 +287,6 @@ void rtt_steady_state_tcp_experiment::process()
           pthread_create(clients[i], NULL, rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection, client_args[i]);
         }
 
-
         fd_set set;
         struct timeval timeout;
         FD_ZERO(&set);        /* clear the set */
@@ -328,7 +325,6 @@ void rtt_steady_state_tcp_experiment::process()
 
         // Run
         run_flag = true;
-
 
         // Join threads
         for (int i = 0; i < num_clients; i++)
@@ -369,8 +365,9 @@ void rtt_steady_state_tcp_experiment::process()
 
         long average_ns = total_ns / num_clients;
 
-        latency[queue].push(util::get_ns_op(average_ns, num_items));                      // per client average latency
-        throughput[queue].push(util::rtt_get_ops_ms(average_ns, num_items, num_clients)); // total throughput
+        latency[queue].push(util::get_ns_op(average_ns, num_items)); // per client average latency
+        // throughput[queue].push(util::rtt_get_total_ops_ms_from_avg(average_ns, num_items, num_clients)); // total throughput
+        throughput[queue].push(util::rtt_get_total(total_ns, num_items, num_clients)); // total throughput
 
         for (int i = 0; i < num_clients; i++)
         {

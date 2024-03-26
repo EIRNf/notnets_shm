@@ -28,9 +28,14 @@ void notnets::util::rtt_print_ops_ms(long average_ns, int num_items, int num_cli
     fprintf(stdout, "%f\t", (num_items * num_clients)/(average_ns / 1.0e+06));
 }
 
-int notnets::util::rtt_get_ops_ms(long average_ns, int num_items, int num_clients){
+int notnets::util::rtt_get_total_ops_ms_from_avg(long average_ns, int num_items, int num_clients){
     return (num_items * num_clients)/(average_ns / 1.0e+06);
 }
+
+int notnets::util::rtt_get_total(long total_ns, int num_items, int num_clients){
+    return (num_items * num_clients)/(total_ns / 1.0e+06); //brings it to millis and then calculates throughput
+}
+
 
 
 int notnets::util::cmpfunc(const void * a, const void * b) {
