@@ -119,6 +119,8 @@ int sem_post(int semid, int sem_num){
     return ret;
 }
 
+#ifdef __APPLE__
+#else
 union semun {
     int              val;    /* Value for SETVAL */
     struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
@@ -126,6 +128,9 @@ union semun {
     struct seminfo  *__buf;  /* Buffer for IPC_INFO
                                 (Linux-specific) */
 };
+
+#endif
+
 
 /*
 ** initsem() -- more-than-inspired by W. Richard Stevens' UNIX Network
