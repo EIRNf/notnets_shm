@@ -23,7 +23,7 @@ protected:
     {
     }
 protected:
-    QUEUE_TYPE test_queue = BOOST;
+    QUEUE_TYPE test_queue = QUEUE_TYPE::BOOST;
 
 
 };

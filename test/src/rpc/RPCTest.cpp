@@ -18,15 +18,13 @@
 int cmpfunc(const void * a, const void * b) {
    return ( *(int*)a - *(int*)b );
 }
-
 atomic_bool run_flag = false; //control execution
-QUEUE_TYPE test_queue = SEM;
+QUEUE_TYPE test_queue = QUEUE_TYPE::SEM;
 
-class RPCTest : public ::testing::Test
+class RPCTest : public ::testing::TestWithParam<QUEUE_TYPE>
 {
 public:
     RPCTest() {}
-protected:
     virtual void SetUp()
     {
     }
@@ -34,8 +32,30 @@ protected:
     {
     }
 protected:
-
 };
+
+
+// // template <QUEUE_TYPE qt> struct QUEUE_TYPEWrapper {static constexpr QUEUE_TYPE value = qt;};
+// // using mytypes = ::testing::Types<QUEUE_TYPEWrapper<QUEUE_TYPE::POLL>,QUEUE_TYPEWrapper<QUEUE_TYPE::BOOST>,QUEUE_TYPEWrapper<QUEUE_TYPE::SEM>>;
+
+
+// class RPCParamTest :public RPCTest,
+//  public testing::TestWithParam<QUEUE_TYPE>
+// {
+// public:
+//     RPCParamTest() {}
+// protected:
+//      void SetUp() override
+//     {
+//     }
+//      void TearDown() override
+//     {
+//     }
+// protected:
+//     QUEUE_TYPE test_queue = QUEUE_TYPE::SEM;
+
+// };
+
 
 
 struct test_connection_args {
@@ -124,7 +144,7 @@ TEST_F(RPCTest, Accept)
     }
 }
 
-TEST_F(RPCTest, SendRecvInt)
+TEST_P(RPCTest, SendRecvInt)
 {
     // shm for communication between parent and child process
     key_t ipc_key = ftok("SendRecvInt",1);
@@ -145,13 +165,13 @@ TEST_F(RPCTest, SendRecvInt)
         queue_ctx* qp = client_open((char*)"SendRecvIntClient",
                                      (char*)"SendRecvIntServer",
                                      sizeof(int),
-                                     test_queue);
+                                         GetParam());
 
         while (qp == NULL) {
             qp = client_open((char*)"SendRecvIntClient",
                              (char*)"SendRecvIntServer",
                              sizeof(int),
-                             test_queue);
+                                 GetParam());
         }
 
         // currently the shm_allocator only handles int
@@ -220,7 +240,7 @@ TEST_F(RPCTest, SendRecvInt)
     shm_remove(ipc_shmid);
 }
 
-TEST_F(RPCTest, SendRecvStr)
+TEST_P(RPCTest, SendRecvStr)
 {
     // shm for communication between parent and child process
     key_t ipc_key = ftok("SendRecvStr",1);
@@ -269,13 +289,13 @@ TEST_F(RPCTest, SendRecvStr)
         queue_ctx* qp = client_open((char*)"SendRecvStrClient",
                                      (char*)"SendRecvStrServer",
                                      message_size,
-                                     test_queue);
+                                     GetParam());
 
         while (qp == NULL) {
             qp = client_open((char*)"SendRecvStrClient",
                              (char*)"SendRecvStrServer",
                              message_size,
-                             test_queue);
+                             GetParam());
         }
 
         char* buf = (char*)malloc(message_size);
@@ -322,7 +342,7 @@ void* test_client_connection(void* arg){
     char name[32];
     snprintf(name, 32, "%d", args->client_id);
 
-    while(!run_flag);
+    while(run_flag);
 
     queue_ctx* c_qp = client_open(name,
                                 (char*)"ConnectionServer",
@@ -437,3 +457,14 @@ TEST_F(RPCTest, Connection)
     EXPECT_FALSE(err);
 
 }
+
+#ifdef __APPLE__
+INSTANTIATE_TEST_SUITE_P(SendRecvInt, RPCTest, testing::Values(QUEUE_TYPE::POLL));
+INSTANTIATE_TEST_SUITE_P(SendRecvStr, RPCTest, testing::Values(QUEUE_TYPE::POLL));
+
+#else
+INSTANTIATE_TEST_SUITE_P(SendRecvInt, RPCTest, testing::Values(QUEUE_TYPE::POLL, QUEUE_TYPE::BOOST, QUEUE_TYPE::SEM));
+INSTANTIATE_TEST_SUITE_P(SendRecvStr, RPCTest, testing::Values(QUEUE_TYPE::POLL, QUEUE_TYPE::BOOST, QUEUE_TYPE::SEM));
+
+#endif
+
