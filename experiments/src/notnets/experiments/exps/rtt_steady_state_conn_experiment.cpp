@@ -7,6 +7,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/chrono/include.hpp>
 
 #include <iostream>
 #include <random>
@@ -48,7 +49,7 @@ void rtt_steady_state_conn_experiment::make_rtt_steady_state_conn_experiment(Exp
 }
 void *rtt_steady_state_conn_experiment::pthread_server_rtt(void *arg)
 {
-  handler_args *args = (handler_args *)arg;
+  handler_exp_args *args = (handler_exp_args *)arg;
   queue_ctx *qp = (queue_ctx *)args->queue_ctx;
 
   int *buf = (int *)malloc(MESSAGE_SIZE);
@@ -121,13 +122,15 @@ void *rtt_steady_state_conn_experiment::pthread_connect_measure_rtt(void *arg)
   int pop_buf_size = MESSAGE_SIZE;
 
   // hold until flag is set to true
-  while (!args->experiment_instance->run_flag)
-    ;
+  while (!args->experiment_instance->run_flag);
 
-  clock_gettime(CLOCK_MONOTONIC, &args->metrics.start);
-  for (int i = 1; i < args->experiment_instance->num_items; i++)
-  {
-    *buf = i;
+
+  boost::chrono::duration<long, boost::ratio<60>> exec_span(execution_length_minutes);
+  boost::chrono::high_resolution_clock::time_point start_point;
+  int items_count = 0;
+  while(true){
+    *buf = items_count;
+
     client_send_rpc(c_qp, buf, buf_size);
 
     // Request sent, read for response
@@ -135,8 +138,15 @@ void *rtt_steady_state_conn_experiment::pthread_connect_measure_rtt(void *arg)
     client_receive_buf(c_qp, pop_buf, pop_buf_size);
 
     assert(*pop_buf == *buf);
+    
+    //Time passed is greater than our set execution window.
+    if (start_point.time_since_epoch() > boost::chrono::duration_cast<boost::chrono::nanoseconds>(exec_span)){
+      break;
+    }
+    
+    items_count++;
   }
-  clock_gettime(CLOCK_MONOTONIC, &args->metrics.end);
+
   free(pop_buf);
   free(buf);
   free_queue_ctx(c_qp);
@@ -148,6 +158,7 @@ void rtt_steady_state_conn_experiment::process()
 
   std::cout << "rtt_steady_state_conn_experiment process" << std::endl;
   util::AutoTimer timer;
+  util::Logger log;
 
   ExperimentalData exp("rtt_steady_state_conn_experiment");
   auto expData = {&exp};
@@ -184,6 +195,7 @@ void rtt_steady_state_conn_experiment::process()
     {
       for (auto queue : queue_type)
       {
+        
         std::cout << "run " << i << "..." << queue << std::endl;
 
         // Create pointer array to keep track of client threads
@@ -206,6 +218,7 @@ void rtt_steady_state_conn_experiment::process()
           struct experiment_args *client_arg = (struct experiment_args *)malloc(sizeof(struct experiment_args));
           client_arg->experiment_instance = this;
           client_arg->metrics.type = queue;
+          client_arg->metrics.log = &log;
 
           client_args[i] = client_arg;
           pthread_t *new_client = (pthread_t *)malloc(sizeof(pthread_t));
@@ -245,7 +258,7 @@ void rtt_steady_state_conn_experiment::process()
             {
               client_list[i] = s_qp->queues->client_id;
               client_queues[i] = s_qp;
-              handler_args *handler_arg = (handler_args *)malloc(sizeof(handler_args));
+              handler_exp_args *handler_arg = (handler_exp_args *)malloc(sizeof(handler_exp_args));
               handler_arg->experiment_instance = this;
               handler_arg->queue_ctx = s_qp;
 
@@ -271,18 +284,39 @@ void rtt_steady_state_conn_experiment::process()
         }
         timer.stop();
 
+
+
+        std::vector<double> vstart;
+        std::vector<double> vend;
+        std::vector<long> spans;
+
+        // struct timespec *p1,*p2;
+
+        // p1 = vstart.get_allocator().allocate(num_clients);
+        // p2 = vend.get_allocator().allocate(num_clients);
+
         // What metrics do we care about?
         long total_ns = 0.0;
+        double span;
         for (int i = 0; i < num_clients; i++)
         {
           struct timespec start = client_args[i]->metrics.start;
           struct timespec end = client_args[i]->metrics.end;
+
+          double ns_start = (start.tv_sec * 1.0e+09) + (start.tv_nsec);
+          double ns_end  = (end.tv_sec * 1.0e+09) + (end.tv_nsec);
+
+          vstart.push_back(ns_start);
+          vend.push_back(ns_end);
 
           if ((end.tv_sec - start.tv_sec) > 0)
           { // we have atleast 1 sec
 
             long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
             ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
+
+            span = (ms * 1.0e+06);
+            spans.push_back(span);
 
             total_ns += (ms * 1.0e+06);
           }
@@ -293,15 +327,23 @@ void rtt_steady_state_conn_experiment::process()
             ns = (end.tv_sec - start.tv_sec) * 1.0e+09;
             ns += (end.tv_nsec - start.tv_nsec);
 
+            span = ns;
+            spans.push_back(span);
+
             total_ns += ns;
           }
         }
 
+        //Get earliest and oldest, thats our total range of time 
+        double exp_span =  max_element(vend.begin(), vend.end()) - min_element(vstart.begin(), vstart.end());
+        //get the biggest span
+        auto biggest_span = *max_element(spans.begin(), spans.end());
+
         long average_ns = total_ns / num_clients;
 
-        latency[queue].push(util::get_ns_op(average_ns, num_items)); // per client average latency
-        // throughput[queue].push(util::rtt_get_total_ops_ms_from_avg(average_ns, num_items, num_clients)); // total throughput
-        throughput[queue].push(util::rtt_get_total(total_ns, num_items, num_clients)); // total throughput
+        latency[queue].push(util::get_ns_op(biggest_span, num_items)); // per client average latency
+        throughput[queue].push(util::rtt_get_total_ops_ms_from_avg(biggest_span, num_items, num_clients)); // total throughput
+        // throughput[queue].push(util::rtt_get_total(total_ns, num_items, num_clients)); // total throughput
 
         cpu[queue].push(timer.getCPUUtilization());
 
@@ -315,6 +357,8 @@ void rtt_steady_state_conn_experiment::process()
         shutdown(sc);
       }
     }
+
+
 
     for (auto queue : queue_type)
     {

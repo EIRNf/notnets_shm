@@ -2,6 +2,7 @@
 
 #include <notnets/experiments/ExperimentalRun.h>
 #include <notnets/experiments/ExperimentalData.h>
+#include <notnets/util/Logger.h>
 #include <stdatomic.h>
 
 #include "coord.h"
@@ -16,6 +17,7 @@ namespace notnets
             QUEUE_TYPE type;
             struct timespec start;
             struct timespec end;
+            notnets::util::Logger *log;
         };
 
         class ExampleExperiment : public ExperimentalRun
@@ -73,7 +75,7 @@ namespace notnets
                 struct connection_args metrics;
             };
 
-            struct handler_args
+            struct handler_exp_args
             {
                 rtt_steady_state_conn_experiment *experiment_instance;
                 void *queue_ctx;
@@ -97,6 +99,8 @@ namespace notnets
             std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20};
             int num_items = 100000;
 
+            static const int execution_length_minutes = 1;
+
             atomic_bool run_flag;
             pthread_t **clients;
             pthread_t **handlers;
@@ -112,10 +116,11 @@ namespace notnets
                 struct connection_args metrics;
             };
 
-            struct handler_args
+            struct handler_exp_args
             {
                 rtt_steady_state_tcp_experiment *experiment_instance;
                 int connfd;
+                int items_processed;
             };
 
         public:
@@ -134,14 +139,19 @@ namespace notnets
             void tearDown() override;
             int numRuns_ = 3;
             // std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36};
-            std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20};
+            // std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20};
+            std::vector<int> num_clients_ = {2};
+
+            int num_items = 1000;
+
+            static const int execution_length_minutes = 1;
 
 
-            int num_items = 100000;
             atomic_bool run_flag;
             pthread_t **clients;
             pthread_t **handlers;
             struct experiment_args **client_args;
+            struct handler_exp_args **handler_args;
         };
 
         class rtt_during_connection_experiment : public ExperimentalRun

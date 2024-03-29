@@ -1,3 +1,4 @@
+#include <sys/socket.h>
 #include <notnets/experiments/ExperimentalData.h>
 #include <notnets/experiments/Experiments.h>
 #include <notnets/util/AutoTimer.h>
@@ -7,14 +8,11 @@
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/chrono/include.hpp>
 
 #include <iostream>
 #include <random>
 #include <vector>
-
-// Notnets imports
-#include "rpc.h"
-#include "coord.h"
 
 // socket imports
 #include <stdio.h>
@@ -34,11 +32,8 @@
 #include <arpa/inet.h> // inet_addr()
 #include <netdb.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <strings.h> // bzero()
-#include <sys/socket.h>
-#include <unistd.h> // read(), write(), close()
+#include <netinet/tcp.h>
 
 #include <assert.h> //assert
 
@@ -76,7 +71,7 @@ void rtt_steady_state_tcp_experiment::make_rtt_steady_state_tcp_experiment(Exper
 }
 void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
 {
-  handler_args *args = (handler_args *)arg;
+  handler_exp_args *args = (handler_exp_args *)arg;
 
   int sockfd = args->connfd;
 
@@ -86,16 +81,23 @@ void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
   int *pop_buf = (int *)malloc(MESSAGE_SIZE);
   int pop_buf_size = MESSAGE_SIZE;
 
-  while (!args->experiment_instance->run_flag)
-    ;
+  while (!args->experiment_instance->run_flag);
 
-  // Run messages
-  for (int i = 1; i <= args->experiment_instance->num_items; i++)
+  boost::chrono::duration<long, boost::ratio<60>> exec_span(execution_length_minutes);
+  boost::chrono::high_resolution_clock::time_point start_point;
+  while (true)
   {
     read(sockfd, pop_buf, pop_buf_size);
     *buf = *pop_buf;
     write(sockfd, buf, buf_size);
+    args->items_processed++;
+
+    if (start_point.time_since_epoch() > boost::chrono::duration_cast<boost::chrono::nanoseconds>(exec_span))
+    {
+      break;
+    }
   }
+
   close(sockfd);
 
   args->experiment_instance = NULL;
@@ -145,21 +147,27 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
   while (!args->experiment_instance->run_flag)
     ;
 
-  clock_gettime(CLOCK_MONOTONIC, &args->metrics.start);
-  for (int i = 1; i <= args->experiment_instance->num_items; i++)
+  boost::chrono::duration<long, boost::ratio<60>> exec_span(execution_length_minutes);
+  boost::chrono::high_resolution_clock::time_point start_point;
+  int items_count = 0;
+  while (true)
   {
-    *buf = i;
-    // client_send_rpc(qp, buf, buf_size);
+    *buf = items_count;
+
+    args->metrics.log->Log("client_write:",(unsigned long)*buf,args->metrics.client_id);
     write(sockfd, buf, buf_size);
-
     // Request sent, read for response
-
-    // client_receive_buf(qp, pop_buf, pop_buf_size);
     read(sockfd, pop_buf, pop_buf_size);
-
     assert(*pop_buf == *buf);
+    args->metrics.log->Log("client_read:",(unsigned long)*buf,args->metrics.client_id);
+
+    if (start_point.time_since_epoch() > boost::chrono::duration_cast<boost::chrono::nanoseconds>(exec_span))
+    {
+      break;
+    }
+
+    items_count++;
   }
-  clock_gettime(CLOCK_MONOTONIC, &args->metrics.end);
   close(sockfd);
   free(buf);
   free(pop_buf);
@@ -171,6 +179,8 @@ void rtt_steady_state_tcp_experiment::process()
 
   std::cout << "rtt_steady_state_conn_experiment process" << std::endl;
   util::AutoTimer timer;
+  util::Logger log;
+
 
   ExperimentalData exp("rtt_steady_state_tcp_experiment");
   auto expData = {&exp};
@@ -201,6 +211,9 @@ void rtt_steady_state_tcp_experiment::process()
     {
       for (auto queue : queue_type)
       {
+        log.Log("start",0,0);
+        //Reset log?
+
         // usleep(1000);
         std::cout << "run " << i << "..." << queue << std::endl;
 
@@ -227,18 +240,11 @@ void rtt_steady_state_tcp_experiment::process()
           perror("Failed to set socket option");
           exit(1);
         }
-
-        // struct linger
-        // {
-        //   int l_onoff;  /* 0=off, nonzero=on */
-        //   int l_linger; /* linger time, POSIX specifies units as seconds */
-        // } linger = {0,0};
-        // const int disable = 0;
-        // if (setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &disable, sizeof(int)) < 0)
-        // {
-        //   perror("Failed to set socket option");
-        //   exit(1);
-        // }
+        if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(int)) < 0)
+        {
+          perror("Failed to set socket option");
+          exit(1);
+        }
 
         bzero(&servaddr, sizeof(servaddr));
 
@@ -269,6 +275,8 @@ void rtt_steady_state_tcp_experiment::process()
 
         // Create metric structs for clients
         client_args = new experiment_args *[num_clients];
+        handler_args = new handler_exp_args *[num_clients];
+
 
         // Create client threads, will maintain a holding pattern until
         // flag is flipped
@@ -278,6 +286,7 @@ void rtt_steady_state_tcp_experiment::process()
           struct experiment_args *client_arg = (struct experiment_args *)malloc(sizeof(struct experiment_args));
           client_arg->experiment_instance = this;
           client_args[i] = client_arg;
+          client_arg->metrics.log = &log;
 
           pthread_t *new_client = (pthread_t *)malloc(sizeof(pthread_t));
           clients[i] = new_client;
@@ -313,9 +322,11 @@ void rtt_steady_state_tcp_experiment::process()
 
           if (connfd)
           {
-            handler_args *handler_arg = (handler_args *)malloc(sizeof(handler_args));
+            handler_exp_args *handler_arg = (handler_exp_args *)malloc(sizeof(handler_exp_args));
             handler_arg->experiment_instance = this;
             handler_arg->connfd = connfd;
+            handler_arg->items_processed = 0;
+            handler_args[i] = handler_arg;
             pthread_t *new_handler = (pthread_t *)malloc(sizeof(pthread_t));
             handlers[i] = new_handler;
             pthread_create(handlers[i], NULL, rtt_steady_state_tcp_experiment::pthread_server_tcp_handler, handler_arg); // server handler
@@ -335,44 +346,31 @@ void rtt_steady_state_tcp_experiment::process()
           // Free heap allocated data
           free(clients[i]);
           free(handlers[i]);
+      }
+        log.Log("end",1,0);
+        
+        int total_messages = 0;
+        //Count total items processed
+        for (int i=0; i< num_clients++; i++){
+            total_messages += handler_args[i]->items_processed;
         }
 
-        // What metrics do we care about?
-        long total_ns = 0.0;
-        for (int i = 0; i < num_clients; i++)
-        {
-          struct timespec start = client_args[i]->metrics.start;
-          struct timespec end = client_args[i]->metrics.end;
+        log.ReadLogEvent(0);
+        notnets::util::Logger::Event start = log.ReadLogEvent(1); //This should be the first timestamp
+        notnets::util::Logger::Event end = log.ReadLogEvent(total_messages); //This should be the last timestamp
 
-          if ((end.tv_sec - start.tv_sec) > 0)
-          { // we have atleast 1 sec
 
-            long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
-            ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
+        auto biggest_span = boost::chrono::nanoseconds( end.timestamp - start.timestamp);
 
-            total_ns += (ms * 1.0e+06);
-          }
-          else
-          { // nanosecond scale, probably not very accurate
-
-            long ns = 0.0;
-            ns = (end.tv_sec - start.tv_sec) * 1.0e+09;
-            ns += (end.tv_nsec - start.tv_nsec);
-
-            total_ns += ns;
-          }
-        }
-
-        long average_ns = total_ns / num_clients;
-
-        latency[queue].push(util::get_ns_op(average_ns, num_items)); // per client average latency
-        // throughput[queue].push(util::rtt_get_total_ops_ms_from_avg(average_ns, num_items, num_clients)); // total throughput
-        throughput[queue].push(util::rtt_get_total(total_ns, num_items, num_clients)); // total throughput
+        latency[queue].push(util::get_ns_op(biggest_span.count(), total_messages));          // per client average latency
+        throughput[queue].push(util::get_avg_ops_ms(biggest_span.count(), total_messages)); // total throughput
 
         for (int i = 0; i < num_clients; i++)
         {
           client_args[i]->experiment_instance = NULL;
           free(client_args[i]);
+          handler_args[i]->experiment_instance = NULL;
+          free(handler_args[i]);
         }
 
         run_flag = false;
