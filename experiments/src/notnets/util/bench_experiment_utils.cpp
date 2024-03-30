@@ -16,6 +16,11 @@ int notnets::util::get_ns_op(long average_ns, int num_items)
     return average_ns / num_items;
 }
 
+int notnets::util::get_ms_op(long ns, int num_items)
+{
+    return (ns  / 1.0e+06) / num_items;
+}
+
 void notnets::util::print_avg_ops_ms(long average_ns, int num_items)
 {
     fprintf(stdout, "%f\t", (num_items) / (average_ns / 1.0e+06));

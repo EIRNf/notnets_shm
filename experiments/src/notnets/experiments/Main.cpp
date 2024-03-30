@@ -9,8 +9,8 @@ void experiment()
 {
     // (ExampleExperiment()).run();
     // (connection_stress_experiment()).run();
-    (rtt_steady_state_conn_experiment()).run();
     (rtt_steady_state_tcp_experiment()).run();
+    (rtt_steady_state_conn_experiment()).run();
 
 }
 
