@@ -6,6 +6,8 @@
 #include <stdatomic.h>
 
 #include "coord.h"
+
+
 namespace notnets
 {
     namespace experiments
@@ -66,46 +68,6 @@ namespace notnets
             struct experiment_args **client_args;
         };
 
-        class rtt_steady_state_conn_experiment : public ExperimentalRun
-        {
-
-            struct experiment_args
-            {
-                rtt_steady_state_conn_experiment *experiment_instance;
-                struct connection_args metrics;
-            };
-
-            struct handler_exp_args
-            {
-                rtt_steady_state_conn_experiment *experiment_instance;
-                void *queue_ctx;
-            };
-
-        public:
-            void process() override;
-
-            rtt_steady_state_conn_experiment();
-
-        private:
-            void make_rtt_steady_state_conn_experiment(ExperimentalData *exp);
-
-            static void *pthread_connect_measure_rtt(void *arg);
-            static void *pthread_server_rtt(void *arg);
-
-        protected:
-          void setUp() override;
-            void tearDown() override;
-            int numRuns_ = 3;
-            std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20};
-            int num_items = 100000;
-
-            static const int execution_length_minutes = 1;
-
-            atomic_bool run_flag;
-            pthread_t **clients;
-            pthread_t **handlers;
-            struct experiment_args **client_args;
-        };
 
         class rtt_steady_state_tcp_experiment : public ExperimentalRun
         {
@@ -138,14 +100,53 @@ namespace notnets
           void setUp() override;
             void tearDown() override;
             int numRuns_ = 3;
-            // std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36};
+            std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36};
             // std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20};
-            std::vector<int> num_clients_ = {2};
+            // std::vector<int> num_clients_ = {2};
 
-            int num_items = 1000;
+            static const int execution_length_seconds = 3;
 
-            static const int execution_length_minutes = 1;
+            atomic_bool run_flag;
+            pthread_t **clients;
+            pthread_t **handlers;
+            struct experiment_args **client_args;
+            struct handler_exp_args **handler_args;
+        };
 
+        class rtt_steady_state_conn_experiment : public ExperimentalRun
+        {
+
+            struct experiment_args
+            {
+                rtt_steady_state_conn_experiment *experiment_instance;
+                struct connection_args metrics;
+            };
+
+            struct handler_exp_args
+            {
+                rtt_steady_state_conn_experiment *experiment_instance;
+                void *queue_ctx;
+                int items_processed;
+            };
+
+        public:
+            void process() override;
+
+            rtt_steady_state_conn_experiment();
+
+        private:
+            void make_rtt_steady_state_conn_experiment(ExperimentalData *exp);
+
+            static void *pthread_connect_measure_rtt(void *arg);
+            static void *pthread_server_rtt(void *arg);
+
+        protected:
+          void setUp() override;
+            void tearDown() override;
+            int numRuns_ = 3;
+            std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36};
+
+            static const int execution_length_seconds = 3;
 
             atomic_bool run_flag;
             pthread_t **clients;

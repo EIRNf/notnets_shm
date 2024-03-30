@@ -17,6 +17,8 @@ namespace notnets
 
         int get_ns_op(long average_ns, int num_items);
 
+        int get_ms_op(long ns, int num_items);
+
         void print_avg_ops_ms(long average_ns, int num_items);
 
         int get_avg_ops_ms(long average_ns, int num_items);

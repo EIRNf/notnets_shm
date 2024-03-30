@@ -11,7 +11,7 @@ namespace notnets
     {
         class Logger
         {
-            
+
         public:
             struct Event
             {
@@ -24,24 +24,24 @@ namespace notnets
 
             Logger();
 
-
             inline void Log(const char *msg, unsigned long param, unsigned long id)
-{
-    // Get next event index
-    unsigned long index = g_pos.fetch_add(1);
-    // Write an event at this index
-    Event *e = g_events + (index & (BUFFER_SIZE - 1)); // Wrap to buffer size, potentially unsafe
-    e->tid = id;                                       // Get thread ID
-    e->timestamp = boost::chrono::high_resolution_clock::now();
-    e->msg = msg;
-    e->param = param;
-}
+            {
+                // Get next event index
+                unsigned long index = g_pos.fetch_add(1);
+                // Write an event at this index
+                Event *e = g_events + (index & (BUFFER_SIZE - 1)); // Wrap to buffer size, potentially unsafe
+                e->tid = id;                                       // Get thread ID
+                e->timestamp = boost::chrono::high_resolution_clock::now();
+                e->msg = msg;
+                e->param = param;
+            }
             Event ReadLogEvent(unsigned long array_pos);
 
-        private:
-            static const int BUFFER_SIZE = 65536; // Must be a power of 2
-            Event g_events[BUFFER_SIZE];
             std::atomic_ulong g_pos;
+
+        private:
+            static const unsigned long BUFFER_SIZE = 65536; // Must be a power of 2
+            Event g_events[BUFFER_SIZE];
         };
     }
 }

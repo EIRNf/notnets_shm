@@ -1,4 +1,4 @@
-#include <sys/socket.h>
+
 #include <notnets/experiments/ExperimentalData.h>
 #include <notnets/experiments/Experiments.h>
 #include <notnets/util/AutoTimer.h>
@@ -61,10 +61,10 @@ void rtt_steady_state_tcp_experiment::make_rtt_steady_state_tcp_experiment(Exper
   cout << " rtt_steady_state_tcp_experiment::make_rtt_steady_state_tcp_experiment()..." << endl;
   exp->setDescription("RTT after connections have been established");
   exp->addField("tcp");
-  exp->addField("num_clients");
-  // exp->addField("latency(ns/op)");
+  // exp->addField("num_clients");
+  exp->addField("latency(ns/op)");
   exp->addField("throughput(ops/ms)");
-  // exp->addField("latency_deviation");
+  exp->addField("latency_deviation");
   exp->addField("throughput_deviation");
 
   exp->setKeepValues(false);
@@ -81,27 +81,22 @@ void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
   int *pop_buf = (int *)malloc(MESSAGE_SIZE);
   int pop_buf_size = MESSAGE_SIZE;
 
-  while (!args->experiment_instance->run_flag);
+  while (!args->experiment_instance->run_flag)
+    ;
 
-  boost::chrono::duration<long, boost::ratio<60>> exec_span(execution_length_minutes);
-  boost::chrono::high_resolution_clock::time_point start_point;
   while (true)
   {
     read(sockfd, pop_buf, pop_buf_size);
     *buf = *pop_buf;
     write(sockfd, buf, buf_size);
     args->items_processed++;
-
-    if (start_point.time_since_epoch() > boost::chrono::duration_cast<boost::chrono::nanoseconds>(exec_span))
-    {
-      break;
+    if (*buf == -1){
+      break; //End handling
     }
   }
 
   close(sockfd);
-
   args->experiment_instance = NULL;
-  free(args);
   pthread_exit(0);
 }
 
@@ -147,26 +142,46 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
   while (!args->experiment_instance->run_flag)
     ;
 
-  boost::chrono::duration<long, boost::ratio<60>> exec_span(execution_length_minutes);
-  boost::chrono::high_resolution_clock::time_point start_point;
+  auto now = std::chrono::high_resolution_clock::now;
+  auto stop_time = now() + std::chrono::seconds{execution_length_seconds};
+  bool first_message = true;
+  bool last_message = true;
   int items_count = 0;
   while (true)
   {
+
+
     *buf = items_count;
 
-    args->metrics.log->Log("client_write:",(unsigned long)*buf,args->metrics.client_id);
+    if (first_message)
+    {
+      args->metrics.log->Log("client_sent:", (unsigned long)*buf, args->metrics.client_id);
+      first_message = false;
+    }
     write(sockfd, buf, buf_size);
     // Request sent, read for response
     read(sockfd, pop_buf, pop_buf_size);
     assert(*pop_buf == *buf);
-    args->metrics.log->Log("client_read:",(unsigned long)*buf,args->metrics.client_id);
+    items_count++;
 
-    if (start_point.time_since_epoch() > boost::chrono::duration_cast<boost::chrono::nanoseconds>(exec_span))
+    if (!(now() < stop_time))
     {
+
+      //Shutdown message
+      *buf = -1;
+      write(sockfd, buf, buf_size);
+      // Request sent, read for response
+      read(sockfd, pop_buf, pop_buf_size);
+      assert(*pop_buf == *buf);
+
+      if (last_message)
+      {
+        args->metrics.log->Log("client_receive:", (unsigned long)*buf, args->metrics.client_id);
+        last_message = false;
+      }
       break;
     }
 
-    items_count++;
   }
   close(sockfd);
   free(buf);
@@ -177,10 +192,9 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
 void rtt_steady_state_tcp_experiment::process()
 {
 
-  std::cout << "rtt_steady_state_conn_experiment process" << std::endl;
+  std::cout << "rtt_steady_state_tcp_experiment process" << std::endl;
   util::AutoTimer timer;
   util::Logger log;
-
 
   ExperimentalData exp("rtt_steady_state_tcp_experiment");
   auto expData = {&exp};
@@ -211,8 +225,8 @@ void rtt_steady_state_tcp_experiment::process()
     {
       for (auto queue : queue_type)
       {
-        log.Log("start",0,0);
-        //Reset log?
+        log.Log("start", 0, 0);
+        // Reset log?
 
         // usleep(1000);
         std::cout << "run " << i << "..." << queue << std::endl;
@@ -277,7 +291,6 @@ void rtt_steady_state_tcp_experiment::process()
         client_args = new experiment_args *[num_clients];
         handler_args = new handler_exp_args *[num_clients];
 
-
         // Create client threads, will maintain a holding pattern until
         // flag is flipped
         for (int i = 0; i < num_clients; i++)
@@ -329,7 +342,7 @@ void rtt_steady_state_tcp_experiment::process()
             handler_args[i] = handler_arg;
             pthread_t *new_handler = (pthread_t *)malloc(sizeof(pthread_t));
             handlers[i] = new_handler;
-            pthread_create(handlers[i], NULL, rtt_steady_state_tcp_experiment::pthread_server_tcp_handler, handler_arg); // server handler
+            pthread_create(handlers[i], NULL, rtt_steady_state_tcp_experiment::pthread_server_tcp_handler, handler_args[i]); // server handler
             i++;
           }
         }
@@ -346,23 +359,22 @@ void rtt_steady_state_tcp_experiment::process()
           // Free heap allocated data
           free(clients[i]);
           free(handlers[i]);
-      }
-        log.Log("end",1,0);
-        
+        }
+
         int total_messages = 0;
-        //Count total items processed
-        for (int i=0; i< num_clients++; i++){
-            total_messages += handler_args[i]->items_processed;
+        // Count total items processed
+        for (int i = 0; i < num_clients; i++)
+        {
+          total_messages += handler_args[i]->items_processed;
         }
 
         log.ReadLogEvent(0);
-        notnets::util::Logger::Event start = log.ReadLogEvent(1); //This should be the first timestamp
-        notnets::util::Logger::Event end = log.ReadLogEvent(total_messages); //This should be the last timestamp
+        notnets::util::Logger::Event start = log.ReadLogEvent(1);           // This should be the first timestamp
+        notnets::util::Logger::Event end = log.ReadLogEvent(log.g_pos - 2); // This should be the last timestamp
 
+        auto biggest_span = boost::chrono::nanoseconds(end.timestamp - start.timestamp);
 
-        auto biggest_span = boost::chrono::nanoseconds( end.timestamp - start.timestamp);
-
-        latency[queue].push(util::get_ns_op(biggest_span.count(), total_messages));          // per client average latency
+        latency[queue].push(util::get_ns_op(biggest_span.count(), total_messages));         // per client average latency
         throughput[queue].push(util::get_avg_ops_ms(biggest_span.count(), total_messages)); // total throughput
 
         for (int i = 0; i < num_clients; i++)
@@ -382,11 +394,10 @@ void rtt_steady_state_tcp_experiment::process()
     {
       exp.addRecord();
       exp.setFieldValue("tcp", std::to_string(queue));
-      exp.setFieldValue("num_clients", boost::lexical_cast<std::string>(num_clients));
-      // exp.setFieldValue("latency(ns/op)", latency[queue].getMean());
+      exp.setFieldValue("latency(ns/op)", latency[queue].getMean());
       exp.setFieldValue("throughput(ops/ms)", throughput[queue].getMean());
 
-      // exp.setFieldValue("latency_deviation", latency[queue].getStandardDeviation());
+      exp.setFieldValue("latency_deviation", latency[queue].getStandardDeviation());
       exp.setFieldValue("throughput_deviation", throughput[queue].getStandardDeviation());
 
       latency[queue].clear();
