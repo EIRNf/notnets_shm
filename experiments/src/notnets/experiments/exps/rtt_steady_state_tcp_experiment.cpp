@@ -65,7 +65,7 @@ void rtt_steady_state_tcp_experiment::make_rtt_steady_state_tcp_experiment(Exper
   exp->addField("latency(ns/op)");
   exp->addField("throughput(ops/ms)");
   exp->addField("latency_deviation");
-  exp->addField("throughput_deviation");
+  // exp->addField("throughput_deviation");
 
   exp->setKeepValues(false);
 }
@@ -398,7 +398,7 @@ void rtt_steady_state_tcp_experiment::process()
       exp.setFieldValue("throughput(ops/ms)", throughput[queue].getMean());
 
       exp.setFieldValue("latency_deviation", latency[queue].getStandardDeviation());
-      exp.setFieldValue("throughput_deviation", throughput[queue].getStandardDeviation());
+      // exp.setFieldValue("throughput_deviation", throughput[queue].getStandardDeviation());
 
       latency[queue].clear();
       throughput[queue].clear();

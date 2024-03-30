@@ -37,6 +37,7 @@ void rtt_steady_state_conn_experiment::make_rtt_steady_state_conn_experiment(Exp
 {
   cout << " rtt_steady_state_conn_experiment::make_rtt_steady_state_conn_experiment()..." << endl;
   exp->setDescription("RTT after connections have been established");
+  
   exp->addField("queue");
   exp->addField("latency(ns/op)");
   exp->addField("throughput(ops/ms)");
@@ -345,7 +346,7 @@ void rtt_steady_state_conn_experiment::process()
       exp.setFieldValue("throughput(ops/ms)", throughput[queue].getMean());
 
       exp.setFieldValue("latency_deviation", latency[queue].getStandardDeviation());
-      exp.setFieldValue("throughput_deviation", throughput[queue].getStandardDeviation());
+      // exp.setFieldValue("throughput_deviation", throughput[queue].getStandardDeviation());
 
       latency[queue].clear();
       throughput[queue].clear();

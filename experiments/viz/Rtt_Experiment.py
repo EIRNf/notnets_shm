@@ -8,7 +8,7 @@ import matplotlib.pyplot as pp
 import matplotlib
 
 EXPERIMENT_NAME = "all_rtt"
-X_LABEL         = "throughput(ops/ms)"
+X_LABEL         = "throughput(ops/ms) "
 Y_LABEL         = "latency(ns/op)"
             
 def main(dirn, fname): 
