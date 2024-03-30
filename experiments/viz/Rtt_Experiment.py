@@ -7,9 +7,9 @@ import numpy as np
 import matplotlib.pyplot as pp
 import matplotlib
 
-EXPERIMENT_NAME = "AllRTTBenches"
-X_LABEL         = "num_clients"
-Y_LABEL         = "throughput (ops/ms)"
+EXPERIMENT_NAME = "all_rtt"
+X_LABEL         = "throughput(ops/ms)"
+Y_LABEL         = "latency(ns/op)"
             
 def main(dirn, fname): 
   (xs, ysPerSolver, ydevsPerSolver) = CommonViz.parseData(dirn, fname)
