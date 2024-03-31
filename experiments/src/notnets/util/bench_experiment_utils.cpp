@@ -11,9 +11,9 @@ void notnets::util::print_ns_op(long average_ns, int num_items)
     fprintf(stdout, "%ld\t", (average_ns / num_items));
 }
 
-int notnets::util::get_ns_op(long average_ns, int num_items)
+double notnets::util::get_per_client_ns_op(double ns, double num_items, int num_clients)
 {
-    return average_ns / num_items;
+    return ns / ( num_items / num_clients);
 }
 
 int notnets::util::get_ms_op(long ns, int num_items)
@@ -26,14 +26,14 @@ void notnets::util::print_avg_ops_ms(long average_ns, int num_items)
     fprintf(stdout, "%f\t", (num_items) / (average_ns / 1.0e+06));
 }
 
-int notnets::util::get_avg_ops_ms(long average_ns, int num_items)
+long notnets::util::get_avg_ops_ms(long average_ns, long num_items)
 {
     return (num_items) / (average_ns / 1.0e+06);
 }
 
-int notnets::util::get_ops_ms(long average_ns, int num_clients)
+double notnets::util::get_ops_ms(double average_ns, double num_items)
 {
-    return (average_ns / 1.0e+06);
+    return (num_items) / (average_ns / 1.0e+06);
 }
 
 void notnets::util::rtt_print_ops_ms(long average_ns, int num_items, int num_clients)

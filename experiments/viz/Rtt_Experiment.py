@@ -7,12 +7,12 @@ import numpy as np
 import matplotlib.pyplot as pp
 import matplotlib
 
-EXPERIMENT_NAME = "all_rtt"
-X_LABEL         = "throughput(ops/ms) "
-Y_LABEL         = "latency(ns/op)"
+EXPERIMENT_NAME = "tcp_sem"
+X_LABEL         = "throughput(ops/ms)"
+Y_LABEL         = "latency(ns/op) "
             
 def main(dirn, fname): 
-  (xs, ysPerSolver, ydevsPerSolver) = CommonViz.parseData(dirn, fname)
+  (xsPerSolver, ysPerSolver, ydevsPerSolver) = CommonViz.parseVariableData(dirn, fname)
      
   CommonConf.setupMPPDefaults()
   fmts = CommonConf.getLineFormats()
@@ -24,7 +24,7 @@ def main(dirn, fname):
   # ax.set_yscale("log" )
 
   index = 0
-  for (solver, ys), (solver, ydevs) in zip(ysPerSolver.items(),ydevsPerSolver.items()) : 
+  for (solver,xs), (solver, ys), (solver, ydevs) in zip(xsPerSolver.items(),ysPerSolver.items(),ydevsPerSolver.items()) : 
     ax.errorbar(xs, ys, yerr=ydevs, label=solver, marker=mrkrs[index], linestyle=fmts[index], color=colors[index])
     index = index + 1
 

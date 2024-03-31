@@ -31,7 +31,7 @@ namespace notnets
                 // Write an event at this index
                 Event *e = g_events + (index & (BUFFER_SIZE - 1)); // Wrap to buffer size, potentially unsafe
                 e->tid = id;                                       // Get thread ID
-                e->timestamp = boost::chrono::high_resolution_clock::now();
+                e->timestamp = boost::chrono::steady_clock::now();
                 e->msg = msg;
                 e->param = param;
             }

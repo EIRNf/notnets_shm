@@ -15,15 +15,15 @@ namespace notnets
     
         void print_ns_op(long average_ns, int num_items);
 
-        int get_ns_op(long average_ns, int num_items);
+        double get_per_client_ns_op(double ns, double num_items, int num_clients);
 
         int get_ms_op(long ns, int num_items);
 
         void print_avg_ops_ms(long average_ns, int num_items);
 
-        int get_avg_ops_ms(long average_ns, int num_items);
+        long get_avg_ops_ms(long average_ns, long num_items);
 
-        int get_ops_ms(long average_ns, int num_clients);
+        double get_ops_ms(double average_ns, double num_items);
 
         void rtt_print_ops_ms(long average_ns, int num_items, int num_clients);
 

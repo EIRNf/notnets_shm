@@ -37,12 +37,12 @@ void rtt_steady_state_conn_experiment::make_rtt_steady_state_conn_experiment(Exp
 {
   cout << " rtt_steady_state_conn_experiment::make_rtt_steady_state_conn_experiment()..." << endl;
   exp->setDescription("RTT after connections have been established");
-  
+
   exp->addField("queue");
-  exp->addField("latency(ns/op)");
   exp->addField("throughput(ops/ms)");
+  exp->addField("latency(ns/op)");
   exp->addField("latency_deviation");
-  exp->addField("throughput_deviation");
+  // exp->addField("throughput_deviation");
 
   exp->setKeepValues(false);
 }
@@ -58,9 +58,10 @@ void *rtt_steady_state_conn_experiment::pthread_server_rtt(void *arg)
   int pop_buf_size = MESSAGE_SIZE;
 
   // hold until flag is set to true
-  while (!args->experiment_instance->run_flag)
+  while (!(args->experiment_instance->run_flag))
     ;
 
+  args->items_processed = 0;
   while (true)
   {
 
@@ -122,11 +123,11 @@ void *rtt_steady_state_conn_experiment::pthread_connect_measure_rtt(void *arg)
   int pop_buf_size = MESSAGE_SIZE;
 
   // hold until flag is set to true
-  while (!args->experiment_instance->run_flag)
+  while (!(args->experiment_instance->run_flag))
     ;
 
-  auto now = std::chrono::high_resolution_clock::now;
-  auto stop_time = now() + std::chrono::seconds{execution_length_seconds};
+  auto now = boost::chrono::steady_clock::now();
+  auto stop_time = now + boost::chrono::seconds{execution_length_seconds};
   bool first_message = true;
   bool last_message = true;
   int items_count = 0;
@@ -145,7 +146,7 @@ void *rtt_steady_state_conn_experiment::pthread_connect_measure_rtt(void *arg)
     assert(*pop_buf == *buf);
     items_count++;
 
-    if (!(now() < stop_time))
+    if (!(boost::chrono::steady_clock::now() < stop_time))
     {
 
       // Shutdown message
@@ -175,7 +176,6 @@ void rtt_steady_state_conn_experiment::process()
 
   std::cout << "rtt_steady_state_conn_experiment process" << std::endl;
   util::AutoTimer timer;
-  util::Logger log;
 
   ExperimentalData exp("rtt_steady_state_conn_experiment");
   auto expData = {&exp};
@@ -212,6 +212,7 @@ void rtt_steady_state_conn_experiment::process()
     {
       for (auto queue : queue_type)
       {
+        util::Logger log;
         log.Log("start", 0, 0);
 
         std::cout << "run " << i << "..." << queue << std::endl;
@@ -289,6 +290,8 @@ void rtt_steady_state_conn_experiment::process()
             }
           }
         }
+        usleep(500);
+
         // Run
         run_flag = true;
 
@@ -305,21 +308,27 @@ void rtt_steady_state_conn_experiment::process()
         }
         timer.stop();
 
-        int total_messages = 0;
+        double total_messages = 0;
         // Count total items processed
         for (int i = 0; i < num_clients; i++)
         {
+          printf("items processed: %f\n", handler_args[i]->items_processed);
           total_messages += handler_args[i]->items_processed;
         }
+        printf("total items processed : %f\n", total_messages);
 
         log.ReadLogEvent(0);
         notnets::util::Logger::Event start = log.ReadLogEvent(1);           // This should be the first timestamp
-        notnets::util::Logger::Event end = log.ReadLogEvent(log.g_pos - 2); // This should be the last timestamp
+        notnets::util::Logger::Event end = log.ReadLogEvent(log.g_pos - 1); // This should be the last timestamp
+
+
 
         auto biggest_span = boost::chrono::nanoseconds(end.timestamp - start.timestamp);
+        printf("biggest_span : %ld\n", biggest_span.count());
 
-        latency[queue].push(util::get_ns_op(biggest_span.count(), total_messages));         // per client average latency
-        throughput[queue].push(util::get_avg_ops_ms(biggest_span.count(), total_messages)); // total throughput
+
+        latency[queue].push(util::get_per_client_ns_op(biggest_span.count(), total_messages, num_clients));     // per client average latency
+        throughput[queue].push(util::get_ops_ms(biggest_span.count(), total_messages)); // total throughput
 
         cpu[queue].push(timer.getCPUUtilization());
 
@@ -342,8 +351,8 @@ void rtt_steady_state_conn_experiment::process()
       std::string s = getQueueName(queue);
       exp.setFieldValue("queue", s);
       // exp.setFieldValue("num_clients", boost::lexical_cast<std::string>(num_clients));
-      exp.setFieldValue("latency(ns/op)", latency[queue].getMean());
       exp.setFieldValue("throughput(ops/ms)", throughput[queue].getMean());
+      exp.setFieldValue("latency(ns/op)", latency[queue].getMean());
 
       exp.setFieldValue("latency_deviation", latency[queue].getStandardDeviation());
       // exp.setFieldValue("throughput_deviation", throughput[queue].getStandardDeviation());

@@ -238,7 +238,8 @@ void connection_stress_experiment::process()
           }
         }
 
-        latency[queue].push(util::get_ns_op(total_ns, num_clients));
+
+        latency[queue].push((total_ns/ num_clients));
         throughput[queue].push(util::get_ops_ms(total_ns, num_clients));
 
         for (int i = 0; i < num_clients; i++)
