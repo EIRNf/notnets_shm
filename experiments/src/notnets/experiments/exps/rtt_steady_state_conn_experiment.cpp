@@ -39,6 +39,7 @@ void rtt_steady_state_conn_experiment::make_rtt_steady_state_conn_experiment(Exp
   exp->setDescription("RTT after connections have been established");
 
   exp->addField("queue");
+  exp->addField("num_clients");
   exp->addField("throughput(ops/ms)");
   exp->addField("latency(ns/op)");
   exp->addField("latency_deviation");
@@ -350,7 +351,7 @@ void rtt_steady_state_conn_experiment::process()
       exp.addRecord();
       std::string s = getQueueName(queue);
       exp.setFieldValue("queue", s);
-      // exp.setFieldValue("num_clients", boost::lexical_cast<std::string>(num_clients));
+      exp.setFieldValue("num_clients", boost::lexical_cast<std::string>(num_clients));
       exp.setFieldValue("throughput(ops/ms)", throughput[queue].getMean());
       exp.setFieldValue("latency(ns/op)", latency[queue].getMean());
 

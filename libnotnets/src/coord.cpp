@@ -1,6 +1,6 @@
 
 #define SLOT_NUM 40
-#define QUEUE_SIZE 16024
+#define QUEUE_SIZE 4028
 
 #include "coord.h"
 #include "queue.h"

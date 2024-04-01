@@ -58,3 +58,36 @@ def parseVariableData(dirn, fname):
         ydevsPerSolver[solver] = [ydev]
     return (xsPerSolver, ysPerSolver, ydevsPerSolver)
   
+def parseVariableDataTwoXs(dirn, fname):
+  x1PerSolver  = OrderedDict()
+  x2PerSolver  = OrderedDict()
+  ysPerSolver = OrderedDict()
+  ydevsPerSolver = OrderedDict()
+  with open(dirn+"/"+fname+".dat") as fin:
+    lines = fin.readlines()
+    for line in lines:
+      if line.startswith("#"):
+        continue
+      (solver, x1, x2, y, ydev, nline) = re.split("[\t]", line)
+      try:
+        x1 = float(x1)
+        x2 = float(x2)
+        y = float(y)
+        ydev = float(ydev)  
+      except ValueError:
+        x1 = 0.0
+        x2 = 0.0
+        y = 0.0
+        ydev = 0.0  
+      if solver in x1PerSolver:
+        x1PerSolver[solver].append(x1)
+        x2PerSolver[solver].append(x2)
+        ysPerSolver[solver].append(y)
+        ydevsPerSolver[solver].append(ydev)
+      else:
+        x1PerSolver[solver] = [x1]
+        x2PerSolver[solver] = [x2]
+        ysPerSolver[solver] = [y]
+        ydevsPerSolver[solver] = [ydev]
+    return (x1PerSolver, x2PerSolver,ysPerSolver, ydevsPerSolver)
+  
