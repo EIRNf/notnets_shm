@@ -106,7 +106,7 @@ void coord_detach(coord_header* header){
 
 // Client
 // Returns reserved slot to check back against, if -1 failed to get a slot
-int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TYPE type){
+int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TYPE queue_type){
 
     // try to reserve a slot, if not available wait and try again
     pthread_mutex_lock(&header->mutex);
@@ -117,7 +117,7 @@ int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TY
             header->slots[i].client_id = client_id;
             header->slots[i].message_size = message_size;
             header->slots[i].detach = false;
-            header->slots[i].type = type;
+            header->slots[i].queue_type = queue_type;
             atomic_store(&header->slots[i].client_attached,false);
             atomic_store(&header->slots[i].server_attached,false);
             header->slots[i].shm_created = false;

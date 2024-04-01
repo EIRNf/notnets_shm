@@ -37,7 +37,7 @@ typedef struct shm_pair {
 typedef struct coord_row {
     int client_id; //Only written to by Client, how do we even know id?
     int message_size;
-    QUEUE_TYPE type;
+    QUEUE_TYPE queue_type;
     atomic_bool shm_created;  //Only written to by Server
     atomic_bool client_attached;
     atomic_bool server_attached;
@@ -70,7 +70,7 @@ void coord_detach(coord_header* header);
 
 // Client
 // Returns reserved slot to check back against, if -1 failed to get a slot
-int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TYPE type);
+int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TYPE queue_type);
 
 shm_pair check_slot(coord_header* header, int slot);
 

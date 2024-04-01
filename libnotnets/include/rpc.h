@@ -30,19 +30,31 @@ typedef struct queue_pair {
     int offset;
 } queue_pair;
 
+
+typedef int (*client_send_fn)(queue_pair* conn, const void* buf, size_t size);
+typedef size_t (*client_receive_fn)(queue_pair* conn, void* buf, size_t size);
+typedef int (*server_send_fn)(queue_pair* client, const void *buf, size_t size);
+typedef size_t (*server_receive_fn)(queue_pair* client, void* buf, size_t size);
+
+typedef struct queue_fn {
+    //Client
+    client_send_fn client_send; 
+    client_receive_fn client_receive;
+    //Server
+    server_send_fn server_send;
+    server_receive_fn server_receive;
+} queue_fn;
+
+
 //Would be good to split up the queue ctx between server and client
 typedef struct queue_ctx {
-    QUEUE_TYPE type;
-
+    QUEUE_TYPE queue_type;
     queue_pair *queues;
-    //Client
-    int (*client_send_rpc)(queue_pair* conn, const void* buf, size_t size);
-    size_t (*client_receive_buf)(queue_pair* conn, void* buf, size_t size);
-
-    //Server
-    int (*server_send_rpc)(queue_pair* client, const void *buf, size_t size);
-    size_t (*server_receive_buf)(queue_pair* client, void* buf, size_t size);
+    // queue_fn *fn;
+    void* fn;
 }queue_ctx;
+
+
 
 // typedef enum QUEUE_TYPE
 // {
@@ -70,9 +82,10 @@ typedef struct server_context {
 
 // forward declaration of functions
 // ===============================================================
-// PRIVATE HELPER FUNCTIONS
-queue_pair* _create_client_queue_pair(coord_header* ch, int slot, QUEUE_TYPE type);
-queue_pair* _create_server_queue_pair(coord_header* ch, int slot);
+
+#ifdef __cplusplus
+extern "C"{
+#endif 
 
 void* _manage_pool_runner(void* handler);
 
@@ -83,7 +96,7 @@ void free_queue_ctx(queue_ctx * ctx);
 queue_ctx* client_open(char* source_addr,
                         char* destination_addr,
                         int message_size,
-                        QUEUE_TYPE type);
+                        QUEUE_TYPE queue_type);
 
 int client_send_rpc(queue_ctx* conn, const void* buf, size_t size);
 size_t client_receive_buf(queue_ctx* conn, void* buf, size_t size);
@@ -100,15 +113,12 @@ void shutdown(server_context* handler);
 
 // PRIVATE HELPER FUNCTIONS
 queue_pair* _create_client_queue_pair(coord_header* ch, int slot);
-
-
-
 queue_pair* _create_server_queue_pair(coord_header* ch, int slot);
-
-
-
-
 void* _manage_pool_runner(void* handler);
+
+#ifdef __cplusplus
+}
+#endif 
 
 // CLIENT
 /**
@@ -130,7 +140,7 @@ void* _manage_pool_runner(void* handler);
 queue_ctx* client_open(char* source_addr,
                         char* destination_addr,
                         int message_size,
-                        QUEUE_TYPE type);
+                        QUEUE_TYPE queue_type);
 
 /**
  * @brief Client writes to the request queue in given connection.
