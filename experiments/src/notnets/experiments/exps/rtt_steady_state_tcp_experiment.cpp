@@ -223,7 +223,7 @@ void rtt_steady_state_tcp_experiment::process()
     {
       for (auto queue : queue_type)
       {
-        util::Logger log;
+        util::Logger log(24);
         log.Log("start", 0, 0);
         // Reset log?
 
@@ -389,6 +389,7 @@ void rtt_steady_state_tcp_experiment::process()
         }
 
         run_flag = false;
+        log.~Logger();
         close(sockfd);
       }
     }

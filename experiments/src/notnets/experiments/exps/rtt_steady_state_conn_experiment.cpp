@@ -213,7 +213,7 @@ void rtt_steady_state_conn_experiment::process()
     {
       for (auto queue : queue_type)
       {
-        util::Logger log;
+        util::Logger log(24);
         log.Log("start", 0, 0);
 
         std::cout << "run " << i << "..." << queue << std::endl;
@@ -342,6 +342,7 @@ void rtt_steady_state_conn_experiment::process()
         }
 
         run_flag = false;
+        log.~Logger();
         shutdown(sc);
       }
     }

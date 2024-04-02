@@ -22,14 +22,19 @@ namespace notnets
                 unsigned long param; // A parameter which can mean anything you want
             };
 
-            Logger();
+            Logger(int pow2){
+                buffer_size = 1 << pow2;
+                g_events = (Event*)malloc(sizeof(Event) * buffer_size);
+            }   
+            ~Logger(){
+            }
 
             inline void Log(const char *msg, unsigned long param, unsigned long id)
             {
                 // Get next event index
                 unsigned long index = g_pos.fetch_add(1);
                 // Write an event at this index
-                Event *e = g_events + (index & (BUFFER_SIZE - 1)); // Wrap to buffer size, potentially unsafe
+                Event *e = g_events + (index & (buffer_size - 1)); // Wrap to buffer size, potentially unsafe
                 e->tid = id;                                       // Get thread ID
                 e->timestamp = boost::chrono::steady_clock::now();
                 e->msg = msg;
@@ -40,8 +45,10 @@ namespace notnets
             std::atomic_ulong g_pos;
 
         private:
-            static const unsigned long BUFFER_SIZE = 65536; // Must be a power of 2
-            Event g_events[BUFFER_SIZE];
+            // static const unsigned long BUFFER_SIZE = 65536; // Must be a power of 2
+            unsigned long buffer_size; // Must be a power of 2
+            // Event g_events[BUFFER_SIZE];
+            Event *g_events;
         };
     }
 }
