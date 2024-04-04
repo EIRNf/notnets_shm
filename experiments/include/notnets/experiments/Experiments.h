@@ -17,6 +17,8 @@ namespace notnets
         struct connection_args
         {
             int client_id;
+            int num_clients;
+            int run;
             QUEUE_TYPE type;
             struct timespec start;
             struct timespec end;

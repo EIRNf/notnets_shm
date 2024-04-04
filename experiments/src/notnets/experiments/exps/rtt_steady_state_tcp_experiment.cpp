@@ -102,6 +102,16 @@ void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
   pthread_exit(0);
 }
 
+void make_tcp_client_experiment_data(ExperimentalData *exp)
+{
+  cout << " make_tcp_client_experiment_data()..." << endl;
+  exp->setDescription("Per client TCP timestamps");
+  exp->addField("entries");
+  exp->addField("send_time");
+  exp->addField("return_time");
+  exp->setKeepValues(false);
+}
+
 void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *arg)
 {
   int sockfd;
@@ -118,9 +128,6 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
     // printf("Socket successfully created..\n");
     bzero(&servaddr, sizeof(servaddr));
   struct experiment_args *args = (struct experiment_args *)arg;
-
-  char name[4];
-  snprintf(name, 4, "%d", args->metrics.client_id);
 
   // assign IP, PORT
   servaddr.sin_family = AF_INET;
@@ -144,6 +151,16 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
   while (!args->experiment_instance->run_flag)
     ;
 
+  char client_file_name[16];
+  snprintf(client_file_name, 16, "tcp-%d-%d-%d", args->metrics.num_clients, args->metrics.client_id, args->metrics.run);
+
+  ExperimentalData exp(client_file_name);
+  auto expData = {&exp};
+
+  make_tcp_client_experiment_data(&exp);
+  for (auto exp : expData)
+    exp->open();
+
   auto now = boost::chrono::steady_clock::now();
   auto stop_time = now + boost::chrono::seconds{execution_length_seconds};
   bool first_message = true;
@@ -158,9 +175,15 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
       args->metrics.log->Log("client_sent:", (unsigned long)*buf, args->metrics.client_id);
       first_message = false;
     }
+    exp.addRecord();
+    exp.setFieldValueNoFlush("entries", boost::lexical_cast<std::string>(items_count));
+    exp.setFieldValueNoFlush("send_time",
+                             boost::lexical_cast<std::string>(
+                                 boost::chrono::steady_clock::now().time_since_epoch().count()));
     write(sockfd, buf, buf_size);
     // Request sent, read for response
     read(sockfd, pop_buf, pop_buf_size);
+    exp.setFieldValueNoFlush("return_time", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()));
     assert(*pop_buf == *buf);
     items_count++;
 
@@ -182,6 +205,8 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
       break;
     }
   }
+  exp.flushExpFile();
+  exp.close();
   close(sockfd);
   free(buf);
   free(pop_buf);
@@ -219,7 +244,7 @@ void rtt_steady_state_tcp_experiment::process()
 
   for (auto num_clients : num_clients_)
   {
-    for (int i = 0; i < numRuns_; i++)
+    for (int numRuns = 0; numRuns < numRuns_; numRuns++)
     {
       for (auto queue : queue_type)
       {
@@ -228,7 +253,7 @@ void rtt_steady_state_tcp_experiment::process()
         // Reset log?
 
         // usleep(1000);
-        std::cout << "run " << i << "..." << queue << std::endl;
+        std::cout << "run " << numRuns << "..." << queue << std::endl;
 
         int sockfd, connfd;
         socklen_t len;
@@ -299,6 +324,8 @@ void rtt_steady_state_tcp_experiment::process()
           client_arg->experiment_instance = this;
           client_args[i] = client_arg;
           client_arg->metrics.log = &log;
+          client_arg->metrics.num_clients = num_clients;
+          client_arg->metrics.run = numRuns;
 
           pthread_t *new_client = (pthread_t *)malloc(sizeof(pthread_t));
           clients[i] = new_client;
@@ -374,11 +401,10 @@ void rtt_steady_state_tcp_experiment::process()
         notnets::util::Logger::Event start = log.ReadLogEvent(1);           // This should be the first timestamp
         notnets::util::Logger::Event end = log.ReadLogEvent(log.g_pos - 1); // This should be the last timestamp
         auto biggest_span = boost::chrono::duration_cast<boost::chrono::nanoseconds>(end.timestamp - start.timestamp);
-          printf("biggest_span : %ld\n", biggest_span.count());
+        printf("biggest_span : %ld\n", biggest_span.count());
 
-
-        latency[queue].push(util::get_per_client_ns_op(biggest_span.count(), total_messages, num_clients));     // per client average latency
-        throughput[queue].push(util::get_ops_ms(biggest_span.count(), total_messages)); // total throughput
+        latency[queue].push(util::get_per_client_ns_op(biggest_span.count(), total_messages, num_clients)); // per client average latency
+        throughput[queue].push(util::get_ops_ms(biggest_span.count(), total_messages));                     // total throughput
 
         for (int i = 0; i < num_clients; i++)
         {

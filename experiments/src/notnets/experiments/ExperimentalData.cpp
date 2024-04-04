@@ -72,6 +72,27 @@ void ExperimentalData::setFieldValue(std::string const & fieldName, any_value co
   setFieldValue(index, value);
 }
 
+void ExperimentalData::setFieldValueNoFlush(std::string const & fieldName, any_value const & value)
+{
+  if (fieldNameIndices_.count(fieldName)==0) 
+    throw runtime_error("field '"+fieldName+"' not found!");
+  size_t index = fieldNameIndices_[fieldName];
+  setFieldValueNoFlush(index, value);
+}
+
+void ExperimentalData::setFieldValueNoFlush(int fieldIndex, any_value const & value)
+{
+  file_ << value << "\t";
+  // file_.flush();
+  if (keepValues_) 
+    values_.back()[static_cast<size_t>(fieldIndex)] = value;
+}
+
+void ExperimentalData::flushExpFile(){
+  file_.flush();
+}
+
+
 void ExperimentalData::appendFieldValue(any_value const & value)
 {
   setFieldValue(currentFieldIndex_++, value);

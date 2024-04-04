@@ -47,6 +47,17 @@ void rtt_steady_state_conn_experiment::make_rtt_steady_state_conn_experiment(Exp
 
   exp->setKeepValues(false);
 }
+
+void make_notnets_client_experiment_data(ExperimentalData *exp)
+{
+  cout << " make_notnets_client_experiment_data()..." << endl;
+  exp->setDescription("Per client notnet queue timestamps");
+  exp->addField("entries");
+  exp->addField("send_time");
+  exp->addField("return_time");
+  exp->setKeepValues(false);
+}
+
 void *rtt_steady_state_conn_experiment::pthread_server_rtt(void *arg)
 {
   handler_exp_args *args = (handler_exp_args *)arg;
@@ -126,6 +137,15 @@ void *rtt_steady_state_conn_experiment::pthread_connect_measure_rtt(void *arg)
   // hold until flag is set to true
   while (!(args->experiment_instance->run_flag))
     ;
+  char client_file_name[16];
+  snprintf(client_file_name, 16, "not-%d-%d-%d", args->metrics.num_clients, args->metrics.client_id, args->metrics.run);
+
+  ExperimentalData exp(client_file_name);
+  auto expData = {&exp};
+
+  make_notnets_client_experiment_data(&exp);
+  for (auto exp : expData)
+    exp->open();
 
   auto now = boost::chrono::steady_clock::now();
   auto stop_time = now + boost::chrono::seconds{execution_length_seconds};
@@ -141,9 +161,18 @@ void *rtt_steady_state_conn_experiment::pthread_connect_measure_rtt(void *arg)
       args->metrics.log->Log("client_sent:", (unsigned long)*buf, args->metrics.client_id);
       first_message = false;
     }
+
+    exp.addRecord();
+    exp.setFieldValueNoFlush("entries", boost::lexical_cast<std::string>(items_count));
+    exp.setFieldValueNoFlush("send_time",
+                             boost::lexical_cast<std::string>(
+                                 boost::chrono::steady_clock::now().time_since_epoch().count()));
+
     client_send_rpc(c_qp, buf, buf_size);
     // Request sent, read for response
     client_receive_buf(c_qp, pop_buf, pop_buf_size);
+    exp.setFieldValueNoFlush("return_time", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()));
+
     assert(*pop_buf == *buf);
     items_count++;
 
@@ -165,7 +194,8 @@ void *rtt_steady_state_conn_experiment::pthread_connect_measure_rtt(void *arg)
       break;
     }
   }
-
+  exp.flushExpFile();
+  exp.close();
   free(pop_buf);
   free(buf);
   free_queue_ctx(c_qp);
@@ -209,14 +239,14 @@ void rtt_steady_state_conn_experiment::process()
 
   for (auto num_clients : num_clients_)
   {
-    for (int i = 0; i < numRuns_; i++)
+    for (int numRuns = 0; numRuns < numRuns_; numRuns++)
     {
       for (auto queue : queue_type)
       {
         util::Logger log(24);
         log.Log("start", 0, 0);
 
-        std::cout << "run " << i << "..." << queue << std::endl;
+        std::cout << "run " << numRuns << "..." << queue << std::endl;
 
         // Create pointer array to keep track of client threads
         clients = new pthread_t *[num_clients];
@@ -240,6 +270,8 @@ void rtt_steady_state_conn_experiment::process()
           client_arg->experiment_instance = this;
           client_arg->metrics.type = queue;
           client_arg->metrics.log = &log;
+          client_arg->metrics.num_clients = num_clients;
+          client_arg->metrics.run = numRuns;
 
           client_args[i] = client_arg;
           pthread_t *new_client = (pthread_t *)malloc(sizeof(pthread_t));
@@ -322,14 +354,11 @@ void rtt_steady_state_conn_experiment::process()
         notnets::util::Logger::Event start = log.ReadLogEvent(1);           // This should be the first timestamp
         notnets::util::Logger::Event end = log.ReadLogEvent(log.g_pos - 1); // This should be the last timestamp
 
-
-
         auto biggest_span = boost::chrono::nanoseconds(end.timestamp - start.timestamp);
         printf("biggest_span : %ld\n", biggest_span.count());
 
-
-        latency[queue].push(util::get_per_client_ns_op(biggest_span.count(), total_messages, num_clients));     // per client average latency
-        throughput[queue].push(util::get_ops_ms(biggest_span.count(), total_messages)); // total throughput
+        latency[queue].push(util::get_per_client_ns_op(biggest_span.count(), total_messages, num_clients)); // per client average latency
+        throughput[queue].push(util::get_ops_ms(biggest_span.count(), total_messages));                     // total throughput
 
         cpu[queue].push(timer.getCPUUtilization());
 
