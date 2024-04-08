@@ -24,6 +24,7 @@ public:
     void addField(std::string const & field);
 
     void open();
+    void csv_open();
 
     void addRecord();
 
@@ -32,7 +33,7 @@ public:
     void setFieldValue(std::string const & name, any_value const & value);
 
     void setFieldValueNoFlush(std::string const & fieldName, any_value const & value);
-    void setFieldValueNoFlush(int fieldIndex, any_value const & value);
+    void csv_setFieldValueNoFlush(int fieldIndex, any_value const & value);
     void flushExpFile();
 
     void appendFieldValue(any_value const & value);

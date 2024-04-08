@@ -47,6 +47,20 @@ void ExperimentalData::open()
   file_.flush();
 }
 
+void ExperimentalData::csv_open()
+{
+  using namespace boost::filesystem;
+  path dir(dirName_);
+  create_directory(dir);
+  file_.open((dirName_+"/"+fileName_).c_str(), ios::out);
+  // if (!description_.empty())
+    // file_ << "# " << description_ << endl;
+  // file_ << "";
+  for (size_t i=0, iu=fieldNames_.size(); i<iu; ++i)
+    file_ << fieldNames_[i] << ",";
+  file_.flush();
+}
+
 void ExperimentalData::addRecord()
 {
   file_ << endl;
@@ -77,12 +91,12 @@ void ExperimentalData::setFieldValueNoFlush(std::string const & fieldName, any_v
   if (fieldNameIndices_.count(fieldName)==0) 
     throw runtime_error("field '"+fieldName+"' not found!");
   size_t index = fieldNameIndices_[fieldName];
-  setFieldValueNoFlush(index, value);
+  csv_setFieldValueNoFlush(index, value);
 }
 
-void ExperimentalData::setFieldValueNoFlush(int fieldIndex, any_value const & value)
+void ExperimentalData::csv_setFieldValueNoFlush(int fieldIndex, any_value const & value)
 {
-  file_ << value << "\t";
+  file_ << value << ",";
   // file_.flush();
   if (keepValues_) 
     values_.back()[static_cast<size_t>(fieldIndex)] = value;

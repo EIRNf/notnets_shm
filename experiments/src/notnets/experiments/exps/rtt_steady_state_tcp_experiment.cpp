@@ -104,7 +104,7 @@ void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
 
 void make_tcp_client_experiment_data(ExperimentalData *exp)
 {
-  cout << " make_tcp_client_experiment_data()..." << endl;
+  cout << " make_tcp_client_experiment_data()...\n" << endl;
   exp->setDescription("Per client TCP timestamps");
   exp->addField("entries");
   exp->addField("send_time");
@@ -159,7 +159,7 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
 
   make_tcp_client_experiment_data(&exp);
   for (auto exp : expData)
-    exp->open();
+    exp->csv_open();
 
   auto now = boost::chrono::steady_clock::now();
   auto stop_time = now + boost::chrono::seconds{execution_length_seconds};

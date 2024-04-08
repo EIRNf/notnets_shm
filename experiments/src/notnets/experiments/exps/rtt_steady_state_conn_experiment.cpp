@@ -50,7 +50,7 @@ void rtt_steady_state_conn_experiment::make_rtt_steady_state_conn_experiment(Exp
 
 void make_notnets_client_experiment_data(ExperimentalData *exp)
 {
-  cout << " make_notnets_client_experiment_data()..." << endl;
+  cout << " make_notnets_client_experiment_data()...\n" << endl;
   exp->setDescription("Per client notnet queue timestamps");
   exp->addField("entries");
   exp->addField("send_time");
@@ -138,14 +138,14 @@ void *rtt_steady_state_conn_experiment::pthread_connect_measure_rtt(void *arg)
   while (!(args->experiment_instance->run_flag))
     ;
   char client_file_name[16];
-  snprintf(client_file_name, 16, "not-%d-%d-%d", args->metrics.num_clients, args->metrics.client_id, args->metrics.run);
+  snprintf(client_file_name, 16, "%d-%d-%d-%d",args->metrics.type, args->metrics.num_clients, args->metrics.client_id, args->metrics.run);
 
   ExperimentalData exp(client_file_name);
   auto expData = {&exp};
 
   make_notnets_client_experiment_data(&exp);
   for (auto exp : expData)
-    exp->open();
+    exp->csv_open();
 
   auto now = boost::chrono::steady_clock::now();
   auto stop_time = now + boost::chrono::seconds{execution_length_seconds};
