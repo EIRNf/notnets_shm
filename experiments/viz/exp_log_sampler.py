@@ -1,9 +1,14 @@
+import os
 import pandas as pd
 import numpy as np
 import glob
 
 
-def parse_log_files(log_files):
+def parse_log_files(log_file_path):
+
+    # Get a list of all log files
+    log_files = glob.glob(log_files_path)
+
     aggregated_data = pd.DataFrame()
 
     for file in log_files:
@@ -27,20 +32,22 @@ def parse_log_files(log_files):
         #         sum_time = 0
         # df_list.append(df[old_index:])
 
-        ##  queue	num_clients	throughput(ops/ms)	latency(ns/op)	latency_deviation	
-
         avg_time_diff = df['time_difference'].mean()
         total_items = df['entries'].iloc[-1]
         # percentile_90 = np.percentile(df['time_difference'], 90)
         # percentile_95 = np.percentile(df['time_difference'], 95)
         # percentile_99 = np.percentile(df['time_difference'], 99)
 
+        file_name = os.path.basename(file)
+        meta_data = file_name.split('-')
+        num_clients = meta_data[1]
         # Append aggregated data to the DataFrame
         row = pd.DataFrame({
             'log_file': [file],
-            'num_clients': [total_items],
-            'latency(sec)': [avg_time_diff],
-            'throughput(sec/op)': [total_items/avg_time_diff]
+            'num_clients': num_clients,
+            'total_items': [total_items],
+            'latency(us)': [avg_time_diff * 1000000] ,
+            'throughput(op/us)': [(total_items/avg_time_diff) / 1000000 ] 
             # '90th_percentile': [percentile_90],
             # '95th_percentile': [percentile_95],
             # '99th_percentile': [percentile_99]
@@ -57,11 +64,10 @@ def parse_log_files(log_files):
 # Path to log files
 log_files_path = '../bin/expData/**.dat'
 
-# Get a list of all log files
-log_files = glob.glob(log_files_path)
 
 # Parse log files and aggregate data
-aggregated_data = parse_log_files(log_files)
+aggregated_data = parse_log_files(log_files_path)
 
-# Print aggregated data
+# Save to file.
+aggregated_data.to_csv("expData.csv", sep='\t')
 print(aggregated_data)
