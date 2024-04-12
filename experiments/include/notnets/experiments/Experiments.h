@@ -107,6 +107,8 @@ namespace notnets
             std::vector<int> num_clients_ = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26};
 
 
+
+            // RUN FOR 5 minutes
             static const int execution_length_seconds = 30;
 
             atomic_bool run_flag;
