@@ -102,14 +102,14 @@ namespace notnets
         protected:
           void setUp() override;
             void tearDown() override;
-            int numRuns_ = 5;
+            int numRuns_ = 1;
             // std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36};
             std::vector<int> num_clients_ = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26};
 
 
 
             // RUN FOR 5 minutes
-            static const int execution_length_seconds = 30;
+            static const int execution_length_seconds = 300;
 
             atomic_bool run_flag;
             pthread_t **clients;
@@ -148,12 +148,12 @@ namespace notnets
         protected:
           void setUp() override;
             void tearDown() override;
-            int numRuns_ = 5;
+            int numRuns_ = 1;
             // std::vector<int> num_clients_ = {2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36};
             std::vector<int> num_clients_ = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26};
 
 
-            static const int execution_length_seconds = 30;
+            static const int execution_length_seconds = 300;
 
             atomic_bool run_flag;
             pthread_t **clients;

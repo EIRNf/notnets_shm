@@ -6,6 +6,10 @@ import glob
 import matplotlib.pyplot as pp
 import matplotlib
 
+import CommonConf
+import CommonViz
+
+import Rtt_Experiment2Xs_Timestamp
 
 from enum import Enum
 
@@ -14,6 +18,12 @@ class Queue_Type(Enum):
     BOOST = '1'
     SEM = '2'
     TCP = 'tcp'
+    
+class Labeled_Queue_Type(Enum):
+    POLL = 'POLL'
+    BOOST = 'BOOST'
+    SEM = 'SEM'
+    TCP = 'TCP'
 
 def parse_log_files(log_file_path):
 
@@ -91,60 +101,65 @@ def parse_log_files(log_file_path):
             if idx % 100 == 0:
                 grouped_ad = aggregated_data.groupby(['queue_type', 'num_clients'])
                 grouped_ad.agg(latency=('latency(us)', np.mean), throughput=('throughput(op/ms)', np.sum)).reset_index().sort_values(by=['num_clients']).to_csv("expData.csv", sep='\t', index=False)
+                # break;
         except KeyError:
             print("Parsing issues, next file")
-            break
+            continue;
 
             # Save to file.
             # aggregated_data.to_csv("expData.csv", mode='a', index=True, header=False, sep='\t')
 
     return aggregated_data
 
-# log_files_path = '/home/estebanramos/projects/notnets_shm/experiments/bin/expData'
-
 # Path to log files
 log_files_path = '../bin/expData/**.dat'
 # Parse log files and aggregate data
 aggregated_data = parse_log_files(log_files_path)
-
-# aggregated_data.drop_duplicates(keep='first')
-# aggregated_data.astype(str).agg(', '.join, axis=1)
 # Save to file.
 grouped_ad = aggregated_data.groupby(['queue_type', 'num_clients'])
-grouped_ad.agg(latency=('latency(us)', np.mean), throughput=('throughput(op/ms)', np.sum)).reset_index().sort_values(by=['num_clients']).to_csv("expData.csv", sep='\t', index=False)
+final_ad = grouped_ad.agg(latency=('latency(us)', np.mean), throughput=('throughput(op/ms)', np.sum)).reset_index().sort_values(by=['num_clients'],key=lambda x: x.astype(int))
+final_ad.to_csv("expData.csv", sep='\t', index=False, header=False)
+
+ind = final_ad['queue_type'].str.contains("TCP|SEM")
+tcp_sem = final_ad[ind].sort_values(by=['num_clients'],key=lambda x: x.astype(int)) 
+tcp_sem.to_csv("tcp_sem.csv", sep='\t', index=False, header=False)
+
+ind = final_ad['queue_type'].str.contains("POLL|BOOST")
+poll_boost = final_ad[ind].sort_values(by=['num_clients'], key=lambda x: x.astype(int))
+poll_boost.to_csv("poll_boost.csv", sep='\t', index=False, header=False)
 
 
-CommonConf.setupMPPDefaults()
-  fmts = CommonConf.getLineFormats()
-  mrkrs = CommonConf.getLineMarkers()
-  colors = CommonConf.getColors()
-  fig = pp.figure(figsize=(12, 5))
-  ax = fig.add_subplot(111)
-
-  # x1 = x1PerSolver["SEM_QUEUE"]
-
-  # ax.set_xscale("log")
-  # ax.set_yscale("log" )
+Rtt_Experiment2Xs_Timestamp.main("./","expData")
+Rtt_Experiment2Xs_Timestamp.main("./","tcp_sem")
+Rtt_Experiment2Xs_Timestamp.main("./","poll_boost")
 
 
-  index = 0
-  for (solver,xs), (solver, ys), (solver, x1) in zip(x2PerSolver.items(),ysPerSolver.items(),x1PerSolver.items()) : 
-    ax.errorbar(xs, ys, label=solver, marker=mrkrs[index], linestyle=fmts[index], color=colors[index])
-    for i, ix1 in enumerate(x1):
-      # pos = int(i-1)
-      pos1 = random.randint(5,75)
-      pos2 = random.randint(-75,75)
-      pp.annotate(ix1,(xs[i], ys[i]), xytext=(pos1, pos2), textcoords='offset points', arrowprops=dict(arrowstyle="->"))
-    index = index + 1
+# CommonConf.setupMPPDefaults()
+# fmts = CommonConf.getLineFormats()
+# mrkrs = CommonConf.getLineMarkers()
+# colors = CommonConf.getColors()
 
-  ax.set_xlabel(X2_LABEL);
-  ax.set_ylabel(Y_LABEL);
-  ax.legend(loc='best', fancybox=True)
+# fig = pp.figure(figsize=(12, 5))
+# ax = fig.add_subplot(111)
 
-  matplotlib.layout_engine.TightLayoutEngine().execute(fig)
+# # ax.set_xscale("log")
+# # ax.set_yscale("log" )
+# type_list = final_ad['queue_type'].drop_duplicates().to_list()
 
-  pp.savefig(dirn+"/"+fname+".pdf")
-  pp.show()
+
+# index = 0
+# for idx,type_df in final_ad.iterrows(): 
+#     ax.errorbar(type_df['throughput'], type_df['latency'], label=type_df['queue_type'] , marker=mrkrs[type_list.index(type_df['queue_type'])], linestyle=fmts[type_list.index(type_df['queue_type'])], color=colors[type_list.index(type_df['queue_type'])])
+#     index = index + 1
+
+# # ax.set_xlabel(X2_LABEL);
+# # ax.set_ylabel(Y_LABEL);
+# ax.legend(loc='best', fancybox=True)
+
+# matplotlib.layout_engine.TightLayoutEngine().execute(fig)
+
+# pp.savefig("./expData.pdf")
+# pp.show()
 
 # grouped_ad.mean().reset_index().to_csv("expData.csv", sep='\t')
 # aggregated_data.to_csv("expData.csv", sep='\t')
