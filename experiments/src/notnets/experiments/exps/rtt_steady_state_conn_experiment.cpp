@@ -50,7 +50,7 @@ void rtt_steady_state_conn_experiment::make_rtt_steady_state_conn_experiment(Exp
 
 void make_notnets_client_experiment_data(ExperimentalData *exp)
 {
-  cout << " make_notnets_client_experiment_data()...\n" << endl;
+  // cout << " make_notnets_client_experiment_data()...\n" << endl;
   exp->setDescription("Per client notnet queue timestamps");
   exp->addField("entries");
   exp->addField("send_time");
@@ -138,7 +138,7 @@ void *rtt_steady_state_conn_experiment::pthread_connect_measure_rtt(void *arg)
   while (!(args->experiment_instance->run_flag))
     ;
   char client_file_name[16];
-  snprintf(client_file_name, 16, "%d-%d-%d-%d",args->metrics.type, args->metrics.num_clients, args->metrics.client_id, args->metrics.run);
+  snprintf(client_file_name, 16, "%d-%d-%d-%d", args->metrics.type, args->metrics.num_clients, args->metrics.client_id, args->metrics.run);
 
   ExperimentalData exp(client_file_name);
   auto expData = {&exp};
@@ -162,16 +162,21 @@ void *rtt_steady_state_conn_experiment::pthread_connect_measure_rtt(void *arg)
       first_message = false;
     }
 
-    exp.addRecord();
-    exp.setFieldValueNoFlush("entries", boost::lexical_cast<std::string>(items_count));
-    exp.setFieldValueNoFlush("send_time",
-                             boost::lexical_cast<std::string>(
-                                 boost::chrono::steady_clock::now().time_since_epoch().count()));
-
+    if (items_count % 2 != 0)
+    {
+      exp.addRecord();
+      exp.setFieldValueNoFlush("entries", boost::lexical_cast<std::string>(items_count));
+      exp.setFieldValueNoFlush("send_time",
+                               boost::lexical_cast<std::string>(
+                                   boost::chrono::steady_clock::now().time_since_epoch().count()));
+    }
     client_send_rpc(c_qp, buf, buf_size);
     // Request sent, read for response
     client_receive_buf(c_qp, pop_buf, pop_buf_size);
-    exp.setFieldValueNoFlush("return_time", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()));
+    if (items_count % 2 != 0)
+    {
+      exp.setFieldValueNoFlush("return_time", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()));
+    }
 
     assert(*pop_buf == *buf);
     items_count++;
