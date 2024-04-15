@@ -1,6 +1,8 @@
 #include <notnets/experiments/Experiments.h>
 #include <cstdlib>
 
+#include <notnets/experiments/tcp_only_bench.h>
+
 using namespace std;
 using namespace notnets::experiments;
 
@@ -16,7 +18,8 @@ void experiment()
 
 int main()
 {
-  experiment();
+  // experiment();
+  tcp_process();
   return 0;
 }
 
