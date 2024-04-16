@@ -76,6 +76,13 @@ void tcp_process()
         exit(1);
       }
 
+
+      if (setsockopt(sockfd, IPPROTO_TCP, TCP_CONGESTION, "reno", strlen("reno")) < 0)
+      {
+        perror("Failed to set socket option");
+        exit(1);
+      }
+
       bzero(&servaddr, sizeof(servaddr));
 
       // assign IP, PORT
@@ -91,7 +98,7 @@ void tcp_process()
       }
 
       // Now server is ready to listen and verification
-      if ((listen(sockfd, num_clients)) != 0)
+    if ((listen(sockfd, num_clients)) != 0)
       {
         printf("Listen failed...\n");
         exit(0);
