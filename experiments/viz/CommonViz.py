@@ -101,7 +101,7 @@ def parseVariableDataTwoXs_Timestamp(dirn, fname):
     for line in lines:
       if line.startswith("#"):
         continue
-      (solver, x1, y, x2) = line.split()   #re.split("[\t]", line)
+      (solver,  x1,num_clients, y, x2) = line.split()   #re.split("[\t]", line)
       try:
         x1 = float(x1)
         x2 = float(x2)

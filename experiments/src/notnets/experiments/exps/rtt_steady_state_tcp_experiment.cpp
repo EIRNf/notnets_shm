@@ -71,34 +71,29 @@ void rtt_steady_state_tcp_experiment::make_rtt_steady_state_tcp_experiment(Exper
 }
 void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
 {
+
   handler_exp_args *args = (handler_exp_args *)arg;
 
   int sockfd = args->connfd;
 
-  int *buf = (int *)malloc(MESSAGE_SIZE);
   int buf_size = MESSAGE_SIZE;
-
-  int *pop_buf = (int *)malloc(MESSAGE_SIZE);
   int pop_buf_size = MESSAGE_SIZE;
 
-  while (!args->experiment_instance->run_flag)
-    ;
-
+  int buf, pop_buf;
   args->items_processed = 0;
   while (true)
   {
-    read(sockfd, pop_buf, pop_buf_size);
-    *buf = *pop_buf;
-    write(sockfd, buf, buf_size);
+    read(sockfd, &pop_buf, pop_buf_size);
+    buf = pop_buf;
+    write(sockfd, &buf, buf_size);
     args->items_processed++;
-    if (*buf == -1)
+    if (buf == -1)
     {
       break; // End handling
     }
   }
 
   close(sockfd);
-  args->experiment_instance = NULL;
   pthread_exit(0);
 }
 
