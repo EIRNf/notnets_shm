@@ -88,7 +88,7 @@ def parse_log_files(log_file_path):
             total_items = len(subset_samples.index)
             percentile_90 = np.percentile(subset_samples['time_difference'], 90)
             percentile_95 = np.percentile(subset_samples['time_difference'], 95)
-            # percentile_99 = np.percentile(subset_samples['time_difference'], 99)
+            percentile_99 = np.percentile(subset_samples['time_difference'], 99)
             
               # Append aggregated data to the DataFrame
             row = pd.DataFrame({
@@ -97,9 +97,9 @@ def parse_log_files(log_file_path):
                 'total_items': [total_items],
                 'latency(us)': [avg_time_diff * 1000000] ,
                 'throughput(op/ms)': [(total_items/(total_time * 1000))] ,
-                '90th_percentile': [percentile_90],
-                '95th_percentile': [percentile_95]
-                # '99th_percentile': [percentile_99]
+                '90th_percentile(us)': [percentile_90 * 1000000],
+                '95th_percentile(us)': [percentile_95 * 1000000],
+                '99th_percentile(us)': [percentile_99 * 1000000]
             })
             print(f"Run: {run}")
             print(row)

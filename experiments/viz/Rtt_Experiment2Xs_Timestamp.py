@@ -18,7 +18,7 @@ X2_LABEL         = "throughput(op/ms)"
 Y_LABEL         = "latency(us)"
             
 def main(dirn, fname): 
-  (x1PerSolver, x2PerSolver ,ysPerSolver) = CommonViz.parseVariableDataTwoXs_Timestamp(dirn, fname)
+  (x1PerSolver, x2PerSolver ,ysPerSolver,y1PerSolver,y2PerSolver, y3PerSolver) = CommonViz.parseVariableDataTwoXs_MoreLatencies(dirn, fname)
      
   CommonConf.setupMPPDefaults()
   fmts = CommonConf.getLineFormats()
@@ -37,12 +37,33 @@ def main(dirn, fname):
   for (solver,xs), (solver, ys), (solver, x1) in zip(x2PerSolver.items(),ysPerSolver.items(),x1PerSolver.items()) : 
     ax.errorbar(xs, ys, label=solver, marker=mrkrs[index], linestyle=fmts[index], color=colors[index])
     for x1, xs, ys in zip(x1, xs, ys):
-      # pos1 = random.randint(10,25)
-      # pos2 = random.randint(-10,25)
       texts.append(pp.text(xs, ys, x1))
-      # pp.annotate(ix1,(xs[i], ys[i]), xytext=(pos1, pos2), textcoords='offset points', arrowprops=dict(arrowstyle="->"))
+    index = index + 1
+    
+    
+  texts = []
+  index = 0
+  for (solver,xs), (solver, ys), (solver, x1) in zip(x2PerSolver.items(),y1PerSolver.items(),x1PerSolver.items()) : 
+    ax.errorbar(xs, ys, label=solver + 'p90', marker=mrkrs[index], linestyle=fmts[index], color=colors[index+1])
+    for x1, xs, ys in zip(x1, xs, ys):
+      texts.append(pp.text(xs, ys, x1))
+    index = index + 1
+    
+  texts = []
+  index = 0
+  for (solver,xs), (solver, ys), (solver, x1) in zip(x2PerSolver.items(),y2PerSolver.items(),x1PerSolver.items()) : 
+    ax.errorbar(xs, ys, label=solver + 'p95', marker=mrkrs[index], linestyle=fmts[index], color=colors[index+2])
+    for x1, xs, ys in zip(x1, xs, ys):
+      texts.append(pp.text(xs, ys, x1))
     index = index + 1
 
+  texts = []
+  index = 0
+  for (solver,xs), (solver, ys), (solver, x1) in zip(x2PerSolver.items(),y3PerSolver.items(),x1PerSolver.items()) : 
+    ax.errorbar(xs, ys, label=solver + 'p99', marker=mrkrs[index], linestyle=fmts[index], color=colors[index+3])
+    for x1, xs, ys in zip(x1, xs, ys):
+      texts.append(pp.text(xs, ys, x1))
+    index = index + 1
   # index = 0
   # for (solver, x1) in zip(x1PerSolver.items()):
   #   pp.annotate(x1, )
