@@ -227,13 +227,13 @@ void rtt_steady_state_conn_experiment::process()
 
   // What possible queue do we have?
   // Queue Type certainly
-  vector<QUEUE_TYPE> queue_type =
+  vector<QUEUE_TYPE> queueType =
       {
           POLL,
           BOOST,
           SEM};
 
-  for (auto __attribute__((unused)) queue : queue_type)
+  for (auto __attribute__((unused)) queue : queueType)
   {
     latency.push_back(util::RunningStat());
     throughput.push_back(util::RunningStat());
@@ -242,11 +242,11 @@ void rtt_steady_state_conn_experiment::process()
 
   std::cout << "Running experiments..." << std::endl;
 
-  for (auto num_clients : num_clients_)
+  for (auto num_clients : numClients)
   {
     for (int numRuns = 0; numRuns < numRuns_; numRuns++)
     {
-      for (auto queue : queue_type)
+      for (auto queue : queueType)
       {
         util::Logger log(24);
         log.Log("start", 0, 0);
@@ -381,7 +381,7 @@ void rtt_steady_state_conn_experiment::process()
       }
     }
 
-    for (auto queue : queue_type)
+    for (auto queue : queueType)
     {
       exp.addRecord();
       std::string s = getQueueName(queue);

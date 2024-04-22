@@ -108,13 +108,13 @@ void connection_stress_experiment::process()
 
   // What possible queue do we have?
   // Queue Type certainly
-  vector<QUEUE_TYPE> queue_type =
+  vector<QUEUE_TYPE> queueType =
       {
           POLL,
           BOOST,
           SEM};
 
-  for (auto __attribute__((unused)) queue : queue_type)
+  for (auto __attribute__((unused)) queue : queueType)
   {
     latency.push_back(util::RunningStat());
     throughput.push_back(util::RunningStat());
@@ -122,11 +122,11 @@ void connection_stress_experiment::process()
 
   std::cout << "Running experiments..." << std::endl;
 
-  for (auto num_clients : num_clients_)
+  for (auto num_clients : numClients)
   {
     for (int i = 0; i < numRuns_; i++)
     {
-      for (auto queue : queue_type)
+      for (auto queue : queueType)
       {
         std::cout << "run " << i << "..." << queue << std::endl;
 
@@ -255,7 +255,7 @@ void connection_stress_experiment::process()
       }
     }
 
-    for (auto queue : queue_type)
+    for (auto queue : queueType)
     {
       exp.addRecord();
       std::string s = getQueueName(queue);

@@ -1,7 +1,6 @@
 
 #include <notnets/experiments/ExperimentalData.h>
 #include <notnets/experiments/Experiments.h>
-#include <notnets/util/AutoTimer.h>
 #include <notnets/util/RunningStat.h>
 #include <notnets/util/bench_experiment_utils.h>
 
@@ -36,6 +35,7 @@
 #include <netinet/tcp.h>
 
 #include <assert.h> //assert
+#include <regex.h>
 
 using namespace std;
 using namespace notnets;
@@ -56,19 +56,6 @@ void rtt_steady_state_tcp_experiment::tearDown()
   cout << " rtt_steady_state_tcp_experiment::tearDown()..." << endl;
 }
 
-void rtt_steady_state_tcp_experiment::make_rtt_steady_state_tcp_experiment(ExperimentalData *exp)
-{
-  cout << " rtt_steady_state_tcp_experiment::make_rtt_steady_state_tcp_experiment()..." << endl;
-  exp->setDescription("RTT after connections have been established");
-  exp->addField("tcp");
-  exp->addField("num_clients");
-  exp->addField("throughput(ops/ms)");
-  exp->addField("latency(ns/op)");
-  exp->addField("latency_deviation");
-  // exp->addField("throughput_deviation");
-
-  exp->setKeepValues(false);
-}
 void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
 {
 
@@ -80,12 +67,25 @@ void *rtt_steady_state_tcp_experiment::pthread_server_tcp_handler(void *arg)
   int pop_buf_size = MESSAGE_SIZE;
 
   int buf, pop_buf;
+  int ret = 0;
   args->items_processed = 0;
   while (true)
   {
-    read(sockfd, &pop_buf, pop_buf_size);
+    ret = read(sockfd, &pop_buf, pop_buf_size);
+    if (ret == -1)
+    {
+      cout << "client read err\n"
+           << endl;
+      exit(0);
+    }
     buf = pop_buf;
-    write(sockfd, &buf, buf_size);
+    ret = write(sockfd, &buf, buf_size);
+    if (ret == -1)
+    {
+      cout << "client write err\n"
+           << endl;
+      exit(0);
+    }
     args->items_processed++;
     if (buf == -1)
     {
@@ -116,12 +116,17 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd == -1)
   {
-    printf("socket creation failed...\n");
+    cout << "socket creation failed...\n"
+         << endl;
     exit(0);
   }
   else
-    // printf("Socket successfully created..\n");
+  {
+    cout << "Socket successfully created..\n"
+         << endl;
     bzero(&servaddr, sizeof(servaddr));
+  }
+
   struct experiment_args *args = (struct experiment_args *)arg;
 
   // assign IP, PORT
@@ -132,19 +137,14 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
   // connect the client socket to server socket
   while (connect(sockfd, (SA *)&servaddr, sizeof(servaddr)) != 0)
   {
-    printf("connection with the server failed...\n");
+    cout << "connection with the server failed...\n"
+         << endl;
     exit(0);
   }
 
-  int *buf = (int *)malloc(MESSAGE_SIZE);
   int buf_size = MESSAGE_SIZE;
-
-  int *pop_buf = (int *)malloc(MESSAGE_SIZE);
   int pop_buf_size = MESSAGE_SIZE;
-
-  // hold until flag is set to true
-  while (!args->experiment_instance->run_flag)
-    ;
+  int buf, pop_buf;
 
   char client_file_name[16];
   snprintf(client_file_name, 16, "tcp-%d-%d-%d", args->metrics.num_clients, args->metrics.client_id, args->metrics.run);
@@ -158,19 +158,13 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
 
   auto now = boost::chrono::steady_clock::now();
   auto stop_time = now + boost::chrono::seconds{execution_length_seconds};
-  bool first_message = true;
-  bool last_message = true;
   int items_count = 0;
+  int ret = 0;
   while (true)
   {
-    *buf = items_count;
+    buf = items_count;
 
-    if (first_message)
-    {
-      args->metrics.log->Log("client_sent:", (unsigned long)*buf, args->metrics.client_id);
-      first_message = false;
-    }
-
+    // Sample half of all messages
     if (items_count % 2 != 0)
     {
       exp.addRecord();
@@ -180,39 +174,45 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
                                    boost::chrono::steady_clock::now().time_since_epoch().count()));
     }
 
-    write(sockfd, buf, buf_size);
+    // Write message
+    ret = write(sockfd, &buf, buf_size);
+    if (ret == -1)
+    {
+      cout << "client write err\n"
+           << endl;
+      exit(0);
+    }
     // Request sent, read for response
-    read(sockfd, pop_buf, pop_buf_size);
+    ret = read(sockfd, &pop_buf, pop_buf_size);
+    if (ret == -1)
+    {
+      cout << "client read err\n"
+           << endl;
+      exit(0);
+    }
+
+    // Sample half of all messages
     if (items_count % 2 != 0)
     {
       exp.setFieldValueNoFlush("return_time", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()));
     }
-    assert(*pop_buf == *buf);
+    assert(pop_buf == buf);
     items_count++;
 
     if (!(boost::chrono::steady_clock::now() < stop_time))
     {
-
       // Shutdown message
-      *buf = -1;
-      write(sockfd, buf, buf_size);
+      buf = -1;
+      write(sockfd, &buf, buf_size);
       // Request sent, read for response
-      read(sockfd, pop_buf, pop_buf_size);
-      assert(*pop_buf == *buf);
-
-      if (last_message)
-      {
-        args->metrics.log->Log("client_receive:", (unsigned long)*buf, args->metrics.client_id);
-        last_message = false;
-      }
+      read(sockfd, &pop_buf, pop_buf_size);
+      assert(pop_buf == buf);
       break;
     }
   }
   exp.flushExpFile();
   exp.close();
   close(sockfd);
-  free(buf);
-  free(pop_buf);
   pthread_exit(0);
 }
 
@@ -220,42 +220,22 @@ void rtt_steady_state_tcp_experiment::process()
 {
 
   std::cout << "rtt_steady_state_tcp_experiment process" << std::endl;
-  util::AutoTimer timer;
-
-  ExperimentalData exp("rtt_steady_state_tcp_experiment");
-  auto expData = {&exp};
-
-  make_rtt_steady_state_tcp_experiment(&exp);
-
-  for (auto exp : expData)
-    exp->open();
-
-  vector<util::RunningStat> latency;
-  vector<util::RunningStat> throughput;
 
   // What possible queue do we have?
   // Queue Type certainly
-  vector<int> queue_type = {0};
-
-  for (auto __attribute__((unused)) queue : queue_type)
-  {
-    latency.push_back(util::RunningStat());
-    throughput.push_back(util::RunningStat());
-  }
+  vector<int> queueType = {0};
 
   std::cout << "Running experiments..." << std::endl;
 
-  for (auto num_clients : num_clients_)
+  for (auto num_clients : numClients)
   {
     for (int numRuns = 0; numRuns < numRuns_; numRuns++)
     {
-      for (auto queue : queue_type)
+      for (auto queue : queueType)
       {
         util::Logger log(24);
         log.Log("start", 0, 0);
-        // Reset log?
 
-        // usleep(1000);
         std::cout << "run " << numRuns << "..." << queue << std::endl;
 
         int sockfd, connfd;
@@ -266,24 +246,24 @@ void rtt_steady_state_tcp_experiment::process()
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (sockfd == -1)
         {
-          perror("Failed to open server socket");
+          std::cerr << "Failed to open server socket";
           exit(1);
         }
 
         const int enable = 1;
         if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
         {
-          perror("Failed to set socket option");
+          std::cerr << "Failed to set socket option";
           exit(1);
         }
         if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int)) < 0)
         {
-          perror("Failed to set socket option");
+          std::cerr << "Failed to set socket option";
           exit(1);
         }
         if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(int)) < 0)
         {
-          perror("Failed to set socket option");
+          std::cerr << "Failed to set socket option";
           exit(1);
         }
 
@@ -296,21 +276,25 @@ void rtt_steady_state_tcp_experiment::process()
         // Binding newly created socket to given IP and verification
         if (int ret = (bind(sockfd, (SA *)&servaddr, sizeof(servaddr))) != 0)
         {
-
-          printf("socket bind failed...%d\n", ret);
+          cout << "socket bind failed..." << ret << endl;
           exit(0);
         }
 
         // Now server is ready to listen and verification
         if ((listen(sockfd, num_clients)) != 0)
         {
-          printf("Listen failed...\n");
+          cout << "Listen failed..." << endl;
           exit(0);
         }
 
         len = sizeof(cli);
 
-        // Create pointer array to keep track of client threads
+        //  These must be dynamically allocated to execute full
+        // experiment breadth in a single instantiation of the program.
+        // If statically allocated then we need to recompile and update
+        // the constant value for each run configuration, as we did
+        // in previous versions of this experiment.
+
         clients = new pthread_t *[num_clients];
         handlers = new pthread_t *[num_clients];
 
@@ -323,14 +307,14 @@ void rtt_steady_state_tcp_experiment::process()
         for (int i = 0; i < num_clients; i++)
         {
 
-          struct experiment_args *client_arg = (struct experiment_args *)malloc(sizeof(struct experiment_args));
+          struct experiment_args *client_arg = new struct experiment_args;
           client_arg->experiment_instance = this;
           client_args[i] = client_arg;
           client_arg->metrics.log = &log;
           client_arg->metrics.num_clients = num_clients;
           client_arg->metrics.run = numRuns;
 
-          pthread_t *new_client = (pthread_t *)malloc(sizeof(pthread_t));
+          pthread_t *new_client = new pthread_t;
           clients[i] = new_client;
 
           client_args[i]->metrics.client_id = i * 10; //
@@ -348,37 +332,26 @@ void rtt_steady_state_tcp_experiment::process()
 
         for (int i = 0; i < num_clients;)
         {
-          if (select(sockfd + 1, &set, NULL, NULL, &timeout))
-          {
-            connfd = accept(sockfd, (SA *)&cli, &len);
-            if (connfd < 0)
-            {
-              printf("server accept failed...\n");
-              exit(0);
-            }
-          }
-          else
+          if (1 > select(sockfd + 1, &set, NULL, NULL, &timeout))
           {
             continue;
           }
-
-          if (connfd)
+          connfd = accept(sockfd, (SA *)&cli, &len);
+          if (connfd < 0)
           {
-            handler_exp_args *handler_arg = (handler_exp_args *)malloc(sizeof(handler_exp_args));
-            handler_arg->experiment_instance = this;
-            handler_arg->connfd = connfd;
-            handler_arg->items_processed = 0;
-            handler_args[i] = handler_arg;
-            pthread_t *new_handler = (pthread_t *)malloc(sizeof(pthread_t));
-            handlers[i] = new_handler;
-            pthread_create(handlers[i], NULL, rtt_steady_state_tcp_experiment::pthread_server_tcp_handler, handler_args[i]); // server handler
-            i++;
+            cout << boost::format("server accept failed...\n");
+            exit(0);
           }
+          handler_exp_args *handler_arg = new struct handler_exp_args;
+          handler_arg->experiment_instance = this;
+          handler_arg->connfd = connfd;
+          handler_arg->items_processed = 0;
+          handler_args[i] = handler_arg;
+          pthread_t *new_handler = new pthread_t;
+          handlers[i] = new_handler;
+          pthread_create(handlers[i], NULL, rtt_steady_state_tcp_experiment::pthread_server_tcp_handler, handler_args[i]); // server handler
+          i++;
         }
-        usleep(500);
-
-        // Run
-        run_flag = true;
 
         // Join threads
         for (int i = 0; i < num_clients; i++)
@@ -390,56 +363,30 @@ void rtt_steady_state_tcp_experiment::process()
           free(clients[i]);
           free(handlers[i]);
         }
+        free(clients);
+        free(handlers);
 
         double total_messages = 0;
         // Count total items processed
         for (int i = 0; i < num_clients; i++)
         {
-          printf("items processed: %f\n", handler_args[i]->items_processed);
+          cout << "items processed:" << handler_args[i]->items_processed << endl;
           total_messages += handler_args[i]->items_processed;
         }
-        printf("total items processed : %f\n", total_messages);
-
-        log.ReadLogEvent(0);
-        notnets::util::Logger::Event start = log.ReadLogEvent(1);           // This should be the first timestamp
-        notnets::util::Logger::Event end = log.ReadLogEvent(log.g_pos - 1); // This should be the last timestamp
-        auto biggest_span = boost::chrono::duration_cast<boost::chrono::nanoseconds>(end.timestamp - start.timestamp);
-        printf("biggest_span : %ld\n", biggest_span.count());
-
-        latency[queue].push(util::get_per_client_ns_op(biggest_span.count(), total_messages, num_clients)); // per client average latency
-        throughput[queue].push(util::get_ops_ms(biggest_span.count(), total_messages));                     // total throughput
+        cout << "total items processed " << total_messages << endl;
 
         for (int i = 0; i < num_clients; i++)
         {
-          client_args[i]->experiment_instance = NULL;
           free(client_args[i]);
-          handler_args[i]->experiment_instance = NULL;
           free(handler_args[i]);
         }
+        free(client_args);
+        free(handler_args);
 
-        run_flag = false;
-        log.~Logger();
         close(sockfd);
       }
-    }
-
-    for (auto queue : queue_type)
-    {
-      exp.addRecord();
-      exp.setFieldValue("tcp", std::to_string(queue));
-      exp.setFieldValue("num_clients", boost::lexical_cast<std::string>(num_clients));
-      exp.setFieldValue("throughput(ops/ms)", throughput[queue].getMean());
-      exp.setFieldValue("latency(ns/op)", latency[queue].getMean());
-      exp.setFieldValue("latency_deviation", latency[queue].getStandardDeviation());
-      // exp.setFieldValue("throughput_deviation", throughput[queue].getStandardDeviation());
-
-      latency[queue].clear();
-      throughput[queue].clear();
     }
   }
 
   std::cout << "done." << std::endl;
-
-  for (auto exp : expData)
-    exp->close();
 };
