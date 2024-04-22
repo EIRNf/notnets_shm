@@ -14,13 +14,14 @@
 #include <iostream>
 
 #include <pthread.h>
+#include <stdatomic.h>
 
 using namespace std;
 
 #define MESSAGE_SIZE 4
 #define SA struct sockaddr
 #define PORT 8888
-#define EXEC_LENGTH_SEC 300 // 5 Minutes
+#define EXEC_LENGTH_SEC 30 // 5 Minutes
 
 struct connection_args
 {
@@ -36,7 +37,7 @@ struct experiment_args
 
 struct handler_exp_args
 {
-	int connfd;
+	atomic<int> connfd;
 	double items_processed;
 };
 
@@ -125,6 +126,22 @@ void tcp_process()
 			client_args = new experiment_args *[num_clients];
 			handler_args = new handler_exp_args *[num_clients];
 
+			//Preallocate handler threads
+			for (int i = 0; i < num_clients;)
+			{
+				// Handlar args
+				handler_exp_args *handler_arg = new struct handler_exp_args;
+
+				handler_arg->connfd = -1; // Handler threads will wait for connfd to be udpated
+				handler_arg->items_processed = 0;
+				handler_args[i] = handler_arg;
+
+				pthread_t *new_handler = new pthread_t;
+				handlers[i] = new_handler;
+				pthread_create(handlers[i], NULL, pthread_server_tcp_handler, handler_args[i]); // server handler
+				i++;
+			}
+
 			// Create client threads
 			for (int i = 0; i < num_clients; i++)
 			{
@@ -161,16 +178,8 @@ void tcp_process()
 					cout << boost::format("server accept failed...\n");
 					exit(0);
 				}
-				// Handlar args
-				handler_exp_args *handler_arg = new struct handler_exp_args;
-
-				handler_arg->connfd = connfd;
-				handler_arg->items_processed = 0;
-				handler_args[i] = handler_arg;
-
-				pthread_t *new_handler = new pthread_t;
-				handlers[i] = new_handler;
-				pthread_create(handlers[i], NULL, pthread_server_tcp_handler, handler_args[i]); // server handler
+				// give preallocated handler connfd to handle.			
+				handler_args[i]->connfd.store(connfd);
 				i++;
 			}
 
@@ -211,6 +220,12 @@ void tcp_process()
 void *pthread_server_tcp_handler(void *arg)
 {
 	handler_exp_args *args = (handler_exp_args *)arg;
+
+	//Client has not been created yet.
+	//Wait until handler gets new connfd
+	while (args->connfd.load() == -1){
+		usleep(500); //reduce time on processor
+	}
 
 	int sockfd = args->connfd;
 	int buf_size = MESSAGE_SIZE;
@@ -260,12 +275,7 @@ void *pthread_client_tcp_post_connect(void *arg)
 			 << endl;
 		exit(0);
 	}
-	else
-	{
-		cout << "Socket successfully created..\n"
-			 << endl;
-		bzero(&servaddr, sizeof(servaddr));
-	}
+	bzero(&servaddr, sizeof(servaddr));
 
 	struct experiment_args *args = (struct experiment_args *)arg;
 

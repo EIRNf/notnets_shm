@@ -120,12 +120,7 @@ void *rtt_steady_state_tcp_experiment::pthread_client_tcp_load_connection(void *
          << endl;
     exit(0);
   }
-  else
-  {
-    cout << "Socket successfully created..\n"
-         << endl;
     bzero(&servaddr, sizeof(servaddr));
-  }
 
   struct experiment_args *args = (struct experiment_args *)arg;
 
