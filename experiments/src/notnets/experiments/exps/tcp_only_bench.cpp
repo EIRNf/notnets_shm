@@ -1,4 +1,3 @@
-#include <notnets/experiments/Experiments.h>
 #include <notnets/experiments/tcp_only_bench.h>
 
 #include <boost/filesystem.hpp>
@@ -21,7 +20,7 @@ using namespace std;
 #define MESSAGE_SIZE 4
 #define SA struct sockaddr
 #define PORT 8888
-#define EXEC_LENGTH_SEC 30 // 5 Minutes
+#define EXEC_LENGTH_SEC 300 // 5 Minutes
 
 struct connection_args
 {
@@ -73,17 +72,23 @@ void tcp_process()
 				std::cerr << "Failed to set socket option";
 				exit(1);
 			}
-			if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(int)) < 0)
+
+			if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int)) < 0)
 			{
 				std::cerr << "Failed to set socket option";
 				exit(1);
 			}
+			// if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(int)) < 0)
+			// {
+			// 	std::cerr << "Failed to set socket option";
+			// 	exit(1);
+			// }
 
-			if (setsockopt(sockfd, IPPROTO_TCP, TCP_CONGESTION, "reno", strlen("reno")) < 0)
-			{
-				perror("Failed to set socket option");
-				exit(1);
-			}
+			// if (setsockopt(sockfd, IPPROTO_TCP, TCP_CONGESTION, "reno", strlen("reno")) < 0)
+			// {
+			// 	perror("Failed to set socket option");
+			// 	exit(1);
+			// }
 
 			bzero(&servaddr, sizeof(servaddr));
 
@@ -189,12 +194,12 @@ void tcp_process()
 				pthread_join(*clients[i], NULL);
 				pthread_join(*handlers[i], NULL);
 
-				// Free heap allocated data
-				free(clients[i]);
-				free(handlers[i]);
+				// Free heap allocated data		
+				delete(clients[i]);
+				delete(handlers[i]);
 			}
-			free(clients);
-			free(handlers);
+			delete(clients);
+			delete(handlers);
 
 			double total_messages = 0;
 			// Count total items processed
@@ -206,11 +211,11 @@ void tcp_process()
 
 			for (int i = 0; i < num_clients; i++)
 			{
-				free(client_args[i]);
-				free(handler_args[i]);
+				delete(client_args[i]);
+				delete(handler_args[i]);
 			}
-			free(client_args);
-			free(handler_args);
+			delete(client_args);
+			delete(handler_args);
 
 			close(sockfd);
 		}

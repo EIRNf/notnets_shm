@@ -355,11 +355,11 @@ void rtt_steady_state_tcp_experiment::process()
           pthread_join(*handlers[i], NULL);
 
           // Free heap allocated data
-          free(clients[i]);
-          free(handlers[i]);
+          delete(clients[i]);
+          delete(handlers[i]);
         }
-        free(clients);
-        free(handlers);
+        delete(clients);
+        delete(handlers);
 
         double total_messages = 0;
         // Count total items processed
@@ -372,11 +372,11 @@ void rtt_steady_state_tcp_experiment::process()
 
         for (int i = 0; i < num_clients; i++)
         {
-          free(client_args[i]);
-          free(handler_args[i]);
+          delete(client_args[i]);
+          delete(handler_args[i]);
         }
-        free(client_args);
-        free(handler_args);
+        delete(client_args);
+        delete(handler_args);
 
         close(sockfd);
       }
