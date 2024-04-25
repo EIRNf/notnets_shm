@@ -18,14 +18,17 @@
 using namespace std;
 
 #define MESSAGE_SIZE 4
+#define MESSAGE_SIZE 128
+
 #define SA struct sockaddr
 #define PORT 8888
-#define EXEC_LENGTH_SEC 300 // 5 Minutes
+#define EXEC_LENGTH_SEC 90 // 1:30 Minutes
 
 struct connection_args
 {
 	int client_id;
 	int num_clients;
+	u_int items_processed;
 	int run;
 };
 
@@ -37,7 +40,7 @@ struct experiment_args
 struct handler_exp_args
 {
 	atomic<int> connfd;
-	double items_processed;
+	u_int items_processed;
 };
 
 void tcp_process()
@@ -73,16 +76,11 @@ void tcp_process()
 				exit(1);
 			}
 
-			if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int)) < 0)
+			if (setsockopt(sockfd, IPPROTO_TCP, TCP_QUICKACK, &enable, sizeof(int)) < 0)
 			{
 				std::cerr << "Failed to set socket option";
 				exit(1);
 			}
-			// if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(int)) < 0)
-			// {
-			// 	std::cerr << "Failed to set socket option";
-			// 	exit(1);
-			// }
 
 			// if (setsockopt(sockfd, IPPROTO_TCP, TCP_CONGESTION, "reno", strlen("reno")) < 0)
 			// {
@@ -131,7 +129,8 @@ void tcp_process()
 			client_args = new experiment_args *[num_clients];
 			handler_args = new handler_exp_args *[num_clients];
 
-			//Preallocate handler threads
+			// Preallocate handler threads
+			//  TODO : SINGLE THREAD
 			for (int i = 0; i < num_clients;)
 			{
 				// Handlar args
@@ -183,7 +182,7 @@ void tcp_process()
 					cout << boost::format("server accept failed...\n");
 					exit(0);
 				}
-				// give preallocated handler connfd to handle.			
+				// give preallocated handler connfd to handle.
 				handler_args[i]->connfd.store(connfd);
 				i++;
 			}
@@ -194,28 +193,51 @@ void tcp_process()
 				pthread_join(*clients[i], NULL);
 				pthread_join(*handlers[i], NULL);
 
-				// Free heap allocated data		
-				delete(clients[i]);
-				delete(handlers[i]);
+				// Free heap allocated data
+				delete (clients[i]);
+				delete (handlers[i]);
 			}
-			delete(clients);
-			delete(handlers);
+			delete (clients);
+			delete (handlers);
 
-			double total_messages = 0;
+			u_int client_total = 0;
+			for (int i = 0; i < num_clients; i++)
+			{
+				client_total += client_args[i]->metrics.items_processed;
+				if (client_total > 0 && client_args[i]->metrics.items_processed > INT_MAX -
+																					  client_total)
+				{
+					cerr << "Client count overflow at:" << num_clients << endl;
+					// overflow
+				}
+			}
+
+			u_int server_total = 0;
 			// Count total items processed
 			for (int i = 0; i < num_clients; i++)
 			{
-				total_messages += handler_args[i]->items_processed;
+				server_total += handler_args[i]->items_processed;
+				if (server_total > 0 && handler_args[i]->items_processed > INT_MAX -
+																			   server_total)
+				{
+					cerr << "Server count overflow at:" << num_clients << endl;
+					// overflow
+				}
 			}
-			cout << "total items processed " << total_messages << endl;
+			if (server_total != client_total)
+			{
+			}
+
+			cout << "server total items processed " << server_total << endl;
+			cout << "client total items processed " << client_total << endl;
 
 			for (int i = 0; i < num_clients; i++)
 			{
-				delete(client_args[i]);
-				delete(handler_args[i]);
+				delete (client_args[i]);
+				delete (handler_args[i]);
 			}
-			delete(client_args);
-			delete(handler_args);
+			delete (client_args);
+			delete (handler_args);
 
 			close(sockfd);
 		}
@@ -226,10 +248,11 @@ void *pthread_server_tcp_handler(void *arg)
 {
 	handler_exp_args *args = (handler_exp_args *)arg;
 
-	//Client has not been created yet.
-	//Wait until handler gets new connfd
-	while (args->connfd.load() == -1){
-		usleep(500); //reduce time on processor
+	// Client has not been created yet.
+	// Wait until handler gets new connfd
+	while (args->connfd.load() == -1)
+	{
+		usleep(500); // reduce time on processor
 	}
 
 	int sockfd = args->connfd;
@@ -256,10 +279,15 @@ void *pthread_server_tcp_handler(void *arg)
 				 << endl;
 			exit(0);
 		}
-		args->items_processed++;
 		if (buf == -1)
 		{
 			break; // End handling
+		}
+		args->items_processed++;
+		if (args->items_processed > 0 && 1 > UINT_MAX - args->items_processed)
+		{
+			// overflow
+			cerr << "Item overflow at handler for connfd: " << args->connfd << endl;
 		}
 	}
 
@@ -297,6 +325,8 @@ void *pthread_client_tcp_post_connect(void *arg)
 		exit(0);
 	}
 
+
+	// char buf[128] = "This is a test string";
 	int buf_size = MESSAGE_SIZE;
 	int pop_buf_size = MESSAGE_SIZE;
 	int buf, pop_buf;
@@ -319,17 +349,13 @@ void *pthread_client_tcp_post_connect(void *arg)
 
 	auto now = boost::chrono::steady_clock::now();
 	auto stop_time = now + boost::chrono::seconds{EXEC_LENGTH_SEC};
-	int items_count = 0;
-
+	args->metrics.items_processed = 0;
 	while (true)
 	{
-		buf = items_count;
+		buf =  args->metrics.items_processed;
 
-		if (items_count % 2 != 0)
-		{
-			fprintf(f, "%s,", boost::lexical_cast<std::string>(items_count).c_str());
-			fprintf(f, "%s,", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()).c_str());
-		}
+		fprintf(f, "%s,", boost::lexical_cast<std::string>( args->metrics.items_processed).c_str());
+		fprintf(f, "%s,", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()).c_str());
 
 		// Write message
 		ret = write(sockfd, &buf, buf_size);
@@ -347,18 +373,20 @@ void *pthread_client_tcp_post_connect(void *arg)
 				 << endl;
 			exit(0);
 		}
+		fprintf(f, "%s,", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()).c_str());
+		fprintf(f, "\n");
 
-		if (items_count % 2 != 0)
-		{
-			fprintf(f, "%s,", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()).c_str());
-			fprintf(f, "\n");
-		}
 		assert(pop_buf == buf);
-		items_count++;
+		args->metrics.items_processed++;
+
+		if (args->metrics.items_processed > 0 && 1 > UINT_MAX - args->metrics.items_processed)
+		{
+			// overflow
+			cerr << "Item overflow for client:" << args->metrics.client_id << ",for run:" << args->metrics.run << endl;
+		}
 
 		if (!(boost::chrono::steady_clock::now() < stop_time))
 		{
-
 			// Shutdown message
 			buf = -1;
 			write(sockfd, &buf, buf_size);
