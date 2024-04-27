@@ -20,3 +20,6 @@ bench/rpc/main
 tests/queue/main
 bench/rpc/tcp_bench
 lib/notnets.so
+
+*.csv
+*.pdf
