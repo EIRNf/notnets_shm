@@ -7,16 +7,14 @@ import matplotlib.pyplot as pp
 import matplotlib
 
 import re
-
-
 import CommonConf
 import CommonViz
 
-import Rtt_Experiment2Xs_Timestamp
+import RTTExpTimestampGrapher as RTTExpTimestampGrapher
 
 from enum import Enum
 
-EXCLUDE_WINDOW = 5 
+EXCLUDE_WINDOW = 30 
 MESSAGE_SIZE = 128
 
 class Queue_Type(Enum):
@@ -119,7 +117,7 @@ def parse_log_files(log_file_path):
             aggregated_data = pd.concat([aggregated_data,row])
             grouped_ad = aggregated_data.sort_values(by=['num_clients'],key=lambda x: x.astype(int))
             # grouped_ad = aggregated_data.groupby(['queue_type', 'num_clients']).sort()
-            grouped_ad.to_csv("expData.csv", sep='\t', index=False, header=False)
+            grouped_ad.to_csv("experiment_data.csv", sep='\t', index=False, header=False)
             
             ind = grouped_ad['queue_type'].str.contains("TCP|SEM")
             tcp_sem = grouped_ad[ind].sort_values(by=['num_clients'],key=lambda x: x.astype(int)) 
@@ -147,34 +145,21 @@ def parse_log_files(log_file_path):
 
 
 # Path to log files
-log_files_path = '../bin/**.txt'
-
+log_files_path = '../bin/**.csv'
 # Parse log files and aggregate data
 aggregated_data = parse_log_files(log_files_path)
 
-grouped_ad = aggregated_data.sort_values(by=['num_clients'],key=lambda x: x.astype(int))
-grouped_ad.to_csv("expData.csv", sep='\t', index=False, header=False)
-
-ind = grouped_ad['queue_type'].str.contains("TCP|SEM")
-tcp_sem = grouped_ad[ind].sort_values(by=['num_clients'],key=lambda x: x.astype(int)) 
-tcp_sem.to_csv("tcp_sem.csv", sep='\t', index=False, header=False)
-ind = grouped_ad['queue_type'].str.contains("POLL|BOOST")
-poll_boost = grouped_ad[ind].sort_values(by=['num_clients'], key=lambda x: x.astype(int))
-poll_boost.to_csv("poll_boost.csv", sep='\t', index=False, header=False)
 # Save to file.
-# grouped_ad = aggregated_data.groupby(['queue_type', 'num_clients'])
-# final_ad = grouped_ad.agg(latency=('latency(us)', np.mean), throughput=('throughput(op/ms)', np.sum)).reset_index().sort_values(by=['num_clients'],key=lambda x: x.astype(int))
-# final_ad.to_csv("expData.csv", sep='\t', index=False, header=False)
+grouped_ad = aggregated_data.sort_values(by=['num_clients'],key=lambda x: x.astype(int))
+grouped_ad.to_csv("experiment_data.csv", sep='\t', index=False, header=False)
 
-# ind = final_ad['queue_type'].str.contains("TCP|SEM")
-# tcp_sem = final_ad[ind].sort_values(by=['num_clients'],key=lambda x: x.astype(int)) 
+# ind = grouped_ad['queue_type'].str.contains("TCP|SEM")
+# tcp_sem = grouped_ad[ind].sort_values(by=['num_clients'],key=lambda x: x.astype(int)) 
 # tcp_sem.to_csv("tcp_sem.csv", sep='\t', index=False, header=False)
-
-# ind = final_ad['queue_type'].str.contains("POLL|BOOST")
-# poll_boost = final_ad[ind].sort_values(by=['num_clients'], key=lambda x: x.astype(int))
+# ind = grouped_ad['queue_type'].str.contains("POLL|BOOST")
+# poll_boost = grouped_ad[ind].sort_values(by=['num_clients'], key=lambda x: x.astype(int))
 # poll_boost.to_csv("poll_boost.csv", sep='\t', index=False, header=False)
 
-
-Rtt_Experiment2Xs_Timestamp.main("./","expData")
-Rtt_Experiment2Xs_Timestamp.main("./","tcp_sem")
-Rtt_Experiment2Xs_Timestamp.main("./","poll_boost")
+RTTExpTimestampGrapher.main("./","experiment_data")
+# RTTExpTimestampGrapher.main("./","tcp_sem")
+# RTTExpTimestampGrapher.main("./","poll_boost")

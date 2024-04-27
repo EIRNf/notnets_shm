@@ -1,34 +1,16 @@
-import datetime
 import os
 import pandas as pd
-import numpy as np
 import glob
-import matplotlib.pyplot as pp
-import matplotlib
 
 import re
 
-import CommonConf
-import CommonViz
-
-import Rtt_Experiment2Xs_Timestamp
-
-from enum import Enum
+import RTTExpTimestampGrapher as RTTExpTimestampGrapher
 
 MESSAGE_SIZE = 128
 EXECUTION_LENGTH = 30
 
-
-# def wavg(group):
-#     d = group['avg_lat']
-#     w = group['count']
-#     return (d * w).sum() / w.sum()
-
-
 def wavg(group, avg_name, weight_name):
-    """ http://stackoverflow.com/questions/10951341/pandas-dataframe-aggregate-function-using-multiple-columns
-    In rare instance, we may not have weights, so just return the mean. Customize this if your business case
-    should return otherwise.
+    """ Get weighted average and return its mean
     """
     d = group[avg_name]
     w = group[weight_name]
@@ -135,26 +117,16 @@ def parse_iperf_log_files(log_file_path):
             aggregated_data = pd.concat([aggregated_data,row])
             
             grouped_ad = aggregated_data.sort_values(by=['num_clients'],key=lambda x: x.astype(int))
-            # grouped_ad = aggregated_data.groupby(['queue_type', 'num_clients']).sort()
             grouped_ad.to_csv("iperf_data.csv", sep='\t', index=False, header=False)
-            
-            # ind = grouped_ad['queue_type'].str.contains("TCP|SEM")
-            # tcp_sem = grouped_ad[ind].sort_values(by=['num_clients'],key=lambda x: x.astype(int)) 
-            # tcp_sem.to_csv("tcp_sem.csv", sep='\t', index=False, header=False)
-            # ind = grouped_ad['queue_type'].str.contains("POLL|BOOST")
-            # poll_boost = grouped_ad[ind].sort_values(by=['num_clients'], key=lambda x: x.astype(int))
-            # poll_boost.to_csv("poll_boost.csv", sep='\t', index=False, header=False)
-            
+        
         except KeyError:
             print("Parsing issues, next file")
             continue
             
     return aggregated_data
 
-
 # Path to log files
-# log_files_path = '../bin/**.txt'
-log_files_path = '../viz/iperf_exps/**.csv'
+log_files_path = '../viz/iperf_exps/data/**.txt'
 
 # Parse log files and aggregate data
 aggregated_data = parse_iperf_log_files(log_files_path)
@@ -162,29 +134,7 @@ aggregated_data = parse_iperf_log_files(log_files_path)
 grouped_ad = aggregated_data.sort_values(by=['num_clients'],key=lambda x: x.astype(int))
 grouped_ad.to_csv("iperf_data.csv", sep='\t', index=False, header=False)
 
-# ind = grouped_ad['queue_type'].str.contains("TCP|SEM")
-# tcp_sem = grouped_ad[ind].sort_values(by=['num_clients'],key=lambda x: x.astype(int)) 
-# tcp_sem.to_csv("tcp_sem.csv", sep='\t', index=False, header=False)
-# ind = grouped_ad['queue_type'].str.contains("POLL|BOOST")
-# poll_boost = grouped_ad[ind].sort_values(by=['num_clients'], key=lambda x: x.astype(int))
-# poll_boost.to_csv("poll_boost.csv", sep='\t', index=False, header=False)
-# Save to file.
-# grouped_ad = aggregated_data.groupby(['queue_type', 'num_clients'])
-# final_ad = grouped_ad.agg(latency=('latency(us)', np.mean), throughput=('throughput(op/ms)', np.sum)).reset_index().sort_values(by=['num_clients'],key=lambda x: x.astype(int))
-# final_ad.to_csv("expData.csv", sep='\t', index=False, header=False)
-
-# ind = final_ad['queue_type'].str.contains("TCP|SEM")
-# tcp_sem = final_ad[ind].sort_values(by=['num_clients'],key=lambda x: x.astype(int)) 
-# tcp_sem.to_csv("tcp_sem.csv", sep='\t', index=False, header=False)
-
-# ind = final_ad['queue_type'].str.contains("POLL|BOOST")
-# poll_boost = final_ad[ind].sort_values(by=['num_clients'], key=lambda x: x.astype(int))
-# poll_boost.to_csv("poll_boost.csv", sep='\t', index=False, header=False)
-
-
-Rtt_Experiment2Xs_Timestamp.main("./","iperf_data")
-# Rtt_Experiment2Xs_Timestamp.main("./","tcp_sem")
-# Rtt_Experiment2Xs_Timestamp.main("./","poll_boost")
+RTTExpTimestampGrapher.main("./","iperf_data")
 
 
 

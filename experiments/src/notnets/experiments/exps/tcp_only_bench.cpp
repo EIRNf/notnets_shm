@@ -340,7 +340,7 @@ void *pthread_client_tcp_post_connect(void *arg)
 	int ret = 0;
 
 	char client_file_name[17];
-	snprintf(client_file_name, 17, "tcp-%d-%d-%d.txt", args->metrics.num_clients, args->metrics.client_id, args->metrics.run);
+	snprintf(client_file_name, 17, "tcp-%d-%d-%d.csv", args->metrics.num_clients, args->metrics.client_id, args->metrics.run);
 
 	// FILE *f;
 	// f = fopen(client_file_name, "a+"); // a+ (create + append) option will allow appending which is useful in a log file
@@ -349,9 +349,9 @@ void *pthread_client_tcp_post_connect(void *arg)
 	// 	cerr << "Failed to open log file" << endl;
 	// }
 
-	// // File Format
-	// // entries,send_time,return_time,
-	// // 1,187007185739552,187007185761008,
+	// File Format
+	// entries,send_time,return_time,
+	// 1,187007185739552,187007185761008,
 	// fprintf(f, "entries,send_time,return_time,\n");
 
 	auto now = boost::chrono::steady_clock::now();

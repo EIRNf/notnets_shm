@@ -12,6 +12,9 @@ num_burst_messages=1
 bounceback_period=0
 
 
+### make data dir
+mkdir data
+
 ### Run Server
 iperf -s  &
 
@@ -19,6 +22,6 @@ iperf -s  &
 
 for num in $(seq 1 $numClients)
 do
-    filename="iperf_${num}.csv"
-    iperf -c $host --port $port -P $num -t $runtime -l $message_size  -N -e --bounceback=$num_burst_messages --bounceback-period=$bounceback_period > $filename
+    filename="iperf_${num}.txt"
+    iperf -c $host --port $port -P $num -t $runtime -l $message_size  -N -e --bounceback=$num_burst_messages --bounceback-period=$bounceback_period > "data/"$filename
 done

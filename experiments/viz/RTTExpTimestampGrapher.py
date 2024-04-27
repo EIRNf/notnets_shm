@@ -10,7 +10,7 @@ import matplotlib
 
 from adjustText import adjust_text
 
-
+# Set name when called directly.
 EXPERIMENT_NAME = "poll_boost"
 
 X1_LABEL         = "num_clients"
