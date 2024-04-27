@@ -36,6 +36,16 @@ def wavg(group, avg_name, weight_name):
         return (d * w).sum() / w.sum()
     except ZeroDivisionError:
         return d.mean()
+    
+def wsum(group, avg_name, weight_name):
+    """ Get weighted average and sum it's total
+    """
+    d = group[avg_name]
+    w = group[weight_name]
+    try:
+        return (d * w).sum()
+    except ZeroDivisionError:
+        return d.mean()
 
 def parse_iperf_log_files(log_file_path):
     aggregated_data = pd.DataFrame() #Final dataframe
@@ -98,22 +108,23 @@ def parse_iperf_log_files(log_file_path):
                         
             
             # Average throughput
+            # sum_average_throughput = wsum(df , 'rps', 'count')
             total_throughput =  df["rps"].sum()
-            throughput_b_s = total_throughput * MESSAGE_SIZE  # bits per sec to megabytes per second
-            throughput_mb_s = throughput_b_s /  8e+6
+            total_average_bytes= total_throughput * 8 
+            throughput_b_s = total_average_bytes * MESSAGE_SIZE # bits per sec to megabytes per second
+            throughput_mb_s = throughput_b_s /  1e+6
 
             #  weighted average latency?
             avg_lat_agg =   wavg(df , 'avg_lat', 'count')
             average_latency_us = avg_lat_agg * 1000 
-            
-            
+                        
             # Append aggregated data to the DataFrame
             row = pd.DataFrame({
                 'queue_type' : "iperf",
                 'num_clients': num_clients,
                 'total_items': [0], 
                 'latency(us)': [average_latency_us] ,
-                'throughput(mb/s)': [throughput_mb_s] ,
+                'throughput(rps)': [total_throughput] ,
                 '90th_percentile(us)': [0],
                 '95th_percentile(us)': [0],
                 '99th_percentile(us)': [0]

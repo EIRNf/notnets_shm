@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 ### Run Parameters
-###     iperf -c 127.0.0.1 --port 5001 -P 12 -t 30 -l 128 -N -e --trip-times 
+###      iperf -c 127.0.0.1 --port 5001 -P 1 -t 30 -l 128   -N -e --bounceback=1 --bounceback-period=0
 host=127.0.0.1
 port=5001
 payloadBufSize=4

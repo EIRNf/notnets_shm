@@ -6,8 +6,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
-#include <tcp.h>
-#include <inet.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h> // inet_addr()
+#include <cassert>
+#include <vector>
+#include <numeric>
+#include <limits.h>
 
 const int PORT = 8888;
 const int MESSAGE_SIZE = 128;
@@ -72,6 +76,7 @@ void runServer()
     }
 
     // bounceback loop
+    u_int items_processed = 0;
     while (true)
     {
         memset(buffer, 0, MESSAGE_SIZE);
@@ -82,6 +87,9 @@ void runServer()
         }
         // Echo the received message back to the client
         write(new_socket, buffer, bytes_read);
+        if(buffer[0] == -1){
+            break;
+        }
     }
 
     // Close the socket
@@ -89,7 +97,16 @@ void runServer()
     close(server_fd);
 }
 
-void runClient(const std::string &host)
+double average(std::vector<double> const& v){
+    if(v.empty()){
+        return 0;
+    }
+
+    auto const count = static_cast<double>(v.size());
+    return std::reduce(v.begin(), v.end())/ count;
+}
+
+void runClient()
 {
     int client_fd;
     struct sockaddr_in servaddr;
@@ -107,7 +124,6 @@ void runClient(const std::string &host)
 	servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	servaddr.sin_port = htons(PORT);
 
-
     // Connect to the server
     if (connect(client_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
     {
@@ -115,32 +131,56 @@ void runClient(const std::string &host)
         return;
     }
 
+    //in micro
+    std::vector<double> all_lat;
     // Write-read loop
+    auto start_time = std::chrono::high_resolution_clock::now();
+    auto stop_time = start_time + std::chrono::seconds{EXEC_LENGTH_SEC};
+    u_int items_processed = 0;
+
     while (true)
     {
         // Start measuring time
-        auto start = std::chrono::high_resolution_clock::now();
+        auto send_time = std::chrono::high_resolution_clock::now();
 
         // Send data to the server
-        send(client_fd, buffer, strlen(buffer), 0);
-
+        write(client_fd, buffer, strlen(buffer));
         // Receive echoed data from the server
-        int bytes_read = recv(client_fd, buffer, MESSAGE_SIZE, 0);
+        int bytes_read = read(client_fd, buffer, MESSAGE_SIZE);
         if (bytes_read <= 0)
         {
             break;
         }
+        items_processed++;
 
+        if (items_processed > 0 && 1 > UINT_MAX - items_processed)
+		{
+			// overflow
+			std::cerr << "Item overflow for client" << std::endl;
+		}
         // Calculate latency
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> latency = end - start;
+        auto receive_time = std::chrono::high_resolution_clock::now();
+        //in micro
+        std::chrono::duration<double, std::micro> latency = receive_time - send_time;
+        all_lat.emplace_back(latency.count());
 
-        // Display the latency
-        std::cout << "Latency: " << latency.count() << " ms" << std::endl;
-
-        // Pause for a moment to avoid excessive messages
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        if (std::chrono::high_resolution_clock::now() > stop_time){
+            buffer[0] = -1;
+            write(client_fd, buffer, strlen(buffer));
+            read(client_fd, &buffer, strlen(buffer));
+            assert( -1 == (int) buffer[0]);
+            break;
+        }
     }
+
+    // Display the latency
+    std::cout << "Latency: " << average(all_lat) << " ms" << std::endl;
+    // Display the throughput in mb/s
+    auto bytes_processed = items_processed * MESSAGE_SIZE;
+    auto mb_processed = bytes_processed / 1e+6;
+    std::cout<< "Throughput(mb/s): " << mb_processed/EXEC_LENGTH_SEC << std::endl;
+    // Display the throughput in rps
+    std::cout<< "Throughput(rps): " << items_processed/EXEC_LENGTH_SEC << std::endl;
 
     // Close the socket
     close(client_fd);
@@ -155,20 +195,13 @@ int main(int argc, char *argv[])
     }
 
     std::string mode = argv[1];
-
     if (mode == "server")
     {
         runServer();
     }
     else if (mode == "client")
     {
-        if (argc < 3)
-        {
-            std::cerr << "Host must be specified for client mode" << std::endl;
-            return 1;
-        }
-        std::string host = argv[2];
-        runClient(host);
+        runClient();
     }
     else
     {

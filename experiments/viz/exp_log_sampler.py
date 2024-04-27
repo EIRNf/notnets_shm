@@ -100,8 +100,8 @@ def parse_log_files(log_file_path):
             # num messages * message size = total bytes messaged
             # throughput is total bytes messaged. / total_time
             throughptu_b_s = throughput_op_s * MESSAGE_SIZE
-            throughput_gb_s = (throughptu_b_s/1e+9) / total_time
-            throughput_mb_s = (throughptu_b_s/1e+6) / total_time
+            throughput_gb_s = (throughptu_b_s/1e+9) 
+            throughput_mb_s = (throughptu_b_s/1e+6) 
 
               # Append aggregated data to the DataFrame
             row = pd.DataFrame({
@@ -109,7 +109,7 @@ def parse_log_files(log_file_path):
                 'num_clients': num_clients,
                 'total_items': [total_items],
                 'latency(us)': [avg_time_diff * 1000000] ,
-                'throughput(mb/s)': [throughput_mb_s] ,
+                'throughput(rps)': [throughput_op_s] ,
                 '90th_percentile(us)': [percentile_90 * 1000000],
                 '95th_percentile(us)': [percentile_95 * 1000000],
                 '99th_percentile(us)': [percentile_99 * 1000000]

@@ -14,7 +14,7 @@ from adjustText import adjust_text
 EXPERIMENT_NAME = "poll_boost"
 
 X1_LABEL         = "num_clients"
-X2_LABEL         = "throughput(mb/s)"
+X2_LABEL         = "throughput(rps)"
 Y_LABEL         = "latency(us)"
             
 def main(dirn, fname): 
