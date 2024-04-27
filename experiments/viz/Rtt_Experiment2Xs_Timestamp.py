@@ -14,7 +14,7 @@ from adjustText import adjust_text
 EXPERIMENT_NAME = "poll_boost"
 
 X1_LABEL         = "num_clients"
-X2_LABEL         = "throughput(op/ms)"
+X2_LABEL         = "throughput(mb/s)"
 Y_LABEL         = "latency(us)"
             
 def main(dirn, fname): 
@@ -41,29 +41,29 @@ def main(dirn, fname):
     index = index + 1
     
     
-  texts = []
-  index = 0
-  for (solver,xs), (solver, ys), (solver, x1) in zip(x2PerSolver.items(),y1PerSolver.items(),x1PerSolver.items()) : 
-    ax.errorbar(xs, ys, label=solver + 'p90', marker=mrkrs[index], linestyle=fmts[index], color=colors[index+1])
-    for x1, xs, ys in zip(x1, xs, ys):
-      texts.append(pp.text(xs, ys, x1))
-    index = index + 1
+  # texts = []
+  # index = 0
+  # for (solver,xs), (solver, ys), (solver, x1) in zip(x2PerSolver.items(),y1PerSolver.items(),x1PerSolver.items()) : 
+  #   ax.errorbar(xs, ys, label=solver + 'p90', marker=mrkrs[index], linestyle=fmts[index], color=colors[index+1])
+  #   for x1, xs, ys in zip(x1, xs, ys):
+  #     texts.append(pp.text(xs, ys, x1))
+  #   index = index + 1
     
-  texts = []
-  index = 0
-  for (solver,xs), (solver, ys), (solver, x1) in zip(x2PerSolver.items(),y2PerSolver.items(),x1PerSolver.items()) : 
-    ax.errorbar(xs, ys, label=solver + 'p95', marker=mrkrs[index], linestyle=fmts[index], color=colors[index+2])
-    for x1, xs, ys in zip(x1, xs, ys):
-      texts.append(pp.text(xs, ys, x1))
-    index = index + 1
+  # texts = []
+  # index = 0
+  # for (solver,xs), (solver, ys), (solver, x1) in zip(x2PerSolver.items(),y2PerSolver.items(),x1PerSolver.items()) : 
+  #   ax.errorbar(xs, ys, label=solver + 'p95', marker=mrkrs[index], linestyle=fmts[index], color=colors[index+2])
+  #   for x1, xs, ys in zip(x1, xs, ys):
+  #     texts.append(pp.text(xs, ys, x1))
+  #   index = index + 1
 
-  texts = []
-  index = 0
-  for (solver,xs), (solver, ys), (solver, x1) in zip(x2PerSolver.items(),y3PerSolver.items(),x1PerSolver.items()) : 
-    ax.errorbar(xs, ys, label=solver + 'p99', marker=mrkrs[index], linestyle=fmts[index], color=colors[index+3])
-    for x1, xs, ys in zip(x1, xs, ys):
-      texts.append(pp.text(xs, ys, x1))
-    index = index + 1
+  # texts = []
+  # index = 0
+  # for (solver,xs), (solver, ys), (solver, x1) in zip(x2PerSolver.items(),y3PerSolver.items(),x1PerSolver.items()) : 
+  #   ax.errorbar(xs, ys, label=solver + 'p99', marker=mrkrs[index], linestyle=fmts[index], color=colors[index+3])
+  #   for x1, xs, ys in zip(x1, xs, ys):
+  #     texts.append(pp.text(xs, ys, x1))
+  #   index = index + 1
   # index = 0
   # for (solver, x1) in zip(x1PerSolver.items()):
   #   pp.annotate(x1, )
