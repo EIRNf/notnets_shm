@@ -27,8 +27,6 @@ def main(dirn, fname):
   fig = pp.figure(figsize=(12, 5))
   ax = fig.add_subplot(111)
 
-  # x1 = x1PerSolver["SEM_QUEUE"]
-
   # ax.set_xscale("log")
   # ax.set_yscale("log" )
 

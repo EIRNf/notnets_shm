@@ -7,7 +7,7 @@ import re
 import RTTExpTimestampGrapher as RTTExpTimestampGrapher
 
 MESSAGE_SIZE = 128
-EXECUTION_LENGTH = 30
+EXECUTION_LENGTH = 90
 
 def wavg(group, avg_name, weight_name):
     """ Get weighted average and return its mean

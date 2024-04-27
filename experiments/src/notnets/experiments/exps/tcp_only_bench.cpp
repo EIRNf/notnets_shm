@@ -48,8 +48,8 @@ struct handler_exp_args
 void tcp_process()
 {
 	int numRuns_ = 1;
-	// std::vector<int> numClients = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26}; 
-	std::vector<int> numClients = {1};
+	std::vector<int> numClients = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26}; 
+	// std::vector<int> numClients = {1};
 	//TODO NUM HANDLERS
 
 	for (auto num_clients : numClients)
@@ -342,17 +342,17 @@ void *pthread_client_tcp_post_connect(void *arg)
 	char client_file_name[17];
 	snprintf(client_file_name, 17, "tcp-%d-%d-%d.csv", args->metrics.num_clients, args->metrics.client_id, args->metrics.run);
 
-	// FILE *f;
-	// f = fopen(client_file_name, "a+"); // a+ (create + append) option will allow appending which is useful in a log file
-	// if (f == NULL)
-	// { /* Something is wrong   */
-	// 	cerr << "Failed to open log file" << endl;
-	// }
+	FILE *f;
+	f = fopen(client_file_name, "a+"); // a+ (create + append) option will allow appending which is useful in a log file
+	if (f == NULL)
+	{ /* Something is wrong   */
+		cerr << "Failed to open log file" << endl;
+	}
 
 	// File Format
 	// entries,send_time,return_time,
 	// 1,187007185739552,187007185761008,
-	// fprintf(f, "entries,send_time,return_time,\n");
+	fprintf(f, "entries,send_time,return_time,\n");
 
 	auto now = boost::chrono::steady_clock::now();
 	auto stop_time = now + boost::chrono::seconds{EXEC_LENGTH_SEC};
@@ -361,8 +361,8 @@ void *pthread_client_tcp_post_connect(void *arg)
 	{
 		buf =  args->metrics.items_processed;
 
-		// fprintf(f, "%s,", boost::lexical_cast<std::string>( args->metrics.items_processed).c_str());
-		// fprintf(f, "%s,", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()).c_str());
+		fprintf(f, "%s,", boost::lexical_cast<std::string>( args->metrics.items_processed).c_str());
+		fprintf(f, "%s,", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()).c_str());
 
 		// Write message
 		ret = write(sockfd, &buf, buf_size);
@@ -380,8 +380,8 @@ void *pthread_client_tcp_post_connect(void *arg)
 				 << endl;
 			exit(0);
 		}
-		// fprintf(f, "%s,", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()).c_str());
-		// fprintf(f, "\n");
+		fprintf(f, "%s,", boost::lexical_cast<std::string>(boost::chrono::steady_clock::now().time_since_epoch().count()).c_str());
+		fprintf(f, "\n");
 
 		assert(pop_buf == buf);
 		args->metrics.items_processed++;
