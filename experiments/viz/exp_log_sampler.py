@@ -16,6 +16,9 @@ import Rtt_Experiment2Xs_Timestamp
 
 from enum import Enum
 
+EXCLUDE_WINDOW = 5 
+MESSAGE_SIZE = 128
+
 class Queue_Type(Enum):
     POLL = '0'
     BOOST = '1'
@@ -76,27 +79,37 @@ def parse_log_files(log_file_path):
             end_send_time = run_frame['send_time'].max()
             end_return_time =  run_frame['return_time'].max()
         
-            exclude_sample_range_sec = 60
+            exclude_sample_range_sec = EXCLUDE_WINDOW
             excluded_start_window = start_send_time + datetime.timedelta(0, exclude_sample_range_sec)
             excluded_end_window = end_send_time - datetime.timedelta(0, exclude_sample_range_sec)
 
             subset_samples = run_frame.loc[(run_frame['send_time'] > excluded_start_window) & (run_frame['send_time'] < excluded_end_window)]
+            
+          
 
             # Calculate Average Latency Per Request/Response for all clients in run
             avg_time_diff = subset_samples['time_difference'].mean()
             total_time = (excluded_end_window - excluded_start_window).total_seconds()
             total_items = len(subset_samples.index)
+            throughput_op_s = (total_items/total_time )
+            total_bytes = (total_items * MESSAGE_SIZE)
             percentile_90 = np.percentile(subset_samples['time_difference'], 90)
             percentile_95 = np.percentile(subset_samples['time_difference'], 95)
             percentile_99 = np.percentile(subset_samples['time_difference'], 99)
-            
+            # Calculate throughput by gb/sec
+            # num messages * message size = total bytes messaged
+            # throughput is total bytes messaged. / total_time
+            throughptu_b_s = throughput_op_s * MESSAGE_SIZE
+            throughput_gb_s = (throughptu_b_s/1e+9) / total_time
+            throughput_mb_s = (throughptu_b_s/1e+6) / total_time
+
               # Append aggregated data to the DataFrame
             row = pd.DataFrame({
                 'queue_type' : re.sub(r'\d+', '', run),
                 'num_clients': num_clients,
                 'total_items': [total_items],
                 'latency(us)': [avg_time_diff * 1000000] ,
-                'throughput(op/ms)': [(total_items/(total_time * 1000))] ,
+                'throughput(mb/s)': [throughput_mb_s] ,
                 '90th_percentile(us)': [percentile_90 * 1000000],
                 '95th_percentile(us)': [percentile_95 * 1000000],
                 '99th_percentile(us)': [percentile_99 * 1000000]
