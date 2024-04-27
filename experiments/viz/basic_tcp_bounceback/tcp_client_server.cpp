@@ -161,7 +161,7 @@ void runClient()
         // Calculate latency
         auto receive_time = std::chrono::high_resolution_clock::now();
         //in micro
-        std::chrono::duration<double, std::micro> latency = receive_time - send_time;
+        std::chrono::duration<double, std::milli> latency = receive_time - send_time;
         all_lat.emplace_back(latency.count());
 
         if (std::chrono::high_resolution_clock::now() > stop_time){
@@ -176,9 +176,9 @@ void runClient()
     // Display the latency
     std::cout << "Latency: " << average(all_lat) << " ms" << std::endl;
     // Display the throughput in mb/s
-    auto bytes_processed = items_processed * MESSAGE_SIZE;
-    auto mb_processed = bytes_processed / 1e+6;
-    std::cout<< "Throughput(mb/s): " << mb_processed/EXEC_LENGTH_SEC << std::endl;
+    // auto bytes_processed = items_processed * MESSAGE_SIZE;
+    // auto mb_processed = bytes_processed / 1e+6;
+    // std::cout<< "Throughput(mb/s): " << mb_processed/EXEC_LENGTH_SEC << std::endl;
     // Display the throughput in rps
     std::cout<< "Throughput(rps): " << items_processed/EXEC_LENGTH_SEC << std::endl;
 
