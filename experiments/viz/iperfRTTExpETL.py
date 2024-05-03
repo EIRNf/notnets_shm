@@ -57,7 +57,9 @@ def parse_iperf_log_files(log_file_path):
                 i=0
                 for line in line_array:
                     if 'BB8' in line:
-                        continue                        
+                        continue                
+                    if 'Interval' in line:
+                        continue   
                     
                     count_string = re.findall(r'\d*=',line)
                     rps_string = re.findall(r'\d*\srps',line)
@@ -100,6 +102,9 @@ def parse_iperf_log_files(log_file_path):
             avg_lat_agg =   wavg(df , 'avg_lat', 'count')
             average_latency_us = avg_lat_agg * 1000 
                         
+            # max latency for 99th percentily
+            latency_99p_us = df["max_lat"].mean()  * 1000 
+                        
             # Append aggregated data to the DataFrame
             row = pd.DataFrame({
                 'queue_type' : "iperf",
@@ -109,7 +114,7 @@ def parse_iperf_log_files(log_file_path):
                 'throughput(rps)': [total_throughput] ,
                 '90th_percentile(us)': [0],
                 '95th_percentile(us)': [0],
-                '99th_percentile(us)': [0]
+                '99th_percentile(us)': latency_99p_us
             })
             
             print(f"Run: {run}")

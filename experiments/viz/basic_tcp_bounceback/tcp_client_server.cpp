@@ -75,6 +75,10 @@ void runServer()
         return;
     }
 
+    // Workload:
+    // We need to have one thread handle multiple different TCP connections
+    // use epoll to monitor multiple client descriptors, and instantiate a one server 
+
     // bounceback loop
     u_int items_processed = 0;
     while (true)
