@@ -74,7 +74,7 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
     
     atomic_store_explicit(&header->head, next_writer_head, memory_order_release);
 
-    return 0;
+    return buf_size;
 }
 
 bool is_empty(spsc_queue_header *header) {
@@ -86,7 +86,7 @@ size_t dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
     return 0;
 }
 
-size_t pop(void* shmaddr, void* buf, size_t* buf_size) {
+size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL READS THREAD SAFE
     spsc_queue_header* header = get_queue_header(shmaddr);
     size_t read = 0;
 
@@ -121,15 +121,17 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) {
     // atomic_thread_fence(memory_order_release); //TODO
 
     header->message_offset += *buf_size;
+
     //Handle full read
     if ((size_t) header->message_offset == header->message_size) {
         header->message_offset = 0;
-        read = 0;
     }
     else { //Handle partial read, decrement next record bringing it back to reader_tail value
         next_reader_tail = reader_tail;
-        read = header->message_offset;
+        // read = header->message_offset;
     }
+    read = *buf_size;
+
     atomic_store_explicit(&header->tail, next_reader_tail, memory_order_release);
     // atomic_thread_fence(memory_order_release); //TODO
 
