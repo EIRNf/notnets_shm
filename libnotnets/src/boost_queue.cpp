@@ -12,9 +12,9 @@
 
 namespace bip = boost::interprocess;
 
-#define MESSAGE_SIZE 10 // THIS REALLY NEEDS TO BE DYNAMIC AT RUNTIME
+#define MESSAGE_SIZE 256 // THIS REALLY NEEDS TO BE DYNAMIC AT RUNTIME
 #define QUEUE_CAPACITY 100 //
-#define MEM_SIZE 10000
+#define MEM_SIZE 30000
 #define OFFSET 224 //FIX, FUCKING DUMBASS
 
 long offset1, offset2;

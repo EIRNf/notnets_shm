@@ -36,7 +36,7 @@ void free_queue_ctx(queue_ctx * ctx);
 queue_ctx* client_open(char* source_addr,
                         char* destination_addr,
                         int message_size,
-                        QUEUE_TYPE type);
+                        QUEUE_TYPE queue_type);
 int client_send_rpc(queue_ctx* conn, const void* buf, size_t size);
 size_t client_receive_buf(queue_ctx* conn, void* buf, size_t size);
 int client_close(char* source_addr, char* destination_addr);
@@ -159,7 +159,7 @@ void* _manage_pool_runner(void* handler) {
 queue_ctx* client_open(char* source_addr,
                         char* destination_addr,
                         int message_size,
-                        QUEUE_TYPE type) {
+                        QUEUE_TYPE queue_type) {
 
     // printf("CLIENT: OPEN:\n");
 
@@ -170,12 +170,12 @@ queue_ctx* client_open(char* source_addr,
     }
     
     int client_id = (int) hash((unsigned char*) source_addr);
-    int slot = request_slot(ch, client_id, message_size, type);
+    int slot = request_slot(ch, client_id, message_size, queue_type);
 
 
     // keep on trying to reserve slot, if all slots are taken but no one detaches you wait forever
     while (slot == -1) {
-        slot = request_slot(ch, client_id, message_size, type);
+        slot = request_slot(ch, client_id, message_size, queue_type);
         usleep(CLIENT_OPEN_WAIT_INTERVAL);
     }
 
@@ -188,7 +188,7 @@ queue_ctx* client_open(char* source_addr,
         continue;
     }
 
-    queue_ctx* q_ctx= select_queue_ctx(type);
+    queue_ctx* q_ctx= select_queue_ctx(queue_type);
     q_ctx->queues = _create_client_queue_pair(ch, slot);
 
     return q_ctx;
@@ -206,7 +206,8 @@ queue_ctx* client_open(char* source_addr,
  * @return int -1 for error, 0 if successfully pushed
  */
 int client_send_rpc(queue_ctx* queues, const void *buf, size_t size) {
-        return queues->client_send_rpc(queues->queues,buf,size);
+        queue_fn *fn = (queue_fn*)queues->fn;
+        return fn->client_send(queues->queues,buf,size);
 }
 
 
@@ -223,7 +224,8 @@ int client_send_rpc(queue_ctx* queues, const void *buf, size_t size) {
  * @return ssize_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
 size_t client_receive_buf(queue_ctx* queues, void* buf, size_t size) {
-    return queues->client_receive_buf(queues->queues, buf, size);
+    queue_fn *fn = (queue_fn*)queues->fn;
+    return fn->client_receive(queues->queues, buf, size);
 }
 
 
@@ -375,7 +377,7 @@ void clean_up_queue_resources(coord_header *header, int slot){
     if (header->available_slots[slot].client_reserved){
          if (header->slots[slot].detach ){
 
-         switch (header->slots[slot].type){
+         switch (header->slots[slot].queue_type){
             case POLL:
                 break;
             case BOOST:
@@ -414,7 +416,7 @@ void manage_pool(server_context* handler) {
     coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
     for (int i = 0; i < SLOT_NUM; ++i) {
-        switch (ch->slots[i].type){
+        switch (ch->slots[i].queue_type){
             case POLL:
                 service_slot(ch, i, &_hash_shm_allocator);
                 break;
@@ -518,8 +520,8 @@ queue_ctx* accept(server_context* handler) {
 
 
             pthread_mutex_unlock(&ch->mutex);
-            //Server must take the Client's requested queue type
-            queue_ctx* q_ctx= select_queue_ctx(ch->slots[slot].type);
+            //Server must take the Client's requested queue queue_type
+            queue_ctx* q_ctx= select_queue_ctx(ch->slots[slot].queue_type);
             q_ctx->queues = _create_server_queue_pair(ch, slot);
 
             return q_ctx;
@@ -542,7 +544,8 @@ queue_ctx* accept(server_context* handler) {
  * @return ssize_t  -1 for error, 0 for successful push
  */
 int server_send_rpc(queue_ctx* queues, const void *buf, size_t size) {
-    return queues->server_send_rpc(queues->queues, buf,size);
+    queue_fn *fn = (queue_fn*)queues->fn;
+    return fn->server_send(queues->queues, buf,size);
 }
 
 /**
@@ -557,7 +560,8 @@ int server_send_rpc(queue_ctx* queues, const void *buf, size_t size) {
  * @return size_t How much read, if 0 EOF. Only removed from queue once fully read.
  */
 size_t server_receive_buf(queue_ctx* queues, void* buf, size_t size) {
-    return queues->server_receive_buf(queues->queues, buf, size);
+    queue_fn *fn = (queue_fn*)queues->fn;
+    return fn->server_receive(queues->queues, buf, size);
 }
 
 /**
@@ -633,36 +637,40 @@ size_t server_receive_sem(queue_pair* client, void* buf, size_t size){
 
 void free_queue_ctx(queue_ctx * ctx){
     free(ctx->queues);
+    free(ctx->fn);
     free(ctx);
 }
 
 queue_ctx* select_queue_ctx(QUEUE_TYPE t)
 {
   queue_ctx* my_ctx = (queue_ctx*)malloc(sizeof(struct queue_ctx));
+  my_ctx->fn = (queue_fn*)malloc(sizeof(struct queue_fn));
+  queue_fn *fn = (queue_fn*) my_ctx->fn;
+  my_ctx->queue_type = t;
   switch(t){
     case POLL:
-        my_ctx->client_send_rpc = client_send_poll;
-        my_ctx->client_receive_buf = client_receive_poll;
-        my_ctx->server_send_rpc = server_send_poll;
-        my_ctx->server_receive_buf = server_receive_poll;
+        fn->client_send = client_send_poll;
+        fn->client_receive = client_receive_poll;
+        fn->server_send = server_send_poll;
+        fn->server_receive = server_receive_poll;
         break;
     case BOOST:
-        my_ctx->client_send_rpc = client_send_boost;
-        my_ctx->client_receive_buf = client_receive_boost;
-        my_ctx->server_send_rpc = server_send_boost;
-        my_ctx->server_receive_buf = server_receive_boost;
+        fn->client_send = client_send_boost;
+        fn->client_receive = client_receive_boost;
+        fn->server_send = server_send_boost;
+        fn->server_receive = server_receive_boost;
         break;
     case SEM:
-        my_ctx->client_send_rpc = client_send_sem;
-        my_ctx->client_receive_buf = client_receive_sem;
-        my_ctx->server_send_rpc = server_send_sem;
-        my_ctx->server_receive_buf = server_receive_sem;
+        fn->client_send = client_send_sem;
+        fn->client_receive= client_receive_sem;
+        fn->server_send = server_send_sem;
+        fn->server_receive = server_receive_sem;
         break;
     default:
-        my_ctx->client_send_rpc = client_send_poll;
-        my_ctx->client_receive_buf = client_receive_poll;
-        my_ctx->server_send_rpc = server_send_poll;
-        my_ctx->server_receive_buf = server_receive_poll;
+        fn->client_send = client_send_poll;
+        fn->client_receive = client_receive_poll;
+        fn->server_send = server_send_poll;
+        fn->server_receive = server_receive_poll;
   }
   return my_ctx;
 }
