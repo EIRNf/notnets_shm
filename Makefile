@@ -20,4 +20,6 @@ clean:
 	make -C test clean
 	make -C experiments clean
 
+install:
+	make -C libnotnets install
 

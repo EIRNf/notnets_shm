@@ -7,6 +7,8 @@
 #   $ make clean     clean objects and the executable file
 #   $ make help      get the usage of the makefile
 
+INSTALL_PREFIX= /usr/local
+
 CPPFLAGS  += 
 INCLUDES  += 
 LDFLAGS   += 
@@ -64,6 +66,11 @@ clean:
 	@$(RM) -r $(OBJDIR) $(BINDIR)
 	@$(RM) -r docs/html
 
+install: $(BINDIR)/$(LIBRARY)
+	install -d $(INSTALL_PREFIX)/lib
+	install -m 755  $(BINDIR)/$(LIBRARY) $(INSTALL_PREFIX)/lib
+	ldconfig
+
 help:
 	@echo 'Usage: make [TARGET]'
 	@echo 'TARGETS:'
@@ -73,6 +80,8 @@ help:
 	@echo '  clean     clean objects and the executable file.'
 	@echo '  show      show variables (for debug use only).'
 	@echo '  help      print this message.'
+	@echo '  install      copy lib to usr local.'
+
 
 show:
 	@echo 'THISDIR     :' $(THISDIR)
@@ -84,6 +93,6 @@ show:
 	@echo 'DEPEND      :' $(DEPEND)
 	@echo 'COMPILE     :' $(COMPILE)
 	@echo 'link        :' $(LINK)
-
+	@echo 'install        :' $(INSTALL)
 
 
