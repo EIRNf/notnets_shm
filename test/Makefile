@@ -9,6 +9,7 @@ CPPFLAGS =
 INCLUDES = \
  	-I $(THISDIR)/../libnotnets/include \
 	    -I /opt/homebrew/Cellar/googletest/1.14.0/include \
+	    -I /usr/src/gtest/include \
         -I /usr/local/include/gtest/ \
 
 LDFLAGS = \
@@ -16,7 +17,7 @@ LDFLAGS = \
 	-L /opt/homebrew/Cellar/googletest/1.14.0/lib/ \
 	-L /usr/local/lib \
 	-lnotnets \
-        -lgtest \
+        -lpthread -lgtest -lgtest_main \
 
 
 ifeq ($(UNAME), Linux)

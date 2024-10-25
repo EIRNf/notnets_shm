@@ -10,8 +10,8 @@
 INSTALL_PREFIX= /usr/local
 
 CPPFLAGS  += 
-INCLUDES  += 
-LDFLAGS   += 
+INCLUDES  +=
+LDFLAGS   += -lpthread
 
 OBJDIR  = $(THISDIR)/obj
 BINDIR  = $(THISDIR)/bin

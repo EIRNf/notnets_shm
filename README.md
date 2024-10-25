@@ -2,9 +2,18 @@
 A library to handle message passing over shared memory. 
 
 ## Requirements
-- clang
+- clang 16 or above
+- g++ 11 or above
 - boost lib
     - sudo apt-get install libboost-all-dev
+- gtest lib
+    - sudo apt-get install libgtest-dev
+    - cd /usr/src/gtest
+    - sudo cmake -DBUILD_SHARED_LIBS=ON .
+    - sudo make
+    - sudo cmake -DBUILD_SHARED_LIBS=OFF .
+    - sudo make
+    - sudo cp libgtest.so (libgtest_main.so/libgtest.a/libgtest_main.a) /usr/local/lib
 
 ## Commands
 ### Build Shared Library 
