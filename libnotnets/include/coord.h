@@ -2,7 +2,7 @@
 #define __COORD_H
 
 #define SLOT_NUM 40
-#define QUEUE_SIZE 16024
+#define QUEUE_SIZE 16777216 // 16MB
 
 #include <unistd.h>
 #include <pthread.h>
