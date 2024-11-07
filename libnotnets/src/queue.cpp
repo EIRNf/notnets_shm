@@ -22,6 +22,8 @@ ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
         perror("Message size type + Header data too large for allocated shm");
         exit(1);
     }
+    // Always add size_t to message size to store message length
+    message_size += sizeof(size_t);
 
     // Calculate size of array
     int num_elements = (shm_size - sizeof(spsc_queue_header)) / message_size;
@@ -54,8 +56,8 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
     //Get Constants
     int message_size = header->message_size;
 
-    if (buf_size > header->message_size) {
-        return -1;
+    if (buf_size + sizeof(long) > message_size) {
+        return -1; // Message too large for slot
     }
 
     int const writer_head = atomic_load_explicit(&header->head, memory_order_relaxed);
@@ -66,11 +68,17 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
 
     while(next_writer_head == atomic_load_explicit(&header->tail, memory_order_acquire)){ 
         //Poll if full
+        if (header->stop_producer_polling) {
+            return 0;
+        }
+
     }
 
     //Enqueue
     void* array_start = get_message_array(header);
-    memcpy((char*)array_start + writer_head * message_size, buf, buf_size);
+    char* slot_position = (char*) array_start + writer_head * message_size;
+    memcpy(slot_position , &buf_size, sizeof(size_t));
+    memcpy(slot_position+ sizeof(size_t), buf, buf_size);
     
     atomic_store_explicit(&header->head, next_writer_head, memory_order_release);
 
@@ -90,18 +98,13 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL RE
     spsc_queue_header* header = get_queue_header(shmaddr);
     size_t read = 0;
 
-    // handle offset math for partial read
-    if (*buf_size + header->message_offset > header->message_size) {
-        *buf_size = header->message_size - header->message_offset;
-    }
-
-    if (header->stop_consumer_polling) {
-            return 0;
-    }
 
     int const reader_tail = atomic_load_explicit(&header->tail, memory_order_relaxed);
     while (reader_tail == atomic_load_explicit(&header->head, memory_order_acquire)){
         //queue is empty
+        if (header->stop_consumer_polling) {
+            return 0;
+        }
     }
 
     int next_reader_tail = reader_tail + 1;
@@ -109,31 +112,37 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL RE
         next_reader_tail = 0;
     }
 
-    //dequeue, TODO, Partial writes
+    //Dequeue
     void* array_start = get_message_array(header);
+    char* slot_position = (char*) array_start + reader_tail * header->message_size;
+    size_t message_length;
+
+    // Get size of written message
+    memcpy(&message_length, slot_position, sizeof(size_t));
+
+    // handle offset math for partial read
+    if (*buf_size + header->message_offset > message_length) {
+        *buf_size = message_length - header->message_offset;
+    }
+
     memcpy(
         buf,
-        (char*) array_start + (reader_tail * header->message_size) + header->message_offset,
+        slot_position + sizeof(size_t)+ header->message_offset,
         *buf_size
     );
-
-    // printf("%p\n",(char*) array_start + (header->tail * header->message_size) + header->message_offset);
-    // atomic_thread_fence(memory_order_release); //TODO
 
     header->message_offset += *buf_size;
 
     //Handle full read
-    if ((size_t) header->message_offset == header->message_size) {
+    if ((size_t) header->message_offset == message_length) {
         header->message_offset = 0;
     }
     else { //Handle partial read, decrement next record bringing it back to reader_tail value
         next_reader_tail = reader_tail;
-        // read = header->message_offset;
     }
     read = *buf_size;
 
     atomic_store_explicit(&header->tail, next_reader_tail, memory_order_release);
-    // atomic_thread_fence(memory_order_release); //TODO
 
     return read;
 }

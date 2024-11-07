@@ -42,10 +42,10 @@ TEST_F(PollQueueTest, PartialBuffer)
     // message size of 4 ints
     int num_char = 4;
     int message_size = num_char*sizeof(char);
-    queue_create(shmaddr, shm_size, message_size);
-
+    queue_create(shmaddr, shm_size, message_size ); 
 
     char *buf = (char*)malloc(message_size);
+
     buf[0] = 'b';
     buf[1] = 'i';
     buf[2] = 'r';
@@ -94,7 +94,7 @@ TEST_F(PollQueueTest, MultiProcess)
     key_t key = ftok("MultiProcess", 0);
     key_t ipc_key = 22;
     int shm_size = 1024;
-    int message_size = sizeof(int);
+    int message_size = sizeof(int) + sizeof(size_t); // Include size to support message size
     int iter = 100;
 
     pid_t c_pid = fork();
