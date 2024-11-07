@@ -42,10 +42,10 @@ TEST_F(PollQueueTest, PartialBuffer)
     // message size of 4 ints
     int num_char = 4;
     int message_size = num_char*sizeof(char);
-    queue_create(shmaddr, shm_size, message_size);
-
+    queue_create(shmaddr, shm_size, message_size ); 
 
     char *buf = (char*)malloc(message_size);
+
     buf[0] = 'b';
     buf[1] = 'i';
     buf[2] = 'r';
