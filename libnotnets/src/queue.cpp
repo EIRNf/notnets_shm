@@ -96,7 +96,7 @@ size_t dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
 
 size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL READS THREAD SAFE
     spsc_queue_header* header = get_queue_header(shmaddr);
-    size_t read = 0;
+    size_t read_data = 0;
 
 
     int const reader_tail = atomic_load_explicit(&header->tail, memory_order_relaxed);
@@ -120,18 +120,22 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL RE
     // Get size of written message
     memcpy(&message_length, slot_position, sizeof(size_t));
 
-    // handle offset math for partial read
+    // Handle offset math for full read
     if (*buf_size + header->message_offset > message_length) {
-        *buf_size = message_length - header->message_offset;
+        read_data = message_length - header->message_offset;
+    }
+    // Handle offset math for partial read
+    if (*buf_size + header->message_offset <= message_length) {
+        read_data = *buf_size;
     }
 
     memcpy(
         buf,
         slot_position + sizeof(size_t)+ header->message_offset,
-        *buf_size
+        read_data
     );
 
-    header->message_offset += *buf_size;
+    header->message_offset += read_data;
 
     //Handle full read
     if ((size_t) header->message_offset == message_length) {
@@ -140,11 +144,10 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL RE
     else { //Handle partial read, decrement next record bringing it back to reader_tail value
         next_reader_tail = reader_tail;
     }
-    read = *buf_size;
 
     atomic_store_explicit(&header->tail, next_reader_tail, memory_order_release);
 
-    return read;
+    return read_data;
 }
 
 
