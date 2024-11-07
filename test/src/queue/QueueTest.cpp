@@ -94,7 +94,7 @@ TEST_F(PollQueueTest, MultiProcess)
     key_t key = ftok("MultiProcess", 0);
     key_t ipc_key = 22;
     int shm_size = 1024;
-    int message_size = sizeof(int) + sizeof(size_t); // Include size to support message size
+    int message_size = sizeof(int);
     int iter = 100;
 
     pid_t c_pid = fork();
