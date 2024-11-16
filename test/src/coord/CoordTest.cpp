@@ -218,9 +218,7 @@ TEST_F(CoordTest, SingleClientGetSlot)
       coord_header* coord_region = coord_create((char*)"SingleClientGetSlot");
         err = -1;
         while (err == -1) {
-            // pthread_mutex_lock(&coord_region->mutex);
             err = service_slot(coord_region, 0, &_fake_shm_allocator);
-            // pthread_mutex_unlock(&coord_region->mutex);
 
         }
 
