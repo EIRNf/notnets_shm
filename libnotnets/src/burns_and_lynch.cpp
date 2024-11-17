@@ -39,6 +39,8 @@ void lock(burns_and_lynch_lock *bl ,int thread)
         //STEP 3
 step_3:
         bl->F[thread] = down;
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+
 
         //STEP 4
         //Look to my left, and keep my hand down as long as I see someone with a hand up
@@ -50,6 +52,8 @@ step_3:
         //STEP 5
         // If no one to my left has their hand up, I raise my hand
         bl->F[thread] = up;
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+
         //STEP 6
         // Check again to my left to see if anyone has raised their hand,
         // if so, I put my hand down and star over, otherwise, I keep my hand raised and continue
@@ -75,8 +79,8 @@ step_7:
 
 void unlock(burns_and_lynch_lock *bl , int thread)
 {
-    std::atomic_thread_fence(std::memory_order_seq_cst);
     bl->F[thread] = down;
+    std::atomic_thread_fence(std::memory_order_seq_cst);
 }
 
 void use_resource(burns_and_lynch_lock *bl , int thread)
