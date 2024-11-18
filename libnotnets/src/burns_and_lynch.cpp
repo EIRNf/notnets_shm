@@ -124,7 +124,7 @@ int get_process_id(burns_and_lynch_lock *bl)
     return bl->process_counter++;
 }
 
-int main()
+int test_burns_and_lynch()
 {
     // Initialize the bakery lock
     burns_and_lynch_lock *bl = init_burns_and_lynch_lock();

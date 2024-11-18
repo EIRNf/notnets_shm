@@ -102,7 +102,7 @@ int get_process_id(bakery_lock *bl)
     return bl->process_counter++;
 }
 
-int main()
+int test_bakery()
 {
     // Initialize the bakery lock
     bakery_lock *bl = init_bakery_lock();
