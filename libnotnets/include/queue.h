@@ -7,20 +7,43 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <cstddef>
+#include <new>
+#include <time.h>
+#include <sys/timeb.h>
 
-
+#ifdef __cpp_lib_hardware_interference_size
+    using std::hardware_constructive_interference_size;
+    using std::hardware_destructive_interference_size;
+#else
+    // 64 bytes on x86-64 │ L1_CACHE_BYTES │ L1_CACHE_SHIFT │ __cacheline_aligned │ ...
+    constexpr std::size_t hardware_constructive_interference_size = 64;
+    constexpr std::size_t hardware_destructive_interference_size = 64;
+#endif
 
 typedef struct spsc_queue_header {
-    atomic_int head;
+  //  alignas(hardware_destructive_interference_size)  atomic_int head;
+   atomic_int head;
+   struct timespec elapsed_mean_head_time;
+   int sampled_head_writes;
+  //  alignas(hardware_destructive_interference_size)  atomic_int tail;
     atomic_int tail;
+    struct timespec elapsed_mean_tail_time;
+    int sampled_tail_writes;
+
+    int hybrid_polling_interval;
+
     size_t message_size;
     int message_offset;
     int queue_size;
-    int current_count;
-    int total_count;
+    u_int64_t current_count;
+    u_int64_t write_total_count;
+    u_int64_t read_total_count;
+
     bool stop_producer_polling;
     bool stop_consumer_polling;
 } spsc_queue_header;
+
 
 /*
  * @brief Casts beginning of provided shmaddr as a spsc header, and returns it.

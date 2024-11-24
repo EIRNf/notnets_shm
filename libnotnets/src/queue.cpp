@@ -6,7 +6,35 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
-#include <sched.h>
+#include <time.h>
+#include <sys/timeb.h>
+
+
+
+struct timespec* ClockGetTime(struct timespec *ts)
+{
+    clock_gettime(CLOCK_REALTIME, ts);
+    return ts;
+};
+
+struct timespec* ClockElapsed(struct timespec *start, struct timespec *end)
+{
+    end->tv_sec = (end->tv_sec - start->tv_sec)  ;
+    end->tv_nsec = (end->tv_nsec - start->tv_nsec);
+
+    return end;
+};
+
+struct timespec* ClockHalfed(struct timespec *time)
+{
+    time->tv_sec = time->tv_sec / 2;
+    time->tv_nsec = time->tv_nsec / 2;
+    return time;
+};
+
+
+
+
 
 spsc_queue_header* get_queue_header(void* shmaddr) {
     spsc_queue_header* header = (spsc_queue_header*) shmaddr;
@@ -32,12 +60,24 @@ ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
 
     spsc_queue_header* header_ptr = get_queue_header(shmaddr); 
     header_ptr->head = 0;
+    header_ptr->elapsed_mean_head_time = {0, 2000};
+    header_ptr->sampled_head_writes = 0;
     header_ptr->tail = 0;
+    header_ptr->elapsed_mean_tail_time = {0, 2000};
+    header_ptr->sampled_tail_writes = 0;
+
+    // header_ptr->hybrid_polling_interval = 2320429523;
+    header_ptr->hybrid_polling_interval = 10000;
+
+
+
     header_ptr->message_size = message_size;
     header_ptr->message_offset = 0;
     header_ptr->queue_size = num_elements;
     header_ptr->current_count = 0;
-    header_ptr->total_count = 0;
+    header_ptr->write_total_count = 0;
+    header_ptr->read_total_count = 0;
+
     header_ptr->stop_consumer_polling = false;
     header_ptr->stop_producer_polling = false;
     atomic_thread_fence(memory_order_seq_cst);
@@ -53,6 +93,8 @@ void enqueue(spsc_queue_header* header, const void* buf, size_t buf_size) {
 }
 
 int push(void* shmaddr, const void* buf, size_t buf_size) {
+    struct timespec start, end, sleep;
+    
     spsc_queue_header* header = get_queue_header(shmaddr);
     //Get Constants
     int message_size = header->message_size;
@@ -67,12 +109,52 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
         next_writer_head = 0;
     }
 
+    int interval_poll_miss = 0;
     while(next_writer_head == atomic_load_explicit(&header->tail, memory_order_acquire)){ 
-        //Poll if full
+        //queue is full
         if (header->stop_producer_polling) {
             return 0;
         }
-        sched_yield();
+
+        // Sample to get mean service time
+        // No yielding while sampling in order to get mean reflecting actual service time
+        if (header->write_total_count % header->hybrid_polling_interval == 0) {
+            if (interval_poll_miss == 0) {
+                printf("Start Timer\n" );
+                ClockGetTime(&start);
+            }
+            interval_poll_miss++;
+            printf("Miss:%d\n", interval_poll_miss );
+        }
+        else {
+            sleep.tv_sec = header->elapsed_mean_head_time.tv_sec /2 ;
+            sleep.tv_nsec = header->elapsed_mean_head_time.tv_nsec /2 ;
+
+            nanosleep(&sleep  , NULL);
+        }
+    }
+
+    // Calculate Mean Service Time
+    if ((interval_poll_miss != 0 )&&  (header->write_total_count % header->hybrid_polling_interval == 0)) {
+        header->sampled_head_writes++;
+        ClockGetTime(&end);
+        ClockElapsed(&start, &end);
+        printf("End Timer\n" );
+
+        //Exclude significant outliers
+        if (end.tv_sec - header->elapsed_mean_head_time.tv_sec > 1 || end.tv_nsec - header->elapsed_mean_head_time.tv_nsec > 100000) { 
+            
+        } 
+        else {
+            
+            //Calculate mean elapsed time
+            header->elapsed_mean_head_time.tv_sec += ((end.tv_sec - header->elapsed_mean_head_time.tv_sec)  / header->sampled_head_writes ) ;
+            header->elapsed_mean_head_time.tv_nsec += ((end.tv_nsec - header->elapsed_mean_head_time.tv_nsec) / header->sampled_head_writes) ;
+
+            printf("Mean in Sec:%ld\n",  header->elapsed_mean_head_time.tv_sec );
+            printf("Mean in nSec:%ld\n", header->elapsed_mean_head_time.tv_nsec );
+        }
+
     }
 
     //Enqueue
@@ -82,6 +164,7 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
     memcpy(slot_position+ sizeof(size_t), buf, buf_size);
     
     atomic_store_explicit(&header->head, next_writer_head, memory_order_release);
+    header->write_total_count++;
 
     return buf_size;
 }
@@ -95,18 +178,55 @@ size_t dequeue(spsc_queue_header* header, void* buf, size_t* buf_size) {
     return 0;
 }
 
-size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL READS THREAD SAFE
+size_t pop(void* shmaddr, void* buf, size_t* buf_size) { 
+    struct timespec start, end, sleep;
+
     spsc_queue_header* header = get_queue_header(shmaddr);
     size_t read_data = 0;
 
 
     int const reader_tail = atomic_load_explicit(&header->tail, memory_order_relaxed);
+    int interval_poll_miss = 0;
     while (reader_tail == atomic_load_explicit(&header->head, memory_order_acquire)){
         //queue is empty
         if (header->stop_consumer_polling) {
             return 0;
         }
-        sched_yield();
+
+        // Sample to get mean service time
+        // No yielding while sampling in order to get mean reflecting actual service time
+        if (header->read_total_count % header->hybrid_polling_interval == 0) {
+            if (interval_poll_miss == 0) {
+                ClockGetTime(&start);
+            }
+            interval_poll_miss++;
+        }
+        else {
+
+            sleep.tv_sec = header->elapsed_mean_tail_time.tv_sec /2 ;
+            sleep.tv_nsec = header->elapsed_mean_tail_time.tv_nsec /2 ;
+
+            nanosleep(&sleep , NULL);
+        }
+    }
+    // Calculate Mean Service Time
+    if ((interval_poll_miss != 0 ) &&  header->read_total_count % header->hybrid_polling_interval == 0) {
+        header->sampled_tail_writes++;
+        ClockGetTime(&end);
+        ClockElapsed(&start, &end);
+
+         //Exclude significant outliers
+        if (end.tv_sec - header->elapsed_mean_tail_time.tv_sec > 1 || end.tv_nsec - header->elapsed_mean_tail_time.tv_nsec > 100000) { 
+            
+        } 
+        else {
+
+            //Calculate mean elapsed time
+            header->elapsed_mean_tail_time.tv_sec += ((end.tv_sec - header->elapsed_mean_tail_time.tv_sec)  / header->sampled_tail_writes) ;
+            header->elapsed_mean_tail_time.tv_nsec +=  ((end.tv_nsec - header->elapsed_mean_tail_time.tv_nsec ) / header->sampled_tail_writes) ;
+                
+        }
+        
     }
 
     int next_reader_tail = reader_tail + 1;
@@ -148,6 +268,7 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL RE
     }
 
     atomic_store_explicit(&header->tail, next_reader_tail, memory_order_release);
+    header->read_total_count++;
 
     return read_data;
 }
