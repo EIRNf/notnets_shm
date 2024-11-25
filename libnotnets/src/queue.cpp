@@ -7,6 +7,10 @@
 #include <string.h>
 #include <stdatomic.h>
 #include <sched.h>
+#include <time.h>
+#include <linux/prctl.h>  /* Definition of PR_* constants */
+#include <sys/prctl.h>
+
 
 spsc_queue_header* get_queue_header(void* shmaddr) {
     spsc_queue_header* header = (spsc_queue_header*) shmaddr;
@@ -19,6 +23,7 @@ void* get_message_array(spsc_queue_header* header) {
 
 
 ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
+
     if (message_size + (size_t) sizeof(spsc_queue_header) > shm_size) {
         perror("Message size type + Header data too large for allocated shm");
         exit(1);
@@ -40,6 +45,7 @@ ssize_t queue_create(void* shmaddr, size_t shm_size, size_t message_size) {
     header_ptr->total_count = 0;
     header_ptr->stop_consumer_polling = false;
     header_ptr->stop_producer_polling = false;
+    header_ptr->nano_sleep_time_step = 1; // 0.001 microseconds
     atomic_thread_fence(memory_order_seq_cst);
 
     return shm_size - leftover_bytes;
@@ -67,12 +73,18 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
         next_writer_head = 0;
     }
 
+    long sleep_time = 0;
+    struct timespec sleep;  
     while(next_writer_head == atomic_load_explicit(&header->tail, memory_order_acquire)){ 
         //Poll if full
         if (header->stop_producer_polling) {
             return 0;
         }
-        sched_yield();
+        sleep = {0, sleep_time};
+        clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep, NULL);
+        sleep_time += header->nano_sleep_time_step* 1.05;
+        
+        // sched_yield();
     }
 
     //Enqueue
@@ -99,14 +111,18 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL RE
     spsc_queue_header* header = get_queue_header(shmaddr);
     size_t read_data = 0;
 
-
+    long sleep_time = 0;
+    struct timespec sleep  = {0, sleep_time};
     int const reader_tail = atomic_load_explicit(&header->tail, memory_order_relaxed);
     while (reader_tail == atomic_load_explicit(&header->head, memory_order_acquire)){
         //queue is empty
         if (header->stop_consumer_polling) {
             return 0;
         }
-        sched_yield();
+        sleep = {0, sleep_time};
+
+        clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep, NULL);
+        sleep_time += header->nano_sleep_time_step * 1.05;
     }
 
     int next_reader_tail = reader_tail + 1;
