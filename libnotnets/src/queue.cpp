@@ -82,7 +82,7 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
         }
         sleep = {0, sleep_time};
         clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep, NULL);
-        sleep_time += header->nano_sleep_time_step* 1.05;
+        sleep_time =  (sleep_time *  1.05) + header->nano_sleep_time_step;
         
         // sched_yield();
     }
@@ -122,7 +122,7 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL RE
         sleep = {0, sleep_time};
 
         clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep, NULL);
-        sleep_time += header->nano_sleep_time_step * 1.05;
+        sleep_time =  (sleep_time *  1.05) + header->nano_sleep_time_step;
     }
 
     int next_reader_tail = reader_tail + 1;
