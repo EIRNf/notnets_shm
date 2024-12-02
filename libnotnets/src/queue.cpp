@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <sched.h>
+#include <time.h>
 
 spsc_queue_header* get_queue_header(void* shmaddr) {
     spsc_queue_header* header = (spsc_queue_header*) shmaddr;
@@ -66,11 +68,13 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
         next_writer_head = 0;
     }
 
+    struct timespec ts = {0, 3000};
     while(next_writer_head == atomic_load_explicit(&header->tail, memory_order_acquire)){ 
         //Poll if full
         if (header->stop_producer_polling) {
             return 0;
         }
+        clock_nanosleep(CLOCK_REALTIME, 0, &ts, NULL); // Sleep for 3 microseconds
     }
 
     //Enqueue
@@ -98,12 +102,14 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL RE
     size_t read_data = 0;
 
 
+    struct timespec ts = {0, 3000};
     int const reader_tail = atomic_load_explicit(&header->tail, memory_order_relaxed);
     while (reader_tail == atomic_load_explicit(&header->head, memory_order_acquire)){
         //queue is empty
         if (header->stop_consumer_polling) {
             return 0;
         }
+        clock_nanosleep(CLOCK_REALTIME, 0, &ts, NULL); // Sleep for 3 microseconds
     }
 
     int next_reader_tail = reader_tail + 1;
