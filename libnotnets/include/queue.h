@@ -22,6 +22,9 @@ typedef struct spsc_queue_header {
     bool stop_consumer_polling;
 } spsc_queue_header;
 
+void stop_producer_polling(void *shmaddr);
+void stop_consumer_polling(void *shmaddr);
+
 /*
  * @brief Casts beginning of provided shmaddr as a spsc header, and returns it.
  *

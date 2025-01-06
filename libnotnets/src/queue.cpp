@@ -7,7 +7,20 @@
 #include <string.h>
 #include <stdatomic.h>
 
-spsc_queue_header* get_queue_header(void* shmaddr) {
+void stop_producer_polling(void *shmaddr)
+{
+    spsc_queue_header* header = (spsc_queue_header*) shmaddr;
+    header->stop_producer_polling = true;
+}
+
+void stop_consumer_polling(void *shmaddr)
+{
+    spsc_queue_header* header = (spsc_queue_header*) shmaddr;
+    header->stop_consumer_polling = true;
+}
+
+spsc_queue_header *get_queue_header(void *shmaddr)
+{
     spsc_queue_header* header = (spsc_queue_header*) shmaddr;
     return header;
 }
@@ -57,7 +70,7 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
     int message_size = header->message_size;
 
     if (buf_size + sizeof(long) > message_size) {
-        return -1; // Message too large for slot
+        return -2; // Message too large for slot
     }
 
     int const writer_head = atomic_load_explicit(&header->head, memory_order_relaxed);
@@ -68,8 +81,9 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
 
     while(next_writer_head == atomic_load_explicit(&header->tail, memory_order_acquire)){ 
         //Poll if full
-        if (header->stop_producer_polling) {
-            return 0;
+        if (header->stop_producer_polling) { //Timeout or shutdown return -1 
+            header->stop_producer_polling = false;
+            return -1;
         }
     }
 
@@ -101,8 +115,9 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL RE
     int const reader_tail = atomic_load_explicit(&header->tail, memory_order_relaxed);
     while (reader_tail == atomic_load_explicit(&header->head, memory_order_acquire)){
         //queue is empty
-        if (header->stop_consumer_polling) {
-            return 0;
+        if (header->stop_consumer_polling) {//Timeout or shutdown return -1 
+            header->stop_consumer_polling = false;
+            return -1;
         }
     }
 

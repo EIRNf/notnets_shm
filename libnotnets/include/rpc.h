@@ -102,6 +102,10 @@ int client_send_rpc(queue_ctx* conn, const void* buf, size_t size);
 size_t client_receive_buf(queue_ctx* conn, void* buf, size_t size);
 int client_close(char* source_addr, char* destination_addr);
 
+int client_trigger_read_deadline(queue_ctx* conn);
+int client_trigger_write_deadline(queue_ctx* conn);
+
+
 // SERVER
 void manage_pool(server_context* handler);
 server_context* register_server(char* source_addr);
@@ -109,6 +113,10 @@ queue_ctx* accept(server_context* handler);
 int server_send_rpc(queue_ctx* client, const void *buf, size_t size);
 size_t server_receive_buf(queue_ctx* client, void* buf, size_t size);
 void shutdown(server_context* handler);
+
+int server_trigger_read_deadline(queue_ctx* conn);
+int server_trigger_write_deadline(queue_ctx* conn);
+
 // ===============================================================
 
 // PRIVATE HELPER FUNCTIONS

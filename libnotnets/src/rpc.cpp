@@ -262,6 +262,31 @@ int client_close(char* source_addr, char* destination_addr) {
     return -1;
 }
 
+int client_trigger_read_deadline(queue_ctx *conn)
+{
+    stop_consumer_polling(conn->queues->response_shmaddr);
+    return 0;
+}
+
+int client_trigger_write_deadline(queue_ctx *conn)
+{
+    stop_producer_polling(conn->queues->request_shmaddr);
+    return 0;
+}
+
+int server_trigger_read_deadline(queue_ctx *conn)
+{
+    stop_consumer_polling(conn->queues->request_shmaddr);
+    return 0;
+}
+
+int server_trigger_write_deadline(queue_ctx *conn)
+{
+        stop_producer_polling(conn->queues->response_shmaddr);
+    return 0;
+}
+
+
 //SERVER
 shm_pair _fake_shm_allocator(int message_size, int client_id) {
     shm_pair shms = {};
