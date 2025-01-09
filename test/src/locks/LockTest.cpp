@@ -60,7 +60,7 @@ void bakery_thread_body(bakery_test_wrapper *btw , int thread)
 TEST_F(LockTest, BakeryLock)  
 {
     // Initialize the bakery lock
-    bakery_lock *bl = init_bakery_lock( new bakery_lock);
+    bakery_lock *bl = init_bakery_lock(malloc(sizeof(bakery_lock)));
     bakery_test_wrapper *btw = new bakery_test_wrapper;
     btw->bl = bl;
     btw->resource = 0;
@@ -76,6 +76,7 @@ TEST_F(LockTest, BakeryLock)
         thread.join();
     }
 
+    free(bl);  
     EXPECT_NO_FATAL_FAILURE(delete btw);
 }
 
@@ -122,8 +123,9 @@ void burns_lynch_thread_body(burns_and_lynch_test_wrapper *bltw , int thread)
 
 TEST_F(LockTest, BurnsAndLynchLock)  
 {
-    // Initialize the bakery lock
-    burns_and_lynch_lock *bll = init_burns_and_lynch_lock( new burns_and_lynch_lock);
+    // Initialize the burns and lynch lock
+
+    burns_and_lynch_lock *bll = init_burns_and_lynch_lock(malloc(sizeof(burns_and_lynch_lock)));
     burns_and_lynch_test_wrapper *bltw = new burns_and_lynch_test_wrapper;
     bltw->bll = bll;
     bltw->resource = 0;
@@ -139,5 +141,6 @@ TEST_F(LockTest, BurnsAndLynchLock)
         thread.join();
     }
 
+    free(bll);
     EXPECT_NO_FATAL_FAILURE(delete bltw);
 }

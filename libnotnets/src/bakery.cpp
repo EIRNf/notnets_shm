@@ -41,13 +41,7 @@ void unlock(bakery_lock *bl , int thread)
 
 bakery_lock* create_bakery_lock()
 {
-    bakery_lock *bl = new bakery_lock;
-    bl->process_counter = 0;
-
-    for (int i = 0; i < THREAD_COUNT; ++i) {
-        bl->tickets[i] = 0;
-        bl->choosing[i] = 0;
-    }
+    bakery_lock *bl = init_bakery_lock(malloc(sizeof(bakery_lock)));
     return bl;
 }
 

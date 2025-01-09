@@ -68,11 +68,7 @@ burns_and_lynch_lock* init_burns_and_lynch_lock(void* shmaddr)
 
 burns_and_lynch_lock* create_burns_and_lynch_lock()
 {
-    burns_and_lynch_lock *bl = new burns_and_lynch_lock;
-    bl->process_counter = 0;
-    for (int i = 0; i < THREAD_COUNT; ++i) {
-        bl->F[i] = down;
-    }
+    burns_and_lynch_lock *bl = init_burns_and_lynch_lock(malloc(sizeof(burns_and_lynch_lock)));
     return bl;
 }
 
