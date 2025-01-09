@@ -39,18 +39,20 @@ shm_pair _boost_shm_allocator(int message_size, int client_id) {
 
     bip::xsi_key x_key2(key2);
     bip::managed_xsi_shared_memory mem2(bip::open_or_create, x_key2,  MEM_SIZE);
-    mem2.construct<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>("queue")();
+    boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>> *queue2 = mem2.construct<boost::lockfree::spsc_queue<buffer_wrapper, boost::lockfree::capacity<QUEUE_CAPACITY>>>("queue")();
 
     offset1 = mem1.get_handle_from_address(queue1);    
-    // offset2 = mem2.get_handle_from_address(queue2);
+    offset2 = mem2.get_handle_from_address(queue2);
 
 
-    notnets_shm_info request_shm = {key1,mem1.get_shmid()};
-    notnets_shm_info response_shm = {key2,mem2.get_shmid()};
+    boost_system_V_shm_info request_shm = {key1,mem1.get_shmid(),offset1};
+    boost_system_V_shm_info response_shm = {key2,mem2.get_shmid(),offset2};
 
-    shms.request_shm = request_shm;
-    shms.response_shm = response_shm;
-    shms.offset = mem1.get_handle_from_address(queue1);
+    // notnets_shm_info request_shm = {key1,mem1.get_shmid()};
+    // notnets_shm_info response_shm = {key2,mem2.get_shmid()};
+
+    shms.request_shm.boost_system_v = request_shm;
+    shms.response_shm.boost_system_v = response_shm;
 
     return shms;
 }

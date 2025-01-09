@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <stdatomic.h>
 
+#define PATH_SIZE 32
 typedef enum QUEUE_TYPE
 {
   POLL,
@@ -18,19 +19,46 @@ typedef enum QUEUE_TYPE
   SEM
 } QUEUE_TYPE;
 
+typedef enum SHM_TYPE {
+    UNSET = 0,
+    SYSTEM_V = 1,
+    MMAP = 2,
+    BOOST_SYSTEM_V = 3
+} SHM_TYPE;
+
 typedef struct reserve_pair {
     bool client_reserved;
 } reserve_pair;
+
+typedef struct system_V_shm_info {
+    int key;
+    int shmid;
+} system_V_shm_info;
+
+typedef struct mmap_shm_info {
+    char path[PATH_SIZE];
+} mmap_shm_info;
 
 typedef struct notnets_shm_info {
     int key;
     int shmid;
 } notnets_shm_info;
 
+typedef struct boost_system_V_shm_info {
+    int key;
+    int shmid;
+    long offset;
+} boost_system_V_shm_info;
+
+union shm_info {
+    system_V_shm_info system_v;
+    boost_system_V_shm_info boost_system_v;
+    mmap_shm_info mmap;
+};
 typedef struct shm_pair {
-    notnets_shm_info request_shm;
-    notnets_shm_info response_shm;
-    int offset;
+    SHM_TYPE shm_type;
+    union shm_info request_shm;
+    union shm_info response_shm;
 } shm_pair;
 
 //Modify to be templatable, permit

@@ -6,12 +6,31 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <stdio.h>
-
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/stat.h>        
 
 //Definitions
 static const int create_flag = IPC_CREAT | 0644 ;
 static const int attach_flag = 0644;
 static const int only_read_flag = SHM_RDONLY;
+
+
+static const int mmap_create_flag = O_RDWR | O_CREAT  ;
+static const int mmap_attach_flag =  O_RDWR ;
+static const int mmap_only_read_flag = O_RDONLY;
+
+static const int mmap_flags_rw = PROT_READ | PROT_WRITE;
+static const int mmap_flags_rw_no_cache = PROT_READ | PROT_WRITE | MAP_NOCACHE;
+
+
+
+int mmap_create(const char* path, int size, int flags);
+void* mmap_attach(int fd, int size, int flags);
+int mmap_detach(void* addr, int size);
+int mmap_remove(const char* path);
 
 /**
  * @brief shmget wrapper. Handles errors.

@@ -7,7 +7,53 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <stdio.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/stat.h>        
 
+
+
+
+
+
+
+int mmap_create(const char* path, int size, int flags){
+    int fd;
+    if ((fd = shm_open(path, flags,  S_IRWXU, 0666)) == -1){
+        perror("shm_open: shm_open failed");
+        fprintf(stderr,"Error creating shm: %d \n", fd );
+    }
+    return fd;
+}
+
+void* mmap_attach(int fd, int size, int flags){
+    void* addr;
+    if ((addr = mmap(NULL, size, flags, MAP_SHARED, fd, 0)) == MAP_FAILED){
+        perror("mmap: mmap failed");
+        fprintf(stderr,"Error attaching to shm: %p \n", addr );
+    }
+    return addr;
+}
+
+int mmap_detach(void* addr, int size){
+    int err = 0;
+    if ((err = munmap(addr, size)) == -1){
+        perror("munmap: munmap failed");
+        fprintf(stderr,"Error detaching shm: %d \n", err );
+    }
+    return err;
+}
+
+int mmap_remove(const char* path){
+    int err = 0;
+    if ((err = shm_unlink(path)) == -1){
+        perror("shm_unlink: shm_unlink failed");
+        fprintf(stderr,"Error removing shm: %d \n", err );
+    }
+    return err;
+}
 /**
  * @brief shmget wrapper. Handles errors.
  * Creates shared memory region that can

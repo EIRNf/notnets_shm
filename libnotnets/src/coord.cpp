@@ -21,10 +21,30 @@ void print_coord_row(const coord_row *row) {
     printf("  shm_created: %s\n", row->shm_created ? "true" : "false");
     // printf("  client_attached: %d\n", atomic_load(&row->client_attached));  //TODO compile error
     // printf("  server_attached: %d\n", atomic_load(&row->server_attached));
-    printf("  shms.request_shm.key: %d\n", row->shms.request_shm.key);
-    printf("  shms.request_shm.shmid: %d\n", row->shms.request_shm.shmid);
-    printf("  shms.response_shm.key: %d\n", row->shms.response_shm.key);
-    printf("  shms.response_shm.shmid: %d\n", row->shms.response_shm.shmid);
+    printf("  shms.shm_type: %d\n", row->shms.shm_type);
+    switch (row->shms.shm_type)
+    {
+    case BOOST_SYSTEM_V:
+        printf("  shms.request_shm.key: %d\n", row->shms.request_shm.boost_system_v.key);
+        printf("  shms.request_shm.shmid: %d\n", row->shms.request_shm.boost_system_v.shmid);
+        printf("  shms.request_shm.offset: %ld\n", row->shms.request_shm.boost_system_v.offset);
+        printf("  shms.response_shm.key: %d\n", row->shms.response_shm.boost_system_v.key);
+        printf("  shms.response_shm.shmid: %d\n", row->shms.response_shm.boost_system_v.shmid);
+        printf("  shms.response_shm.offset: %ld\n", row->shms.response_shm.boost_system_v.offset);
+        break;
+    case SYSTEM_V:
+        printf("  shms.request_shm.key: %d\n", row->shms.request_shm.system_v.key);
+        printf("  shms.request_shm.shmid: %d\n", row->shms.request_shm.system_v.shmid);
+        printf("  shms.response_shm.key: %d\n", row->shms.response_shm.system_v.key);
+        printf("  shms.response_shm.shmid: %d\n", row->shms.response_shm.system_v.shmid);
+        break;
+    case MMAP:
+        printf("  shms.request_shm.path: %s\n", row->shms.request_shm.mmap.path);
+        printf("  shms.response_shm.path: %s\n", row->shms.response_shm.mmap.path);
+        break;
+    default: //UNSET
+        break;
+    }
     printf("  detach: %s\n", row->detach ? "true" : "false");
 }
 
@@ -255,13 +275,25 @@ void force_clear_slot(coord_header* header, int slot){
     // don't need to remove shm if server has not handled this slot yet (aka
     // created shm regions)
     if (header->slots[slot].shm_created) {
-        notnets_shm_info request_shm = header->slots[slot].shms.request_shm;
-        notnets_shm_info response_shm = header->slots[slot].shms.response_shm;
 
-        shm_remove(request_shm.shmid);
-        shm_remove(response_shm.shmid);
+        switch (header->slots[slot].shms.shm_type)
+        {
+        case BOOST_SYSTEM_V:
+            shm_remove(header->slots[slot].shms.request_shm.boost_system_v.shmid);
+            shm_remove(header->slots[slot].shms.response_shm.boost_system_v.shmid);
+            break;
+        case SYSTEM_V:
+            shm_remove(header->slots[slot].shms.request_shm.system_v.shmid);
+            shm_remove(header->slots[slot].shms.response_shm.system_v.shmid);
+            break;
+        case MMAP:
+            mmap_remove(header->slots[slot].shms.request_shm.mmap.path);
+            mmap_remove(header->slots[slot].shms.response_shm.mmap.path);
+            break;
+        default:
+            break;
+        }
     }
-
     memset(&header->slots[slot], 0, sizeof(coord_row));
     header->available_slots[slot].client_reserved = false;
 }

@@ -50,18 +50,10 @@ typedef struct queue_fn {
 typedef struct queue_ctx {
     QUEUE_TYPE queue_type;
     queue_pair *queues;
-    // queue_fn *fn;
     void* fn;
 }queue_ctx;
 
 
-
-// typedef enum QUEUE_TYPE
-// {
-//     POLL_QUEUE,
-//     BOOST_QUEUE,
-//     SEM_QUEUE
-// };
 
 typedef struct server_context {
     void* coord_shmaddr;

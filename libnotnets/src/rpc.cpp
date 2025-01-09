@@ -55,9 +55,28 @@ queue_pair* _create_client_queue_pair(coord_header* ch, int slot) {
     shm_pair shms = check_slot(ch, slot);
     int id = get_client_id(ch, slot);
     // keep on checking slot until receive shms
-    while (shms.request_shm.key == 0 || shms.response_shm.key == 0) {
+    while (shms.shm_type == UNSET) {
         shms = check_slot(ch, slot);
     }
+
+    switch (shms.shm_type)
+    {
+    case BOOST_SYSTEM_V:
+
+        /* code */
+        break;
+    case SYSTEM_V:
+        /* code */
+        break;
+
+    case MMAP:
+        /* code */
+        break;
+
+    default:
+        break;
+    }
+
 
     queue_pair* qp = (queue_pair*) malloc(sizeof(queue_pair));
 
@@ -66,13 +85,13 @@ queue_pair* _create_client_queue_pair(coord_header* ch, int slot) {
         qp->request_shmaddr = NULL;
         qp->response_shmaddr = NULL;
         qp->client_id = id;
-        qp->offset= shms.offset;
+        qp->offset = 0; //TODO: FIX
     } else {
         set_client_attach_state(ch, slot,true);
         qp->request_shmaddr = shm_attach(shms.request_shm.shmid);
         qp->response_shmaddr = shm_attach(shms.response_shm.shmid);
         qp->client_id = id;
-        qp->offset= shms.offset;
+        qp->offset= 0; // TODO: FIX
     } 
     atomic_thread_fence(memory_order_seq_cst);
 
@@ -157,10 +176,10 @@ void* _manage_pool_runner(void* handler) {
 queue_ctx* client_open(char* source_addr,
                         char* destination_addr,
                         int message_size,
-                        QUEUE_TYPE queue_type) {
+                        QUEUE_TYPE queue_type,
+                        SHM_TYPE shm_type) {
 
-    // printf("CLIENT: OPEN:\n");
-
+    
     coord_header* ch = coord_attach(destination_addr);
 
     if (ch == NULL) {
