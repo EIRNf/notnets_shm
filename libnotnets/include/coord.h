@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <stdatomic.h>
 
+#include "bakery.h"
+#include "burns_and_lynch.h"
+
 typedef enum QUEUE_TYPE
 {
   POLL,
@@ -47,10 +50,21 @@ typedef struct coord_row {
 } coord_row;
 
 
+// union coord_lock {
+
+//     pthread_mutex_t mutex; // lock when accessing slots or available_slots
+//     bakery_lock bakery;
+//     burns_and_lynch_lock burns_and_lynch;
+
+// } coord_lock;
+
 typedef struct coord_header {
     int shmid; // for later deletion, to avoid process state
     int accept_slot;
+
     pthread_mutex_t mutex; // lock when accessing slots or available_slots
+
+
 	reserve_pair available_slots[SLOT_NUM];
     coord_row slots[SLOT_NUM];
 } coord_header;
