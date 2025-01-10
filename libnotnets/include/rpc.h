@@ -64,12 +64,13 @@ typedef struct queue_ctx {
 // };
 
 typedef struct server_context {
-    void* coord_shmaddr;
+    coord_header* coord_shmaddr;
+    u_int unique_thread_id;
     pthread_t manage_pool_thread;
     // 0 = manage pool thread not running
     // 1 = manage pool thread running and server has not indicated shutdown
     // 2 = manage pool thread running and server has indicated shutdown
-    int manage_pool_state;
+    u_int manage_pool_state;
     pthread_mutex_t manage_pool_mutex;
 } server_context;
 
@@ -104,7 +105,7 @@ int client_close(char* source_addr, char* destination_addr);
 
 // SERVER
 void manage_pool(server_context* handler);
-server_context* register_server(char* source_addr);
+server_context* register_server(char* source_addr, lock_type lock_type);
 queue_ctx* accept(server_context* handler);
 int server_send_rpc(queue_ctx* client, const void *buf, size_t size);
 size_t server_receive_buf(queue_ctx* client, void* buf, size_t size);

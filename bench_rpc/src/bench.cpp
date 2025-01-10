@@ -20,7 +20,7 @@ void single_rtt_test(){
     // pthread_t producer;
     pthread_t consumer;
 
-    server_context* sc = register_server((char*)"single_rtt_test_server");
+    server_context* sc = register_server((char*)"single_rtt_test_server", PTHREAD);
 
     queue_ctx* c_qp = client_open((char*)"single_rtt_test_client",
                                 (char*)"single_rtt_test_server",
@@ -55,7 +55,7 @@ void single_connection_test(){
     fprintf(stdout, "\nnotnets/%s/\n", __func__);
 
     //Current 
-    server_context* sc = register_server((char*)"test_server_addr");
+    server_context* sc = register_server((char*)"test_server_addr", PTHREAD);
 
     pthread_t client;
 
@@ -93,7 +93,7 @@ void connection_stress_test(){
     pthread_t *clients[MAX_CLIENTS] = {};
 
     //Current 
-    server_context* sc = register_server((char*)"test_server_addr");
+    server_context* sc = register_server((char*)"test_server_addr", PTHREAD);
 
     struct connection_args *args[MAX_CLIENTS] = {};
 
@@ -113,8 +113,9 @@ void connection_stress_test(){
         pthread_create(clients[i], NULL, pthread_connect_client, args[i]);
     }
     
-
+    //Ensure everything is build and ready to go    
     queue_ctx* s_qp;
+    
 
     //Synchronization variable to begin attempting to open connections
     run_flag = true;
@@ -206,7 +207,7 @@ void single_rtt_during_connection_test(){
 
 
     //Current 
-    server_context* sc = register_server((char*)"test_server_addr");
+    server_context* sc = register_server((char*)"test_server_addr", PTHREAD);
 
     struct connection_args *args[MAX_CLIENTS] = {};
 
@@ -357,7 +358,7 @@ void rtt_steady_state_conn_test(){
 
 
     //Current 
-    server_context* sc = register_server((char*)"test_server_addr");
+    server_context* sc = register_server((char*)"test_server_addr", PTHREAD);
 
     struct connection_args *args[MAX_CLIENTS] = {};
 
@@ -479,7 +480,7 @@ void rtt_during_connection_test(){
 
 
     //Current 
-    server_context* sc = register_server((char*)"test_server_addr");
+    server_context* sc = register_server((char*)"test_server_addr", PTHREAD);
 
     struct connection_args *args[MAX_CLIENTS] = {};
 
@@ -607,7 +608,7 @@ void rtt_connect_disconnect_connection_test(){
 
 
     //Current 
-    server_context* sc = register_server((char*)"test_server_addr");
+    server_context* sc = register_server((char*)"test_server_addr", PTHREAD);
 
     struct connection_args *args[MAX_CLIENTS] = {};
 

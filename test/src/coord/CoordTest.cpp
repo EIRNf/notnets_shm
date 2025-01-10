@@ -136,7 +136,7 @@ TEST_F(CoordTest, SingleClientRecv)
         exit(0);
     } else {
         // server
-        coord_header* coord_region = coord_create((char*)"SingleClientRecv");
+        coord_header* coord_region = coord_create((char*)"SingleClientRecv", BAKERY);
         int err = -1;
         while (err == -1) {
             // TODO: what's the point of returning client_id? client_id won't
@@ -215,7 +215,7 @@ TEST_F(CoordTest, SingleClientGetSlot)
         exit(0);
     } else {
         // PARENT PROCESS
-      coord_header* coord_region = coord_create((char*)"SingleClientGetSlot");
+      coord_header* coord_region = coord_create((char*)"SingleClientGetSlot", BAKERY);
         err = -1;
         while (err == -1) {
             err = service_slot(coord_region, 0, &_fake_shm_allocator);

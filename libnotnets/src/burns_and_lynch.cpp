@@ -37,7 +37,7 @@ step_3:
         //STEP 7
         // Everyone to my right goes first, so I look to my right and wait until I don't see any hands up.
 step_7:
-        for (int  j = thread+1; j <= THREAD_COUNT; j++){
+        for (int  j = thread+1; j < THREAD_COUNT; j++){
             if (bl->F[j] == up){
                 goto step_7;
             }

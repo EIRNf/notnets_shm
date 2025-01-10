@@ -50,20 +50,24 @@ typedef struct coord_row {
 } coord_row;
 
 
-// union coord_lock {
+typedef enum {
+    PTHREAD = 0,
+    BAKERY = 1,
+    BURNS_AND_LYNCH = 2
+} lock_type;
 
-//     pthread_mutex_t mutex; // lock when accessing slots or available_slots
-//     bakery_lock bakery;
-//     burns_and_lynch_lock burns_and_lynch;
-
-// } coord_lock;
+union coord_lock {
+    pthread_mutex_t pthread; // lock when accessing slots or available_slots
+    bakery_lock bakery;
+    burns_and_lynch_lock burns_and_lynch;
+};
 
 typedef struct coord_header {
     int shmid; // for later deletion, to avoid process state
     int accept_slot;
 
-    pthread_mutex_t mutex; // lock when accessing slots or available_slots
-
+    lock_type lock_type;
+    union coord_lock lock;
 
 	reserve_pair available_slots[SLOT_NUM];
     coord_row slots[SLOT_NUM];
@@ -99,7 +103,7 @@ bool set_client_attach_state(coord_header* header, int slot, bool state);
 bool set_server_attach_state(coord_header* header, int slot, bool state);
 
 // Server
-coord_header* coord_create(char* coord_address);
+coord_header* coord_create(char* coord_address, lock_type lock_type);
 
 int service_slot(coord_header* header,
                  int slot,

@@ -47,7 +47,7 @@ struct test_connection_args {
 
 TEST_F(RPCTest, ServerShutDown)
 {
-    server_context* sc = register_server((char*)"ServerShutDownServer");
+    server_context* sc = register_server((char*)"ServerShutDownServer", PTHREAD);
     int err = (sc == NULL);
     shutdown(sc);
     EXPECT_FALSE(err);
@@ -62,7 +62,7 @@ TEST_F(RPCTest, OpenClose)
     if (pid == -1) {
         perror("fork");
     } else if (pid > 0) { // PARENT PROCESS
-      server_context* sc = register_server((char*)"OpenCloseServer");
+      server_context* sc = register_server((char*)"OpenCloseServer",    PTHREAD);
 
         while ((wpid = wait(&status)) > 0);
 
@@ -96,9 +96,15 @@ TEST_F(RPCTest, Accept)
     if (pid == -1) {
         perror("fork");
     } else if (pid > 0) { // PARENT PROCESS
-        server_context* sc = register_server((char*)"AcceptServer");
+        server_context* sc = register_server((char*)"AcceptServer", PTHREAD);
 
         queue_ctx* qp;
+
+        printf("Server: %p\n", sc);   
+        printf("Server: %p\n", sc->coord_shmaddr);   
+
+
+        
         while ((qp = accept(sc)) == NULL);
 
         int expected_client_id = (int)hash((unsigned char*)"AcceptClient");
@@ -188,7 +194,7 @@ TEST_F(RPCTest, SendRecvInt)
 
     } else { // CHILD PROCESS
        
-        server_context* sc = register_server((char*)"SendRecvIntServer");
+        server_context* sc = register_server((char*)"SendRecvIntServer", PTHREAD);
 
         atomic_store(ipc, -1); //Takes a while to return, must restrict client execution.
 
@@ -234,7 +240,7 @@ TEST_F(RPCTest, SendRecvStr)
     if (pid == -1) {
         perror("fork");
     } else if (pid == 0) { // PARENT PROCESS
-        server_context* sc = register_server((char*)"SendRecvStrServer");
+        server_context* sc = register_server((char*)"SendRecvStrServer", PTHREAD);
         atomic_store(ipc, -1); //Takes a while to return, must restrict client execution.
 
 
@@ -361,7 +367,7 @@ TEST_F(RPCTest, Connection)
     pthread_t *clients[TEST_CLIENTS] = {};
 
     //Create server
-    server_context* sc = register_server((char*)"ConnectionServer");
+    server_context* sc = register_server((char*)"ConnectionServer", PTHREAD);
 
 
     //Args to capture client input
