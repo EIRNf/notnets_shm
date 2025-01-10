@@ -93,7 +93,7 @@ void connection_stress_test(){
     pthread_t *clients[MAX_CLIENTS] = {};
 
     //Current 
-    server_context* sc = register_server((char*)"test_server_addr", PTHREAD);
+    server_context* sc = register_server((char*)"test_server_addr", BAKERY );
 
     struct connection_args *args[MAX_CLIENTS] = {};
 
@@ -121,10 +121,11 @@ void connection_stress_test(){
     run_flag = true;
     
    
-    int client_list[MAX_CLIENTS];
+    int client_list[MAX_CLIENTS] = {0} ;
     queue_ctx *client_queues[MAX_CLIENTS];
     int *item;
     int key;
+
     for (int i=0;i < MAX_CLIENTS;){
         s_qp = accept(sc);
         //Check for repeat entries!!!!!!!!!

@@ -15,8 +15,8 @@ typedef struct bakery_lock {
     
     atomic_int process_counter;
 
-    int tickets[THREAD_COUNT];
-    int choosing[THREAD_COUNT];
+    atomic_int tickets[THREAD_COUNT];
+    atomic_int choosing[THREAD_COUNT];
 
 
 } bakery_lock;

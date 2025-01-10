@@ -100,9 +100,6 @@ TEST_F(RPCTest, Accept)
 
         queue_ctx* qp;
 
-        printf("Server: %p\n", sc);   
-        printf("Server: %p\n", sc->coord_shmaddr);   
-
 
         
         while ((qp = accept(sc)) == NULL);

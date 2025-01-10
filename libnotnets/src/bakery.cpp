@@ -2,32 +2,28 @@
 
 void lock(bakery_lock *bl ,int thread)
 {
-    bl->choosing[thread] = 1;
+    atomic_store(&bl->choosing[thread], 1);
 
-    atomic_thread_fence(memory_order_seq_cst);
-
-    int max_ticket = 0;
-
+    atomic_int max_ticket = 0;
+    atomic_int ticket = 0;
     for (int i = 0; i < THREAD_COUNT; ++i) {
-        int ticket = bl->tickets[i];
-        max_ticket
-            = ticket > max_ticket ? ticket : max_ticket;
+        atomic_store(&ticket,bl->tickets[i]);
+
+        if (ticket > max_ticket) {
+            atomic_store(&max_ticket, ticket);
+        }
     }
 
-    bl->tickets[thread] = max_ticket + 1;
-
-    atomic_thread_fence(memory_order_seq_cst);
-    bl->choosing[thread] = 0;
+    atomic_store(&bl->tickets[thread],  max_ticket + 1);
+    atomic_store(&bl->choosing[thread], 0);
 
     for (int other = 0; other < THREAD_COUNT; ++other) {
-        while (bl->choosing[other]) {
+        while (atomic_load(&bl->choosing[other])) {
         }
 
-        atomic_thread_fence(memory_order_seq_cst);
-
-        while (bl->tickets[other] != 0
-               && (bl->tickets[other] < bl->tickets[thread]
-                   || (bl->tickets[other] == bl->tickets[thread]
+        while (atomic_load(&bl->tickets[other]) != 0
+               && (atomic_load(&bl->tickets[other]) < atomic_load(&bl->tickets[thread])
+                   || (atomic_load(&bl->tickets[other]) == atomic_load(&bl->tickets[thread])
                        && other < thread))) {
         }
     }
@@ -35,8 +31,7 @@ void lock(bakery_lock *bl ,int thread)
 
 void unlock(bakery_lock *bl , int thread)
 {
-    atomic_thread_fence(memory_order_seq_cst);
-    bl->tickets[thread] = 0;
+    atomic_store(&bl->tickets[thread], 0);
 }
 
 bakery_lock* create_bakery_lock()
