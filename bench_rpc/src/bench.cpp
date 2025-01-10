@@ -93,7 +93,7 @@ void connection_stress_test(){
     pthread_t *clients[MAX_CLIENTS] = {};
 
     //Current 
-    server_context* sc = register_server((char*)"test_server_addr", BAKERY );
+    server_context* sc = register_server((char*)"test_server_addr", BURNS_AND_LYNCH );
 
     struct connection_args *args[MAX_CLIENTS] = {};
 

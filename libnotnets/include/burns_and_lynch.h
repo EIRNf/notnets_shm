@@ -10,12 +10,6 @@
 
 #define THREAD_COUNT  200
 
-typedef enum flag
-{
-  down,
-  up,
-} flag;
-
 
 //From Mutual Exclusion Using Indivisible Reads and Writes by James Burns and Nancy Lynch
 //https://groups.csail.mit.edu/tds/papers/Lynch/allertonconf.pdf
@@ -23,7 +17,10 @@ typedef struct burns_and_lynch_lock {
     //User atomic to ensure unique assignment of process IDs
     atomic_int process_counter;
 
-    flag F[THREAD_COUNT];
+    //Atomic bool as flag array
+    // down = false, up = true
+    // down = 0, up = 1
+    atomic_bool F[THREAD_COUNT];
 
 } burns_and_lynch_lock;
 
