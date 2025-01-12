@@ -86,21 +86,23 @@ void single_connection_test(){
 // Evaluate how long connections take in Notnets
 // Instantiate multiple client threads to opening new connection until max is reached.
 // Server simply accepts and loops over avalable queue pairs until it can read data from all those connected.
-void connection_stress_test(){ 
-    fprintf(stdout, "\nnotnets/%s/\n", __func__);
+void connection_stress_test(lock_type lock_type, int num_clients){ 
+    // fprintf(stdout, "\nnotnets/%s/\n", __func__);
 
     // pthread_t producer;
-    pthread_t *clients[MAX_CLIENTS] = {};
+    pthread_t *clients[num_clients];
+    memset(clients, 0, sizeof(clients));
 
     //Current 
     server_context* sc = register_server((char*)"test_server_addr", BURNS_AND_LYNCH );
 
-    struct connection_args *args[MAX_CLIENTS] = {};
+    struct connection_args *args[num_clients];
+    memset(args, 0, sizeof(args));
 
     //Create client threads, will maintain a holding pattern until 
     // flag is flipped
     struct timespec nonce;
-    for(int i = 0; i < MAX_CLIENTS; i++){
+    for(int i = 0; i < num_clients; i++){
       struct connection_args *client_args = (struct connection_args *)malloc(sizeof(struct connection_args));
         args[i] = client_args;
         pthread_t *new_client = (pthread_t*)malloc(sizeof(pthread_t));
@@ -121,18 +123,20 @@ void connection_stress_test(){
     run_flag = true;
     
    
-    int client_list[MAX_CLIENTS] = {0} ;
-    queue_ctx *client_queues[MAX_CLIENTS];
+    int client_list[num_clients];
+    memset(client_list, 0, sizeof(client_list));
+    queue_ctx *client_queues[num_clients];
+    memset(client_queues, 0, sizeof(client_queues));
     int *item;
     int key;
 
-    for (int i=0;i < MAX_CLIENTS;){
+    for (int i=0;i < num_clients;){
         s_qp = accept(sc);
         //Check for repeat entries!!!!!!!!!
         if (s_qp != NULL){ //Ocasional Leak here, discover why TODO
             
             key = s_qp->queues->client_id;
-            item = (int*) bsearch(&key, client_list,MAX_CLIENTS,sizeof(int),cmpfunc);
+            item = (int*) bsearch(&key, client_list,num_clients,sizeof(int),cmpfunc);
             //Client already accepted, reject
             if(item != NULL){
                 free(s_qp);
@@ -150,7 +154,7 @@ void connection_stress_test(){
 
     atomic_thread_fence(memory_order_seq_cst);
     //Join threads
-    for(int i =0; i < MAX_CLIENTS; i++){
+    for(int i =0; i < num_clients; i++){
         pthread_join(*clients[i],NULL);
         // report_connection_stats(args[i]);
         //Free heap allocated data
@@ -159,14 +163,33 @@ void connection_stress_test(){
         free(clients[i]);
     }   
 
+
+    struct timespec earliest_start = args[0]->start;
+    struct timespec latest_end = args[0]->end;
+    for (int i = 1; i < num_clients; i++) {
+        
+        if ((args[i]->start.tv_sec < earliest_start.tv_sec) ||
+            (args[i]->start.tv_sec == earliest_start.tv_sec && args[i]->start.tv_nsec < earliest_start.tv_nsec)) {
+            earliest_start = args[i]->start;
+        }
+        if ((args[i]->end.tv_sec > latest_end.tv_sec) ||
+            (args[i]->end.tv_sec == latest_end.tv_sec && args[i]->end.tv_nsec > latest_end.tv_nsec)) {
+            latest_end = args[i]->end;
+        }
+    }
+
+    long duration_ns = (latest_end.tv_sec - earliest_start.tv_sec) * 1.0e+09 + (latest_end.tv_nsec - earliest_start.tv_nsec);
+    // fprintf(stdout, "Earliest Start Time: %ld.%09ld\n", earliest_start.tv_sec, earliest_start.tv_nsec);
+    // fprintf(stdout, "Latest End Time: %ld.%09ld\n", latest_end.tv_sec, latest_end.tv_nsec);
+    // fprintf(stdout, "Duration: %ld ns\n", duration_ns);
+
     //PRINT AVERGAGE
     //nanosecond ns 1.0e-09
     //microsecond us 1.0e-06
     //millisecond ms 1.0e-03
-    
     long total_ms = 0.0;
     long total_ns = 0.0;
-    for(int i = 0; i < MAX_CLIENTS; i++){
+    for(int i = 0; i < num_clients; i++){
         struct timespec start = args[i]->start;
         struct timespec end = args[i]->end;
         if ((end.tv_sec - start.tv_sec) > 0 ){ //we have atleast 1 sec
@@ -184,15 +207,25 @@ void connection_stress_test(){
         }
     }
 
+    fprintf(stdout, "%d,", lock_type);
+    fprintf(stdout, "%d,", num_clients);
+    fprintf(stdout, "%ld,", total_ms);
+    fprintf(stdout, "%ld,", total_ns);
+    fprintf(stdout, "%ld\n", duration_ns);
 
-    fprintf(stdout, "Num Clients: %d  \n", MAX_CLIENTS);
-    fprintf(stdout, "Available Slots: %d  \n", SLOT_NUM);
-    fprintf(stdout, "Average Connection Latency: %ld ms/op \n", (total_ms/MAX_CLIENTS));
-    fprintf(stdout, "Average Connection Latency: %ld ns/op  \n", total_ns/MAX_CLIENTS);
+
+
+    // fprintf(stdout, "Lock Type: %d  \n", lock_type);
+    // fprintf(stdout, "Num Clients: %d  \n", num_clients);
+    // fprintf(stdout, "Available Slots: %d  \n", SLOT_NUM);
+    // fprintf(stdout, "Total Connection Time: %ld ms/op \n", total_ms);
+    // fprintf(stdout, "Total Connection Time: %ld ns/op \n", total_ns );
+    // fprintf(stdout, "Average Connection Latency: %ld ms/op \n", (total_ms/num_clients));
+    // fprintf(stdout, "Average Connection Latency: %ld ns/op  \n", total_ns/num_clients);
 
 
 
-    for (int i=0; i< MAX_CLIENTS; i++){
+    for (int i=0; i< num_clients; i++){
         free(args[i]);
     }
     shutdown(sc);
@@ -741,17 +774,36 @@ void bench_run_all(void){
     //break this limitation and thus can't be run in osx
 
 #else
-    connection_stress_test();
+
+    fprintf(stdout, "lock_type | num_clients | total ms | total ns | \n");
+
+    for(int i = 1; i <= MAX_CLIENTS; i++){
+        connection_stress_test(PTHREAD, i);
+    }
+
+    for (int i = 1; i <= MAX_CLIENTS; i++){
+        connection_stress_test(BAKERY, i);
+    }
+
+    for (int i = 1; i <= MAX_CLIENTS; i++){
+        connection_stress_test(BURNS_AND_LYNCH, i);
+    }
+
+    // connection_stress_test(PTHREAD, 1);
+    // connection_stress_test(BAKERY, 1);
+    // connection_stress_test(BURNS_AND_LYNCH,1 );
+
+
 
     fprintf(stdout, "num_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | \n");
     //Connections are all pre-established, and we only measure steady-state
-    rtt_steady_state_conn_test();
+    // rtt_steady_state_conn_test();
     
     // Connections are established at the start of the experiment, but included in the measurement
     // We explicitly do not disconnect right?
     rtt_during_connection_test();
     // Connections are open and closed throughout the duration of the experiment.
-    rtt_connect_disconnect_connection_test();
+    // rtt_connect_disconnect_connection_test();
 #endif
 
 
