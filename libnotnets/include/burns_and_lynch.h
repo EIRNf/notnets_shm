@@ -8,7 +8,7 @@
 #include <vector>
 #include <stdatomic.h>
 
-#define THREAD_COUNT  200
+#define THREAD_COUNT  1000
 
 
 //From Mutual Exclusion Using Indivisible Reads and Writes by James Burns and Nancy Lynch

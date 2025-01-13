@@ -11,7 +11,7 @@ lock_types = ['PTHREAD', 'BAKERY', 'BURNS_AND_LYNCH', 'PTHREAD_SPIN']
 def run_benchmark(lock_type, start_num_clients, end_num_clients):
     results = []
         
-    cmd = ['./bench_rpc/bin/bench_rpc', lock_type, str(start_num_clients), str(end_num_clients)]
+    cmd = ['./bench_mutex/bin/bench_mutex', lock_type, str(start_num_clients), str(end_num_clients)]
     result = subprocess.run(cmd, capture_output=True, text=True)
     output = result.stdout.strip()
     rows = output.split('\n')
@@ -56,12 +56,12 @@ def plot_graphs(results):
     fig, ax = plt.subplots()
     for lock_type, data in df.groupby('lock_type'):
         
-        ax.plot(data['num_clients'], data['p99_ns'], label=lock_types[lock_type])
+        ax.plot(data['num_clients'], data['average_ns'], label=lock_types[lock_type])
         # ax.plot(data['ops_s'], data['average_ns'], label=lock_types[lock_type])
 
         
     
-    # ax.set_yscale('log')
+    ax.set_yscale('log')
     plt.legend([ lock_types[0], lock_types[1], lock_types[2], lock_types[3]],fontsize="small")
     
     plt.xlabel('Number of Clients')
@@ -80,7 +80,7 @@ if __name__ == "__main__":
         os.remove('benchmark_results.csv')
     
     for lock_type in lock_types:
-        for num_clients in range(1, 65, 10):
-            results = run_benchmark(lock_type, num_clients, num_clients + 10)
+        # for num_clients in range(1, 75, 10):
+            results = run_benchmark(lock_type, 1, 100)
             append_results_to_csv(results, 'benchmark_results.csv')
     plot_graphs(results)

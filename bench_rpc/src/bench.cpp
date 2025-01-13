@@ -874,10 +874,17 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Number of clients must be a positive integer.\n");
         return 1;
     }
-    fprintf(stdout, "lock_type | num_clients | total ms | total ns | average ns | p99 ns | ops_s\n");
+    // fprintf(stdout, "lock_type | num_clients | total ms | total ns | average ns | p99 ns | ops_s\n");
 
     for(int i = num_clients_start; i <= num_clients_end; i++){
+
+        //Run 5 times
         connection_stress_test(lt, i);
+        // connection_stress_test(lt, i);
+        // connection_stress_test(lt, i);
+        // connection_stress_test(lt, i);
+        // connection_stress_test(lt, i);
+
     }
 
     return 0;

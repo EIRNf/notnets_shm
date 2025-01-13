@@ -8,7 +8,7 @@
 #include <stdatomic.h>
 
 
-#define THREAD_COUNT  200
+#define THREAD_COUNT  1000
 
 typedef struct bakery_lock {
     //User atomic to ensure unique assignment of process IDs
