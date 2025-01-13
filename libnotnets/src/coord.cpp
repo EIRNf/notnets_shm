@@ -118,6 +118,9 @@ int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TY
     } else if (lock_type == BURNS_AND_LYNCH) {
         unique_thread_id = get_process_id(&header->lock.burns_and_lynch);
         lock(&header->lock.burns_and_lynch, unique_thread_id);
+    } else if (lock_type == PTHREAD_SPIN)
+    {
+        pthread_spin_lock(&header->lock.pthread_spin);
     }
     
     for(int i = 0; i < SLOT_NUM; i++){
@@ -144,6 +147,9 @@ int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TY
                 unlock(&header->lock.bakery, unique_thread_id);
             } else if (lock_type == BURNS_AND_LYNCH) {
                 unlock(&header->lock.burns_and_lynch, unique_thread_id);
+            } else if (lock_type == PTHREAD_SPIN)
+            {
+                pthread_spin_unlock(&header->lock.pthread_spin);
             }
 
             return i;
@@ -156,6 +162,9 @@ int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TY
         unlock(&header->lock.bakery, unique_thread_id);
     } else if (lock_type == BURNS_AND_LYNCH) {
         unlock(&header->lock.burns_and_lynch, unique_thread_id);
+    } else if (lock_type == PTHREAD_SPIN)
+    {
+        pthread_spin_unlock(&header->lock.pthread_spin);
     }
     return -1;
 }
@@ -246,6 +255,12 @@ coord_header* coord_create(char* coord_address, lock_type lock_type){
         init_bakery_lock(&header->lock.bakery);
     } else if (header->lock_type == BURNS_AND_LYNCH) {
         init_burns_and_lynch_lock(&header->lock.burns_and_lynch);
+    } else if (header->lock_type == PTHREAD_SPIN) {
+        // instantiate the mutex
+        if (pthread_spin_init(&header->lock.pthread_spin, PTHREAD_PROCESS_SHARED)== -1) {
+            perror("error creating mutex");
+        }
+
     }
 
     return header;

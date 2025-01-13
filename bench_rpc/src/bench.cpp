@@ -89,7 +89,6 @@ void single_connection_test(){
 void connection_stress_test(lock_type lock_type, int num_clients){ 
     // fprintf(stdout, "\nnotnets/%s/\n", __func__);
 
-    // pthread_t producer;
     pthread_t *clients[num_clients];
     memset(clients, 0, sizeof(clients));
 
@@ -164,6 +163,54 @@ void connection_stress_test(lock_type lock_type, int num_clients){
     }   
 
 
+    //PRINT AVERGAGE
+    //nanosecond ns 1.0e-09
+    //microsecond us 1.0e-06
+    //millisecond ms 1.0e-03
+    long total_ms = 0.0;
+    long total_ns = 0.0;
+    for(int i = 0; i < num_clients; i++){
+        struct timespec start = args[i]->start;
+        struct timespec end = args[i]->end;
+        if ((end.tv_sec - start.tv_sec) > 0 ){ //we have atleast 1 sec
+            long ms = 0.0;
+            ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
+            ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
+
+            total_ms += ms;
+        } else {//nanosecond scale, probably not very accurate
+            long ns = 0.0;
+            ns =  (end.tv_sec - start.tv_sec) * 1.0e+09;
+            ns += (end.tv_nsec - start.tv_nsec);    
+
+            total_ns += ns;
+        }
+    }
+
+    //Get total in ms 
+    long final_total_ms = total_ms + total_ns / 1.0e+06;
+    //Get total in ns
+    long final_total_ns = total_ns + total_ms * 1.0e+06;
+    
+    long average = final_total_ns/num_clients;
+
+     // Calculate the 99th percentile of the args seconds argument
+    long *latencies = (long *)malloc(num_clients * sizeof(long));
+    for (int i = 0; i < num_clients; i++) {
+        struct timespec start = args[i]->start;
+        struct timespec end = args[i]->end;
+        long ns = (end.tv_sec - start.tv_sec) * 1.0e+09 + (end.tv_nsec - start.tv_nsec);
+        latencies[i] = ns;
+    }
+
+    // Sort the latencies array
+    qsort(latencies, num_clients, sizeof(long), cmpfunc);
+
+    // Calculate the 99th percentile
+    int index_99th = (int)(0.99 * num_clients);
+    long percentile_99th = latencies[index_99th];
+
+    // Calculate start and end times of the entire test to calculate throughput
     struct timespec earliest_start = args[0]->start;
     struct timespec latest_end = args[0]->end;
     for (int i = 1; i < num_clients; i++) {
@@ -179,41 +226,21 @@ void connection_stress_test(lock_type lock_type, int num_clients){
     }
 
     long duration_ns = (latest_end.tv_sec - earliest_start.tv_sec) * 1.0e+09 + (latest_end.tv_nsec - earliest_start.tv_nsec);
-    // fprintf(stdout, "Earliest Start Time: %ld.%09ld\n", earliest_start.tv_sec, earliest_start.tv_nsec);
-    // fprintf(stdout, "Latest End Time: %ld.%09ld\n", latest_end.tv_sec, latest_end.tv_nsec);
-    // fprintf(stdout, "Duration: %ld ns\n", duration_ns);
 
-    //PRINT AVERGAGE
-    //nanosecond ns 1.0e-09
-    //microsecond us 1.0e-06
-    //millisecond ms 1.0e-03
-    long total_ms = 0.0;
-    long total_ns = 0.0;
-    for(int i = 0; i < num_clients; i++){
-        struct timespec start = args[i]->start;
-        struct timespec end = args[i]->end;
-        if ((end.tv_sec - start.tv_sec) > 0 ){ //we have atleast 1 sec
 
-            long ms = (end.tv_sec - start.tv_sec) * 1.0e+03;
-            ms += (end.tv_nsec - start.tv_nsec) / 1.0e+06;
+    long throughput_ops_s= num_clients * 1.0e+09 / duration_ns;
 
-            total_ms += ms;
-        } else {//nanosecond scale, probably not very accurate
-            long ns = 0.0;
-            ns =  (end.tv_sec - start.tv_sec) * 1.0e+09;
-            ns += (end.tv_nsec - start.tv_nsec);    
-
-            total_ns += ns ;
-        }
-    }
 
     fprintf(stdout, "%d,", lock_type);
     fprintf(stdout, "%d,", num_clients);
-    fprintf(stdout, "%ld,", total_ms);
-    fprintf(stdout, "%ld,", total_ns);
-    fprintf(stdout, "%ld\n", duration_ns);
+    fprintf(stdout, "%ld,", final_total_ms);
+    fprintf(stdout, "%ld,", final_total_ns);
+    fprintf(stdout,"%ld,", average);
+    fprintf(stdout,"%ld,", percentile_99th);
+    fprintf(stdout,"%ld ", throughput_ops_s);
+    fprintf(stdout,"\n");
 
-
+    free(latencies);
 
     // fprintf(stdout, "Lock Type: %d  \n", lock_type);
     // fprintf(stdout, "Num Clients: %d  \n", num_clients);
@@ -775,19 +802,26 @@ void bench_run_all(void){
 
 #else
 
-    fprintf(stdout, "lock_type | num_clients | total ms | total ns | \n");
 
-    for(int i = 1; i <= MAX_CLIENTS; i++){
-        connection_stress_test(PTHREAD, i);
-    }
 
-    for (int i = 1; i <= MAX_CLIENTS; i++){
-        connection_stress_test(BAKERY, i);
-    }
+    // * throughput: how many connections can each implementation establish per unit of time (e.g., seconds)?
+    // * latency: how long (on average, as well as in the tail) does each connection take to establish?
 
-    for (int i = 1; i <= MAX_CLIENTS; i++){
-        connection_stress_test(BURNS_AND_LYNCH, i);
-    }
+    // for(int i = 1; i <= MAX_CLIENTS; i++){
+    //     connection_stress_test(PTHREAD, i);
+    // }
+
+    // for (int i = 1; i <= MAX_CLIENTS; i++){
+    //     connection_stress_test(BAKERY, i);
+    // }
+
+    // for (int i = 1; i <= MAX_CLIENTS; i++){
+    //     connection_stress_test(BURNS_AND_LYNCH, i);
+    // }
+
+    // for (int i = 1; i <= MAX_CLIENTS; i++){
+    //     connection_stress_test(PTHREAD_SPIN, i);
+    // }
 
     // connection_stress_test(PTHREAD, 1);
     // connection_stress_test(BAKERY, 1);
@@ -795,13 +829,13 @@ void bench_run_all(void){
 
 
 
-    fprintf(stdout, "num_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | \n");
+    // fprintf(stdout, "num_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | \n");
     //Connections are all pre-established, and we only measure steady-state
     // rtt_steady_state_conn_test();
     
     // Connections are established at the start of the experiment, but included in the measurement
     // We explicitly do not disconnect right?
-    rtt_during_connection_test();
+    // rtt_during_connection_test();
     // Connections are open and closed throughout the duration of the experiment.
     // rtt_connect_disconnect_connection_test();
 #endif
@@ -813,10 +847,48 @@ void bench_run_all(void){
 }
 
 
-int main()
+int main(int argc, char *argv[])
 {
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s <lock_type>  <start_num_clients> <end_num_clients>\n", argv[0]);
+        return 1;
+    }
 
-    bench_run_all();
+    lock_type lt;
+    if (strcmp(argv[1], "PTHREAD") == 0) {
+        lt = PTHREAD;
+    } else if (strcmp(argv[1], "BAKERY") == 0) {
+        lt = BAKERY;
+    } else if (strcmp(argv[1], "BURNS_AND_LYNCH") == 0) {
+        lt = BURNS_AND_LYNCH;
+    } else if (strcmp(argv[1], "PTHREAD_SPIN") == 0) {
+        lt = PTHREAD_SPIN;
+    } else {
+        fprintf(stderr, "Invalid lock type. Valid options are: PTHREAD, BAKERY, BURNS_AND_LYNCH, PTHREAD_SPIN.\n");
+        return 1;
+    }
+
+    int num_clients_start = atoi(argv[2]);
+    int num_clients_end = atoi(argv[3]);
+    if (num_clients_start <= 0) {
+        fprintf(stderr, "Number of clients must be a positive integer.\n");
+        return 1;
+    }
+    fprintf(stdout, "lock_type | num_clients | total ms | total ns | average ns | p99 ns | ops_s\n");
+
+    for(int i = num_clients_start; i <= num_clients_end; i++){
+        connection_stress_test(lt, i);
+    }
+
+    return 0;
 }
+
+
+
+// int main()
+// {
+
+//     bench_run_all();
+// }
 
 

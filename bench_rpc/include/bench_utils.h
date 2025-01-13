@@ -12,7 +12,7 @@
 extern atomic_bool run_flag; //control execution
 
 #ifndef MAX_CLIENTS
-#define MAX_CLIENTS 20
+#define MAX_CLIENTS 300
 #endif
 
 

@@ -517,6 +517,10 @@ queue_ctx* accept(server_context* handler) {
             handler->unique_thread_id = get_process_id(&ch->lock.burns_and_lynch);
         }
         lock(&ch->lock.burns_and_lynch, handler->unique_thread_id);
+    } else if (lock_type == PTHREAD_SPIN)
+    {
+        pthread_spin_lock(&ch->lock.pthread_spin);
+        
     }
     
     for (int i = 0; i < SLOT_NUM; ++i, slot = (slot + 1) % SLOT_NUM) {
@@ -538,6 +542,9 @@ queue_ctx* accept(server_context* handler) {
                 unlock(&ch->lock.bakery, handler->unique_thread_id);
             } else if (lock_type == BURNS_AND_LYNCH) {
                 unlock(&ch->lock.burns_and_lynch, handler->unique_thread_id);
+            } else if (lock_type == PTHREAD_SPIN)
+            {
+                pthread_spin_unlock(&ch->lock.pthread_spin);
             }
 
             //Server must take the Client's requested queue queue_type
@@ -556,6 +563,9 @@ queue_ctx* accept(server_context* handler) {
         unlock(&ch->lock.bakery, handler->unique_thread_id);
     } else if (lock_type == BURNS_AND_LYNCH) {
         unlock(&ch->lock.burns_and_lynch, handler->unique_thread_id);
+    } else if (lock_type == PTHREAD_SPIN)
+    {
+        pthread_spin_unlock(&ch->lock.pthread_spin);
     }
     return NULL;
 }

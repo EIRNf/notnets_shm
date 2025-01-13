@@ -1,8 +1,10 @@
 #ifndef __COORD_H
 #define __COORD_H
 
-#define SLOT_NUM 40
-#define QUEUE_SIZE 16777216 // 16MB
+#define SLOT_NUM 1000
+// #define QUEUE_SIZE 16777216 // 16MB
+#define QUEUE_SIZE 128 // 16MB
+
 
 #include <unistd.h>
 #include <pthread.h>
@@ -53,13 +55,15 @@ typedef struct coord_row {
 typedef enum {
     PTHREAD = 0,
     BAKERY = 1,
-    BURNS_AND_LYNCH = 2
+    BURNS_AND_LYNCH = 2,
+    PTHREAD_SPIN = 3
 } lock_type;
 
 union coord_lock {
     pthread_mutex_t pthread; // lock when accessing slots or available_slots
     bakery_lock bakery;
     burns_and_lynch_lock burns_and_lynch;
+    pthread_spinlock_t pthread_spin;
 };
 
 typedef struct coord_header {

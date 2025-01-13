@@ -17,8 +17,8 @@
 #define RUNNING_NO_SHUTDOWN 1
 #define RUNNING_SHUTDOWN 2
 
-#define CLIENT_OPEN_WAIT_INTERVAL 200 //in us
-#define SERVER_SERVICE_POll_INTERVAL 150 //in us
+#define CLIENT_OPEN_WAIT_INTERVAL 0 //in us
+#define SERVER_SERVICE_POll_INTERVAL 0 //in us
 // This assumes two unidirectional SPSC queues, find way to generalize
 // Unsure how much to keep in this ref, is
 // there value in keeping all three
