@@ -6,6 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <sched.h>
+#include <time.h>
+#include <linux/prctl.h>  /* Definition of PR_* constants */
+#include <sys/prctl.h>
+#include <immintrin.h>
+
 
 spsc_queue_header* get_queue_header(void* shmaddr) {
     spsc_queue_header* header = (spsc_queue_header*) shmaddr;
@@ -66,6 +72,12 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
         next_writer_head = 0;
     }
 
+    _umonitor(header); // Monitor for data availability
+    _umwait(0, 0); // Pause until data is available
+
+
+    long sleep_time = 0;
+    struct timespec sleep;  
     while(next_writer_head == atomic_load_explicit(&header->tail, memory_order_acquire)){ 
         //Poll if full
         if (header->stop_producer_polling) {
