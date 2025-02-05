@@ -11,7 +11,7 @@ lock_types = ['PTHREAD', 'BAKERY', 'BURNS_AND_LYNCH', 'PTHREAD_SPIN']
 def run_benchmark(lock_type, start_num_clients, end_num_clients):
     results = []
         
-    cmd = ['./bench_mutex/bin/bench_mutex', lock_type, str(start_num_clients), str(end_num_clients)]
+    cmd = ['./bench_rpc/bin/bench_rpc', lock_type, str(start_num_clients), str(end_num_clients)]
     result = subprocess.run(cmd, capture_output=True, text=True)
     output = result.stdout.strip()
     rows = output.split('\n')
@@ -52,23 +52,26 @@ def append_results_to_csv(results, filename):
 def plot_graphs(results):
     
     df = pd.read_csv('benchmark_results.csv')
+    plt.style.use('tableau-colorblind10')
+
         
     fig, ax = plt.subplots()
     for lock_type, data in df.groupby('lock_type'):
         
-        ax.plot(data['num_clients'], data['average_ns'], label=lock_types[lock_type])
-        # ax.plot(data['ops_s'], data['average_ns'], label=lock_types[lock_type])
+        ax.plot(data['num_clients'], data['average_ns'], label=f"avg_{lock_types[lock_type]}")
+        ax.plot(data['num_clients'], data['p99_ns'], label=f"p99_{lock_types[lock_type]}", linestyle='dashed')
 
         
     
-    ax.set_yscale('log')
-    plt.legend([ lock_types[0], lock_types[1], lock_types[2], lock_types[3]],fontsize="small")
+    # ax.set_yscale('log')
+    plt.legend()
+    # plt.legend([ lock_types[0], lock_types[1], lock_types[2], lock_types[3]],fontsize="small")
     
-    plt.xlabel('Number of Clients')
-    plt.ylabel('Avg Client Latency (ns)')
+    plt.xlabel('client_connections')
+    plt.ylabel('latency (ns)')
     
 
-    plt.title('Latency vs Number of Clients')
+    plt.title('average and p99 connection latency with increasing number of clients')
         
     plt.tight_layout()
     plt.savefig("latency_vs_num_clients.png")
@@ -80,7 +83,8 @@ if __name__ == "__main__":
         os.remove('benchmark_results.csv')
     
     for lock_type in lock_types:
-        # for num_clients in range(1, 75, 10):
-            results = run_benchmark(lock_type, 1, 100)
+        for num_clients in range(1, 25, 10):
+            results = run_benchmark(lock_type, num_clients, num_clients+10)
             append_results_to_csv(results, 'benchmark_results.csv')
+            
     plot_graphs(results)

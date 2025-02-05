@@ -849,8 +849,8 @@ void bench_run_all(void){
 
 int main(int argc, char *argv[])
 {
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s <lock_type>  <start_num_clients> <end_num_clients>\n", argv[0]);
+    if (argc != 5) {
+        fprintf(stderr, "Usage: %s <lock_type>  <start_num_clients> <end_num_clients> <repeat num>\n", argv[0]);
         return 1;
     }
 
@@ -876,15 +876,11 @@ int main(int argc, char *argv[])
     }
     // fprintf(stdout, "lock_type | num_clients | total ms | total ns | average ns | p99 ns | ops_s\n");
 
+    int repeat_num = atoi(argv[4]);
     for(int i = num_clients_start; i <= num_clients_end; i++){
-
-        //Run 5 times
-        connection_stress_test(lt, i);
-        // connection_stress_test(lt, i);
-        // connection_stress_test(lt, i);
-        // connection_stress_test(lt, i);
-        // connection_stress_test(lt, i);
-
+        for (int j = 0; j < repeat_num; j++){
+            connection_stress_test(lt, i);
+        }
     }
 
     return 0;

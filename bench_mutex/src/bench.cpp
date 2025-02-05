@@ -4,10 +4,14 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sched.h>
+#include <sys/resource.h>
+
 
 #include "rpc.h"
 #include "mem.h"
 #include "bench.h"
+
+
 #include "bench_mutex_utils.h"
 
 //initialize run flag
@@ -45,6 +49,9 @@ void connection_stress_test(lock_type lock_type, int num_clients){
             perror("error creating mutex");
         }
 
+    }
+    else if (lock_type == LAMPORT_FAST_LOCK) {
+        init_lamport_fast_lock(&lock->lamport_fast);
     }
 
     // Allocate lock in shared memory for access by all clients
@@ -87,6 +94,8 @@ void connection_stress_test(lock_type lock_type, int num_clients){
         free(clients[i]);
     }   
 
+    int num_items = num_clients * NUM_ITEMS;
+
 
     //PRINT AVERGAGE
     //nanosecond ns 1.0e-09
@@ -117,7 +126,7 @@ void connection_stress_test(lock_type lock_type, int num_clients){
     //Get total in ns
     long final_total_ns = total_ns + total_ms * 1.0e+06;
     
-    long average = final_total_ns/num_clients;
+    long average = final_total_ns/num_items;
 
      // Calculate the 99th percentile of the args seconds argument
     long *latencies = (long *)malloc(num_clients * sizeof(long));
@@ -153,7 +162,7 @@ void connection_stress_test(lock_type lock_type, int num_clients){
     long duration_ns = (latest_end.tv_sec - earliest_start.tv_sec) * 1.0e+09 + (latest_end.tv_nsec - earliest_start.tv_nsec);
 
 
-    long throughput_ops_s= num_clients * 1.0e+09 / duration_ns;
+    long throughput_ops_s= num_items * 1.0e+09 / duration_ns;
 
 
     fprintf(stdout, "%d,", lock_type);
@@ -183,11 +192,14 @@ void connection_stress_test(lock_type lock_type, int num_clients){
     run_flag = false;
 }
 
+long tomicros(struct timeval x) {
+  return x.tv_sec * 1000000ul + x.tv_usec;
+}
 
 int main(int argc, char *argv[])
 {
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s <lock_type>  <start_num_clients> <end_num_clients>\n", argv[0]);
+    if (argc != 5) {
+        fprintf(stderr, "Usage: %s <lock_type>  <start_num_clients> <end_num_clients> <num_runs>\n", argv[0]);
         return 1;
     }
 
@@ -200,6 +212,8 @@ int main(int argc, char *argv[])
         lt = BURNS_AND_LYNCH;
     } else if (strcmp(argv[1], "PTHREAD_SPIN") == 0) {
         lt = PTHREAD_SPIN;
+    } else if (strcmp(argv[1], "LAMPORT_FAST_LOCK") == 0) {
+        lt = LAMPORT_FAST_LOCK;
     } else {
         fprintf(stderr, "Invalid lock type. Valid options are: PTHREAD, BAKERY, BURNS_AND_LYNCH, PTHREAD_SPIN.\n");
         return 1;
@@ -211,11 +225,22 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Number of clients must be a positive integer.\n");
         return 1;
     }
-    // fprintf(stdout, "lock_type | num_clients | total ms | total ns | average ns | p99 ns | ops_s\n");
 
+    int num_runs = atoi(argv[4]);
+    // fprintf(stdout, "lock_type | num_clients | total ms | total ns | average ns | p99 ns | ops_s\n");
+    //   struct rusage ru;
     for(int i = num_clients_start; i <= num_clients_end; i++){
-        connection_stress_test(lt, i);
+        for(int j = 0; j < num_runs; j++){
+            connection_stress_test(lt, i);
+        }
     }
+
+    // getrusage(RUSAGE_SELF, &ru);
+
+    //user space time
+    // fprintf(stdout, "User space time: %ld\n", tomicros(ru.ru_utime));
+    // kernel space time
+    // fprintf(stdout, "Kernel space time: %ld\n", tomicros(ru.ru_stime));
 
     return 0;
 }

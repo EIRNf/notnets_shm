@@ -9,7 +9,6 @@
 
 #include "bench_mutex_utils.h"
 
-#define ITERATIONS  100000
 
 void print_num_clients(){
      fprintf(stdout, "%d\t", MAX_CLIENTS);   
@@ -51,27 +50,32 @@ void* pthread_connect_client(void* arg){
     snprintf(name, 32, "%d", args->client_id);
     int unique_thread_id = 0;
 
+    if (args->lock_type == BAKERY) {
+        unique_thread_id = get_process_id(&args->lock->bakery);
+    } else if (args->lock_type == BURNS_AND_LYNCH) {
+        unique_thread_id = get_process_id(&args->lock->burns_and_lynch);
+    } else if (args->lock_type == LAMPORT_FAST_LOCK) {
+        unique_thread_id = get_process_id(&args->lock->lamport_fast);
+    }
 
     while(!run_flag);
-
-    for (int i = 0; i < ITERATIONS; i++) {
-
     clock_gettime(CLOCK_BOOTTIME, &args->start);
+
+    for (int i = 0; i < NUM_ITEMS; i++) {
+
 
     if (args->lock_type  == PTHREAD) {
         pthread_mutex_lock(&args->lock->pthread);
     } else if (args->lock_type == BAKERY) {
-        unique_thread_id = get_process_id(&args->lock->bakery);
         lock(&args->lock->bakery, unique_thread_id);
     } else if (args->lock_type == BURNS_AND_LYNCH) {
-        unique_thread_id = get_process_id(&args->lock->burns_and_lynch);
         lock(&args->lock->burns_and_lynch, unique_thread_id);
     } else if (args->lock->pthread_spin == PTHREAD_SPIN)
     {
         pthread_spin_lock(&args->lock->pthread_spin);
+    }else if (args->lock_type == LAMPORT_FAST_LOCK) {
+        lock(&args->lock->lamport_fast, unique_thread_id);
     }
-
-
 
     if (args->lock_type  == PTHREAD) {
         pthread_mutex_unlock(&args->lock->pthread);
@@ -83,10 +87,12 @@ void* pthread_connect_client(void* arg){
     {
         pthread_spin_unlock(&args->lock->pthread_spin);
     }
-
+    else if (args->lock_type == LAMPORT_FAST_LOCK) {
+        unlock(&args->lock->lamport_fast, unique_thread_id);
+    }
+    }
     clock_gettime(CLOCK_BOOTTIME, &args->end);
 
-    }
 
 
 
