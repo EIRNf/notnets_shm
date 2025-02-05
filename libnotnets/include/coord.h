@@ -13,8 +13,10 @@
 #include <stdlib.h>
 #include <stdatomic.h>
 
+//Mutexes
 #include "bakery.h"
 #include "burns_and_lynch.h"
+#include "lamport_fast.h"
 
 typedef enum QUEUE_TYPE
 {
@@ -56,7 +58,8 @@ typedef enum {
     PTHREAD = 0,
     BAKERY = 1,
     BURNS_AND_LYNCH = 2,
-    PTHREAD_SPIN = 3
+    PTHREAD_SPIN = 3,
+    LAMPORT_FAST_LOCK = 4
 } lock_type;
 
 union coord_lock {
@@ -64,6 +67,7 @@ union coord_lock {
     bakery_lock bakery;
     burns_and_lynch_lock burns_and_lynch;
     pthread_spinlock_t pthread_spin;
+    lamport_fast_lock lamport_fast;
 };
 
 typedef struct coord_header {
