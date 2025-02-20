@@ -11,7 +11,7 @@
 #include <linux/prctl.h>  /* Definition of PR_* constants */
 #include <sys/prctl.h>
 #include <immintrin.h>
-
+// #include <x86intrin.h>
 
 spsc_queue_header* get_queue_header(void* shmaddr) {
     spsc_queue_header* header = (spsc_queue_header*) shmaddr;
@@ -72,18 +72,27 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
         next_writer_head = 0;
     }
 
-    _umonitor(header); // Monitor for data availability
-    _umwait(0, 0); // Pause until data is available
+    // _umonitor(header); // Monitor for data availability
+    // _umwait(0, 0); // Pause until data is available
 
 
     long sleep_time = 0;
     struct timespec sleep;  
-    while(next_writer_head == atomic_load_explicit(&header->tail, memory_order_acquire)){ 
-        //Poll if full
-        if (header->stop_producer_polling) {
-            return 0;
-        }
-    }
+
+    do {
+        _umonitor(&header->tail);
+        _umwait(1,0);
+    }while(next_writer_head == atomic_load_explicit(&header->tail, memory_order_acquire));
+
+    // _umonitor(&header->tail);
+    // while(next_writer_head == atomic_load_explicit(&header->tail, memory_order_acquire)){ 
+    //     //Poll if full
+    //     if (header->stop_producer_polling) {
+    //         return 0;
+    //     }
+    //     _umwait(0,0);
+
+    // }
 
     //Enqueue
     void* array_start = get_message_array(header);
@@ -110,13 +119,20 @@ size_t pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PARTIAL RE
     size_t read_data = 0;
 
 
-    int const reader_tail = atomic_load_explicit(&header->tail, memory_order_relaxed);
-    while (reader_tail == atomic_load_explicit(&header->head, memory_order_acquire)){
-        //queue is empty
-        if (header->stop_consumer_polling) {
-            return 0;
-        }
-    }
+    int const reader_tail = atomic_load_explicit(&header->tail, memory_order_seq_cst);
+
+    do {
+        _umonitor(&header->head);
+        _umwait(1,0);
+    }while(reader_tail == atomic_load_explicit(&header->head, memory_order_acquire));
+
+    // while (reader_tail == atomic_load_explicit(&header->head, memory_order_acquire)){
+    //     //queue is empty
+    //     if (header->stop_consumer_polling) {
+    //         return 0;
+    //     }
+
+    // }
 
     int next_reader_tail = reader_tail + 1;
     if (next_reader_tail == header->queue_size){ //Wrap around
