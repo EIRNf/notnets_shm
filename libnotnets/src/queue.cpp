@@ -120,11 +120,11 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
         // No yielding while sampling in order to get mean reflecting actual service time
         if (header->write_total_count % header->hybrid_polling_interval == 0) {
             if (interval_poll_miss == 0) {
-                printf("Start Timer\n" );
+                // printf("Start Timer\n" );
                 ClockGetTime(&start);
             }
             interval_poll_miss++;
-            printf("Miss:%d\n", interval_poll_miss );
+            // printf("Miss:%d\n", interval_poll_miss );
         }
         else {
             sleep.tv_sec = header->elapsed_mean_head_time.tv_sec /2 ;
@@ -139,7 +139,7 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
         header->sampled_head_writes++;
         ClockGetTime(&end);
         ClockElapsed(&start, &end);
-        printf("End Timer\n" );
+        // printf("End Timer\n" );
 
         //Exclude significant outliers
         if (end.tv_sec - header->elapsed_mean_head_time.tv_sec > 1 || end.tv_nsec - header->elapsed_mean_head_time.tv_nsec > 100000) { 
@@ -151,8 +151,8 @@ int push(void* shmaddr, const void* buf, size_t buf_size) {
             header->elapsed_mean_head_time.tv_sec += ((end.tv_sec - header->elapsed_mean_head_time.tv_sec)  / header->sampled_head_writes ) ;
             header->elapsed_mean_head_time.tv_nsec += ((end.tv_nsec - header->elapsed_mean_head_time.tv_nsec) / header->sampled_head_writes) ;
 
-            printf("Mean in Sec:%ld\n",  header->elapsed_mean_head_time.tv_sec );
-            printf("Mean in nSec:%ld\n", header->elapsed_mean_head_time.tv_nsec );
+            // printf("Mean in Sec:%ld\n",  header->elapsed_mean_head_time.tv_sec );
+            // printf("Mean in nSec:%ld\n", header->elapsed_mean_head_time.tv_nsec );
         }
 
     }
