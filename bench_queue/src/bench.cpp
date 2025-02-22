@@ -162,6 +162,7 @@ void *consumer_pop(void* arg){
     clock_gettime(CLOCK_MONOTONIC, &run1.end);
     items_consumed = i;
     free(pop_buf);
+    free(message_size);
     pthread_exit(0);
 }
 
@@ -186,6 +187,7 @@ void *interval_consumer_pop(void* arg){
     }
     items_consumed = i;
     free(pop_buf);
+    free(message_size);
     pthread_exit(0);
 }
 
