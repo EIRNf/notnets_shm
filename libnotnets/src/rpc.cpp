@@ -5,6 +5,7 @@
 #include "queue.h"
 #include "boost_queue.h"
 #include "sem_queue.h"
+#include "queue_umwait.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -599,6 +600,19 @@ size_t server_receive_poll(queue_pair* client, void* buf, size_t size){
     return pop(client->request_shmaddr, buf, &size);
 }
 
+int client_send_umwait(queue_pair* conn, const void* buf, size_t size){
+    return umwait_push(conn->request_shmaddr, buf, size);
+}
+size_t client_receive_umwait(queue_pair* conn, void* buf, size_t size){
+    return umwait_pop(conn->response_shmaddr, buf, &size);
+}
+int server_send_umwait(queue_pair* client, const void *buf, size_t size){
+    return umwait_push(client->response_shmaddr, buf, size);
+}
+size_t server_receive_umwait(queue_pair* client, void* buf, size_t size){
+    return umwait_pop(client->request_shmaddr, buf, &size);
+}
+
 int client_send_boost(queue_pair* conn, const void* buf, size_t size){
     return boost_push(conn->request_shmaddr, buf, size, conn->offset);
 }
@@ -655,6 +669,12 @@ queue_ctx* select_queue_ctx(QUEUE_TYPE t)
         fn->client_receive= client_receive_sem;
         fn->server_send = server_send_sem;
         fn->server_receive = server_receive_sem;
+        break;
+    case UMWAIT:
+        fn->client_send = client_send_umwait;
+        fn->client_receive = client_receive_umwait;
+        fn->server_send = server_send_umwait;
+        fn->server_receive = server_receive_umwait;
         break;
     default:
         fn->client_send = client_send_poll;
