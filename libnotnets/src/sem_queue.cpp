@@ -16,26 +16,27 @@
 #define MAX_RETRIES 10
 
 
+
+void delete_queue_semaphores(void* shmaddr){
+    sem_spsc_queue_header* header_ptr = get_sem_queue_header(shmaddr); //Necessary???
+
+    semctl(header_ptr->sem_full, 0, IPC_RMID);
+    semctl(header_ptr->sem_empty, 0, IPC_RMID);
+    semctl(header_ptr->sem_lock, 0, IPC_RMID);
+}
+
 void destroy_semaphores(coord_header *header, int slot){
     //Get row slots
     notnets_shm_info request_slot = header->slots[slot].shms.request_shm;
     notnets_shm_info response_slot = header->slots[slot].shms.response_shm;
 
     //Attach to queues
-    sem_spsc_queue_header* hReq = (sem_spsc_queue_header*) shm_attach(request_slot.shmid);
-    sem_spsc_queue_header* hResp = (sem_spsc_queue_header*) shm_attach(response_slot.shmid);
-
-    //Get semaphores IDs.
-    semctl(hReq->sem_full, 0, IPC_RMID);
-    semctl(hReq->sem_empty, 0, IPC_RMID);
-    semctl(hReq->sem_lock, 0, IPC_RMID);
-
-
-    semctl(hResp->sem_full, 0, IPC_RMID);
-    semctl(hResp->sem_empty, 0, IPC_RMID);
-    semctl(hResp->sem_lock, 0, IPC_RMID);
+    void* hReq = shm_attach(request_slot.shmid);
+    void* hResp =  shm_attach(response_slot.shmid);
 
     //Call Delete on Semaphores.
+    delete_queue_semaphores(hReq);
+    delete_queue_semaphores(hResp);
 
     shm_detach(hReq);
     shm_detach(hResp);
@@ -91,8 +92,9 @@ int sem_wait(int semid, int sem_num){
     if (ret == -1 ){
         int errnum = errno;
         fprintf(stderr, "Sem_Wait: Value of errno: %d\n", errno);
-        perror("Error printed by perror");
-        fprintf(stderr, "Error opening file: %s\n", strerror( errnum ));
+        fprintf(stderr, "Error: %s\n", strerror( errnum ));
+        printf("semid: %d\n", semid);
+        printf("sem_num: %d\n", semid);
 
     }
      
@@ -110,10 +112,10 @@ int sem_post(int semid, int sem_num){
     int ret = semop(semid, &sb, 1);
     if (ret == -1 ){
         int errnum = errno;
-        fprintf(stderr, "Sem_Push: Value of errno: %d\n", errno);
-        perror("Error printed by perror");
-        fprintf(stderr, "Error opening file: %s\n", strerror( errnum ));
-
+        fprintf(stderr, "Sem_Post: Value of errno: %d\n", errno);
+        fprintf(stderr, "Error: %s\n", strerror( errnum ));
+        printf("semid: %d\n", semid);
+        printf("sem_num: %d\n", sem_num);
     }
     //Carry our semaphore operation
     return ret;
@@ -286,22 +288,25 @@ int sem_push(void* shmaddr, const void* buf, size_t buf_size) {
     }
 
     sem_wait(header->sem_lock, 0);
-    bool const was_empty = is_empty(header);
+    bool was_empty = is_empty(header);
 
     if (is_full(header)){
         sem_post(header->sem_lock, 0);
+
         while (is_full(header)){
             sem_wait(header->sem_full, 0); //wait on full
         }
+        
         sem_wait(header->sem_lock, 0);
     }
     
     enqueue(header, buf, buf_size); 
-    sem_post(header->sem_lock,0);
+    sem_post(header->sem_lock, 0);
 
     if (was_empty){
-        sem_post(header->sem_empty,0); //increment, permit sem_pop to dequeue
+        sem_post(header->sem_empty, 0); //increment, permit sem_pop to dequeue
     }
+
     return ret;
 }
 
@@ -349,7 +354,7 @@ size_t sem_pop(void* shmaddr, void* buf, size_t* buf_size) {
     }
 
     sem_wait(header->sem_lock, 0);
-    bool const was_full= is_full(header);
+    bool was_full= is_full(header);
     if(is_empty(header)){
         sem_post(header->sem_lock,0);
         while (is_empty(header)){
@@ -360,10 +365,10 @@ size_t sem_pop(void* shmaddr, void* buf, size_t* buf_size) {
    
     ret = dequeue(header, buf, buf_size);
     sem_post(header->sem_lock, 0);
-
     if(was_full){
-        sem_post(header->sem_full,0); 
+        sem_post(header->sem_full,0); //If queue was full, then increment semaphore to notify push that it is no longer full
     }
+
     return ret;
 }
 
