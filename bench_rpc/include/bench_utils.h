@@ -3,9 +3,11 @@
 
 #include  <time.h>
 #include <stdatomic.h>
+#include <sys/resource.h>
+#include <sys/time.h>
 
 
-#define NUM_ITEMS 100000
+#define NUM_ITEMS 1000000
 #define MESSAGE_SIZE 4 //Int
 
 
@@ -21,6 +23,10 @@ struct connection_args {
     struct timespec start;
     struct timespec end;
 };
+
+void print_rusage(struct rusage *usage);
+
+void record_usage();
 
 void print_num_clients();
 

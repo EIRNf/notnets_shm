@@ -15,7 +15,7 @@
 atomic_bool run_flag = false; //control execution
 
 //Evaluate queue latency after connection has already been made
-void single_rtt_test(){ 
+void single_rtt_test(QUEUE_TYPE type){ 
     fprintf(stdout, "\nnotnets/%s/\n", __func__);
     // pthread_t producer;
     pthread_t consumer;
@@ -25,12 +25,14 @@ void single_rtt_test(){
     queue_ctx* c_qp = client_open((char*)"single_rtt_test_client",
                                 (char*)"single_rtt_test_server",
                                 sizeof(int),
-                                POLL);
+                                type);
 
     struct connection_args *args = (struct connection_args *)malloc(sizeof(struct connection_args));
 
+
     queue_ctx* s_qp;
     while ((s_qp = accept(sc)) == NULL);
+
 
     //producer thread
     //pthread_create(&producer, NULL, client, c_qp);
@@ -725,12 +727,13 @@ void rtt_connect_disconnect_connection_test(){
 
 }
 
-void bench_run_all(void){
+void bench_run_all_bulk(void){
     //Connection Test
-
     //Echo application, capture RTT latency and throughput
     //TODO: Modify to pass arguments
-    // single_rtt_test();
+    record_usage();
+    // single_rtt_test(POLL);
+    // single_rtt_test(UMWAIT);
     // single_connection_test();
 
 #ifdef __APPLE__
@@ -739,17 +742,17 @@ void bench_run_all(void){
     //break this limitation and thus can't be run in osx
 
 #else
-    connection_stress_test();
+    // connection_stress_test();
 
-    fprintf(stdout, "num_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | \n");
+    // fprintf(stdout, "num_clients | coord_slots | rtt_num_items | msg_size | ns/op | avg_ops/ms | ops/ms | \n");
     //Connections are all pre-established, and we only measure steady-state
-    rtt_steady_state_conn_test();
+    // rtt_steady_state_conn_test();
     
     // Connections are established at the start of the experiment, but included in the measurement
     // We explicitly do not disconnect right?
-    rtt_during_connection_test();
+    // rtt_during_connection_test();
     // Connections are open and closed throughout the duration of the experiment.
-    rtt_connect_disconnect_connection_test();
+    // rtt_connect_disconnect_connection_test();
 #endif
 
 
@@ -759,10 +762,33 @@ void bench_run_all(void){
 }
 
 
-int main()
-{
-
-    bench_run_all();
+void bench_run_all(QUEUE_TYPE type, int value){
+    single_rtt_test(type);
+    record_usage();
 }
 
+
+int main(int argc, char *argv[]) {
+    QUEUE_TYPE mode = POLL;  // Default mode
+    int value = 1624;      // Default value
+
+    if (argc > 1) {
+        if (strcmp(argv[1], "POLL") == 0) {
+            mode = POLL;
+        } else if (strcmp(argv[1], "UMWAIT") == 0) {
+            mode = UMWAIT;
+        } else if (strcmp(argv[1], "SEM") == 0) {
+            mode = SEM;
+        } else {
+            fprintf(stderr, "Invalid mode. Using default (SEM).\n");
+        }
+    }
+
+    if (argc > 2) {
+        value = atoi(argv[2]);  // Convert second argument to int
+    }
+
+    bench_run_all(mode, value);
+    return 0;
+}
 

@@ -14,6 +14,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/resource.h>
+#include <sys/time.h>
 
 // #define NUM_ITEMS 10000000
 #define MESSAGE_SIZE 4 //Int
@@ -81,6 +83,36 @@ void bench_report_stats(char* name) {
 
     fprintf(stdout, "%f ops/ms \n", items_consumed/(total_ms));
     // fprintf(stdout, "%ld ns/op \n ", ns/items_consumed);
+}
+
+void print_rusage(struct rusage *usage) {
+    printf("User CPU time used: %ld.%06ld seconds\n", 
+           usage->ru_utime.tv_sec, usage->ru_utime.tv_usec);
+    printf("System CPU time used: %ld.%06ld seconds\n", 
+           usage->ru_stime.tv_sec, usage->ru_stime.tv_usec);
+    printf("Maximum resident set size: %ld KB\n", usage->ru_maxrss);
+    printf("Integral shared memory size: %ld KB\n", usage->ru_ixrss);
+    printf("Integral unshared data size: %ld KB\n", usage->ru_idrss);
+    printf("Integral unshared stack size: %ld KB\n", usage->ru_isrss);
+    printf("Page reclaims (soft page faults): %ld\n", usage->ru_minflt);
+    printf("Page faults (hard page faults): %ld\n", usage->ru_majflt);
+    printf("Swaps: %ld\n", usage->ru_nswap);
+    printf("Block input operations: %ld\n", usage->ru_inblock);
+    printf("Block output operations: %ld\n", usage->ru_oublock);
+    printf("IPC messages sent: %ld\n", usage->ru_msgsnd);
+    printf("IPC messages received: %ld\n", usage->ru_msgrcv);
+    printf("Signals received: %ld\n", usage->ru_nsignals);
+    printf("Voluntary context switches: %ld\n", usage->ru_nvcsw);
+    printf("Involuntary context switches: %ld\n", usage->ru_nivcsw);
+}
+
+void record_usage() {
+    struct rusage usage;
+    if (getrusage(RUSAGE_SELF, &usage) == 0) {
+        print_rusage(&usage);
+    } else {
+        perror("getrusage failed");
+    }
 }
 
 
@@ -566,22 +598,35 @@ void notnets_bench_enqueue_dequeue_interval(){
 
 }
 
-void bench_run_all(void){
-
-    // notnets_bench_enqueue_dequeue(POLL, 1624);
-    // notnets_bench_enqueue_dequeue(UMWAIT, 1624);
-    notnets_bench_enqueue_dequeue(SEM, 1624);
-
-
-    notnets_bench_enqueue_dequeue();
-    // notnets_bench_enqueue_dequeue_umwait();
-
-
-    // notnets_bench_enqueue_dequeue_interval();
-
-
+void bench_run_all(QUEUE_TYPE type, int value){
+    notnets_bench_enqueue_dequeue(type, value);
+    record_usage();
 }
 
+
+int main(int argc, char *argv[]) {
+    QUEUE_TYPE mode = POLL;  // Default mode
+    int value = 1624;      // Default value
+
+    if (argc > 1) {
+        if (strcmp(argv[1], "POLL") == 0) {
+            mode = POLL;
+        } else if (strcmp(argv[1], "UMWAIT") == 0) {
+            mode = UMWAIT;
+        } else if (strcmp(argv[1], "SEM") == 0) {
+            mode = SEM;
+        } else {
+            fprintf(stderr, "Invalid mode. Using default (SEM).\n");
+        }
+    }
+
+    if (argc > 2) {
+        value = atoi(argv[2]);  // Convert second argument to int
+    }
+
+    bench_run_all(mode, value);
+    return 0;
+}
 
 /* Run client and server processes from same program distinguished by different arguments
 Goals:
@@ -592,8 +637,4 @@ Goals:
 */ 
 
 
-int main()
-{
-    bench_run_all();
-}
 

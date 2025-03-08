@@ -91,10 +91,10 @@ int sem_wait(int semid, int sem_num){
     int ret = semop(semid, &sb, 1);
     if (ret == -1 ){
         int errnum = errno;
-        fprintf(stderr, "Sem_Wait: Value of errno: %d\n", errno);
-        fprintf(stderr, "Error: %s\n", strerror( errnum ));
-        printf("semid: %d\n", semid);
-        printf("sem_num: %d\n", semid);
+        // fprintf(stderr, "Sem_Wait: Value of errno: %d\n", errno);
+        // fprintf(stderr, "Error: %s\n", strerror( errnum ));
+        // printf("semid: %d\n", semid);
+        // printf("sem_num: %d\n", semid);
 
     }
      
@@ -112,10 +112,10 @@ int sem_post(int semid, int sem_num){
     int ret = semop(semid, &sb, 1);
     if (ret == -1 ){
         int errnum = errno;
-        fprintf(stderr, "Sem_Post: Value of errno: %d\n", errno);
-        fprintf(stderr, "Error: %s\n", strerror( errnum ));
-        printf("semid: %d\n", semid);
-        printf("sem_num: %d\n", sem_num);
+        // fprintf(stderr, "Sem_Post: Value of errno: %d\n", errno);
+        // fprintf(stderr, "Error: %s\n", strerror( errnum ));
+        // printf("semid: %d\n", semid);
+        // printf("sem_num: %d\n", sem_num);
     }
     //Carry our semaphore operation
     return ret;
@@ -256,14 +256,13 @@ ssize_t queue_create(void* shmaddr, key_t key_seed, size_t shm_size, size_t mess
 
 int succ(int index, int queue_size){
     return (index + 1) % queue_size;
-
 }
 
 bool is_full(sem_spsc_queue_header *header) {
-    return succ(header->head, header->queue_size) == header->tail;
+    return succ(atomic_load(&header->head)    , header->queue_size) == atomic_load(&header->tail);
 }
 bool is_empty(sem_spsc_queue_header *header) {
-    return  header->head == header->tail;
+    return  atomic_load(&header->head) == atomic_load(&header->tail);
 }
 
 void enqueue(sem_spsc_queue_header* header, const void* buf, size_t buf_size) {
@@ -276,7 +275,7 @@ void enqueue(sem_spsc_queue_header* header, const void* buf, size_t buf_size) {
     header->current_count++;
     header->total_count++;
 
-    header->head = succ(header->head, header->queue_size);
+    atomic_store(&header->head,succ(atomic_load(&header->head), header->queue_size));
 }
 
 
@@ -334,7 +333,7 @@ size_t dequeue(sem_spsc_queue_header* header, void* buf, size_t* buf_size) {
     header->message_offset += *buf_size;
     if ((size_t) header->message_offset == header->message_size) {
 
-        header->tail = succ(header->tail, header->queue_size);
+        atomic_store(&header->tail,succ(atomic_load(&header->tail), header->queue_size));
 
         header->current_count--;
         header->message_offset = 0;

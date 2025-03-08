@@ -6,7 +6,7 @@
 #define MAX 80
 #define PORT 8080
 
-#define NUM_ITEMS 10000000
+#define NUM_ITEMS 1000000
 #define MESSAGE_SIZE 4 //Int
 
 #ifndef MAX_CLIENTS
@@ -20,6 +20,9 @@ struct connection_args {
     struct timespec start;
     struct timespec end;
 };
+
+void print_rusage(struct rusage *usage);
+void record_usage();
 
 void print_num_clients();
 

@@ -83,14 +83,13 @@ void* client_tcp_load_connection(void* arg){
     servaddr.sin_port = htons(PORT);
  
     struct connection_args *args = (struct connection_args*) arg;
-
+    
     while(!run_flag);
-
     // connect the client socket to server socket
     if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr))
     != 0) {
-    printf("connection with the server failed...\n");
-    exit(0);
+        printf("connection with the server failed...\n");
+        exit(0);
     }
 
     int *buf = (int*)malloc(MESSAGE_SIZE);
@@ -119,12 +118,66 @@ void* client_tcp_load_connection(void* arg){
 
 }
 
+void* client_tcp_rtt(void* arg){
+    int sockfd;
+    struct sockaddr_in servaddr;
+ 
+    // socket create and verification
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd == -1) {
+        printf("socket creation failed...\n");
+        exit(0);
+    }
+    else
+        // printf("Socket successfully created..\n");
+    bzero(&servaddr, sizeof(servaddr));
+ 
+    // assign IP, PORT
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    servaddr.sin_port = htons(PORT);
+ 
+    struct connection_args *args = (struct connection_args*) arg;
+    
+    // connect the client socket to server socket
+    if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr))
+    != 0) {
+        printf("connection with the server failed...\n");
+        exit(0);
+    }
+
+    int *buf = (int*)malloc(MESSAGE_SIZE);
+    int buf_size = MESSAGE_SIZE;
+
+    int* pop_buf = (int*)malloc(MESSAGE_SIZE);
+    int pop_buf_size = MESSAGE_SIZE;
+
+    while(!run_flag);
+
+    clock_gettime(CLOCK_MONOTONIC, &args->start);
+    //Run messages
+     for(int i=1;i<NUM_ITEMS;i++) {
+        *buf = i;
+        // client_send_rpc(qp, buf, buf_size);
+        write(sockfd,buf,buf_size);
+        
+        //Request sent, read for response
+
+        // client_receive_buf(qp, pop_buf, pop_buf_size);
+        read(sockfd,pop_buf,pop_buf_size);
+
+        assert(*pop_buf == *buf);
+    }
+    clock_gettime(CLOCK_MONOTONIC, &args->end);
+    close(sockfd);
+    pthread_exit(0);
+}
+
 void* server_tcp_handler(void* socket){
 
    int sockfd = *(int *)socket;
 
     while(!run_flag);
-
 
    int *buf = (int*)malloc(MESSAGE_SIZE);
     int buf_size = MESSAGE_SIZE;
@@ -140,7 +193,74 @@ void* server_tcp_handler(void* socket){
     }
     close(sockfd);
     pthread_exit(0);
+}
 
+void  single_rtt_test(){
+    fprintf(stdout, "\ntcp-socket/single-rtt/\n");
+
+
+    int sockfd, connfd; 
+    socklen_t len;
+    struct sockaddr_in servaddr, cli; 
+
+    // socket create and verification 
+    sockfd = socket(AF_INET, SOCK_STREAM, 0); 
+    if (sockfd == -1) { 
+        printf("socket creation failed...\n"); 
+        exit(0); 
+    } 
+    bzero(&servaddr, sizeof(servaddr)); 
+
+    // assign IP, PORT 
+    servaddr.sin_family = AF_INET; 
+    servaddr.sin_addr.s_addr =  htonl(INADDR_ANY); 
+    servaddr.sin_port = htons(PORT); 
+    // Binding newly created socket to given IP and verification 
+    if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) { 
+        printf("socket bind failed...\n"); 
+        exit(0); 
+    }
+    
+   
+    // int reset = 1;
+    // setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&reset,sizeof(int));
+
+    // Now server is ready to listen and verification 
+    if ((listen(sockfd, 1)) != 0) { 
+        printf("Listen failed...\n"); 
+        exit(0); 
+    } 
+
+    len = sizeof(cli); 
+    pthread_t client, server;
+    struct connection_args *args = (struct connection_args *)malloc(sizeof(struct connection_args));
+    args->client_id = 1;
+
+    pthread_create(&client, NULL, client_tcp_rtt,args);
+     // Accept the data packet from client and verification 
+    connfd = accept(sockfd, (SA*)&cli, &len); 
+    if (connfd < 0) { 
+        printf("server accept failed...\n"); 
+        exit(0); 
+    } 
+    else{
+        printf("server accept the client...\n"); 
+    }
+
+    pthread_create(&server, NULL, server_tcp_handler,&connfd);
+
+    //Synchronization variable to begin running load
+    run_flag = true;
+
+    pthread_join(client,NULL);  
+    pthread_join(server,NULL);  
+
+    fprintf(stdout, "Num Clients: %d \n", 1);
+    report_single_rtt_stats(args);
+    shutdown(connfd,SHUT_RDWR);
+    // close(sockfd);
+    free(args);
+    run_flag = false;
 }
 
 void single_tcp_connection_test(){
@@ -179,8 +299,6 @@ void single_tcp_connection_test(){
     } 
 
     len = sizeof(cli); 
-   
-
     pthread_t client;
 
     struct connection_args *args = (struct connection_args *)malloc(sizeof(struct connection_args));
@@ -461,8 +579,11 @@ void rtt_during_tcp_connection_test(){
 }
 
 int main(){ //Annoying to rerun due to time wait socket reuse
+    single_rtt_test();
+    record_usage();
+
     // single_tcp_connection_test();
-    connection_tcp_stress_test();
+    // connection_tcp_stress_test();
     // rtt_during_tcp_connection_test();
 
     //Connections are all pre-established, and we only measure steady-state
