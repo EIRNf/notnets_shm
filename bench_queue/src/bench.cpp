@@ -61,7 +61,66 @@ int items_consumed = 0;
 int cpu0 = 0;
 int cpu1 = 1;
 
-void bench_report_stats(char* name) {
+void save_bench_stats_as_csv(char* name) {
+    char* file_name;
+    asprintf(&file_name, "%s_bench.csv", name);
+
+    // Open a file to write the CSV data
+    FILE *fp = fopen(file_name, "w");
+    if (fp == NULL) {
+        perror("Failed to open file");
+        return;
+    }
+
+    // Write the CSV header
+    fprintf(fp, "Name,Time (sec),ItemsConsumed,MaxQueueDepth,AverageQueueDepth,ns/op,ops/ms\n");
+
+    // Calculate the total time in microseconds and milliseconds
+    double total_us = run1.total.tv_sec * 1.0e+06;
+    total_us += run1.total.tv_nsec / 1.0e+03;
+
+    double total_ms = run1.total.tv_sec * 1.0e+03;
+    total_ms += run1.total.tv_nsec / 1.0e+06;
+
+    // Write the benchmark data in CSV format
+    fprintf(fp, "%s,%ld,%d,%d,%d,%f,%f\n",
+            name,
+            run1.total.tv_sec,
+            items_consumed,
+            run1.max_queue_depth,
+            run1.average_queue_depth,
+            (total_us * 1.0e+03) / items_consumed,
+            items_consumed / total_ms);
+
+    // Close the file
+    fclose(fp);
+    free(file_name);
+}
+
+void print_bench_stats_as_csv(char* name) {
+    // Write the CSV header
+    fprintf(stdout, "Name,Time (sec),ItemsConsumed,MaxQueueDepth,AverageQueueDepth,ns/op,ops/ms\n");
+
+    // Calculate the total time in microseconds and milliseconds
+    double total_us = run1.total.tv_sec * 1.0e+06;
+    total_us += run1.total.tv_nsec / 1.0e+03;
+
+    double total_ms = run1.total.tv_sec * 1.0e+03;
+    total_ms += run1.total.tv_nsec / 1.0e+06;
+
+    // Write the benchmark data in CSV format
+    fprintf(stdout, "%s,%ld,%d,%d,%d,%f,%f\n",
+            name,
+            run1.total.tv_sec,
+            items_consumed,
+            run1.max_queue_depth,
+            run1.average_queue_depth,
+            (total_us * 1.0e+03) / items_consumed,
+            items_consumed / total_ms);
+
+}
+
+void print_bench_stats(char* name) {
     
     fprintf(stdout, "\n%s\n", name);
     //nanosecond ns 1.0e-09
@@ -85,6 +144,45 @@ void bench_report_stats(char* name) {
     // fprintf(stdout, "%ld ns/op \n ", ns/items_consumed);
 }
 
+void save_rusage_as_csv(struct rusage *usage, const char* name) {
+
+    char* file_name;
+    asprintf(&file_name, "%s_rusage.csv", name);
+
+    // Open a file to write the CSV data
+    FILE *fp = fopen(file_name, "w");
+    if (fp == NULL) {
+        perror("Failed to open file");
+        return;
+    }
+
+    // Write the CSV header
+    fprintf(fp, "user_CPU_time(sec),system_CPU_time(sec),max_RSS(KB),shm_size (KB),unshared_data_size(KB),unshared_stack_size(KB),page_reclaims,page_faults,swaps,block_input_ops,block_output_ops, IPC_messages_sent,IPC_messages_received,signals_received,voluntary_context_switches,involuntary_context_switches\n");
+
+    // Write the rusage data in CSV format
+    fprintf(fp, "%ld.%06ld,%ld.%06ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\n",
+            usage->ru_utime.tv_sec, usage->ru_utime.tv_usec,
+            usage->ru_stime.tv_sec, usage->ru_stime.tv_usec,
+            usage->ru_maxrss,
+            usage->ru_ixrss,
+            usage->ru_idrss,
+            usage->ru_isrss,
+            usage->ru_minflt,
+            usage->ru_majflt,
+            usage->ru_nswap,
+            usage->ru_inblock,
+            usage->ru_oublock,
+            usage->ru_msgsnd,
+            usage->ru_msgrcv,
+            usage->ru_nsignals,
+            usage->ru_nvcsw,
+            usage->ru_nivcsw);
+
+    // Close the file
+    fclose(fp);
+    free(file_name);
+}
+
 void print_rusage(struct rusage *usage) {
     printf("User CPU time used: %ld.%06ld seconds\n", 
            usage->ru_utime.tv_sec, usage->ru_utime.tv_usec);
@@ -104,6 +202,15 @@ void print_rusage(struct rusage *usage) {
     printf("Signals received: %ld\n", usage->ru_nsignals);
     printf("Voluntary context switches: %ld\n", usage->ru_nvcsw);
     printf("Involuntary context switches: %ld\n", usage->ru_nivcsw);
+}
+
+void record_usage_with_run_name(const char* name) {
+    struct rusage usage;
+    if (getrusage(RUSAGE_SELF, &usage) == 0) {
+        save_rusage_as_csv(&usage, name);
+    } else {
+        perror("getrusage failed");
+    }
 }
 
 void record_usage() {
@@ -214,8 +321,6 @@ void *consumer_pop_sem(void* arg){
     free(pop_buf);
     pthread_exit(0);
 }
-
-
 
 void *producer_push_umwait(void* arg){
     pinThread(cpu1);
@@ -367,9 +472,7 @@ void *interval_consumer_pop(void* arg){
     pthread_exit(0);
 }
 
-
-
-void notnets_bench_enqueue_dequeue(QUEUE_TYPE type, int mem_size){
+void notnets_bench_enqueue_dequeue(QUEUE_TYPE type, int mem_size, char* name){
 
     pthread_t producer;
     pthread_t consumer;
@@ -385,11 +488,8 @@ void notnets_bench_enqueue_dequeue(QUEUE_TYPE type, int mem_size){
     }
     run1.shmaddr = shm_attach(shmid);
 
-
-
     switch(type){
         case POLL:
-            printf("Type: %u",POLL);
             // create queue
             queue_create(run1.shmaddr, shm_size, MESSAGE_SIZE);
             //producer thread
@@ -398,7 +498,6 @@ void notnets_bench_enqueue_dequeue(QUEUE_TYPE type, int mem_size){
             pthread_create(&consumer, NULL, consumer_pop, NULL);
             break;
         case UMWAIT:
-            printf("Type: %u",UMWAIT);
             // create queue
             queue_create_umwait(run1.shmaddr, shm_size, MESSAGE_SIZE);
             //producer thread
@@ -407,7 +506,6 @@ void notnets_bench_enqueue_dequeue(QUEUE_TYPE type, int mem_size){
             pthread_create(&consumer, NULL, consumer_pop_umwait, NULL);
             break;
         case SEM:
-            printf("Type: %u",SEM);
             // create queue
             queue_create(run1.shmaddr, key+100, shm_size, MESSAGE_SIZE);
             //producer thread
@@ -430,10 +528,9 @@ void notnets_bench_enqueue_dequeue(QUEUE_TYPE type, int mem_size){
     pthread_join(producer,NULL);  
     pthread_join(consumer,NULL);    
   
-    // run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
     run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
     run1.total.tv_nsec = run1.end.tv_nsec - run1.start.tv_nsec;
-    bench_report_stats((char*)"batch-notnets/spsc");
+    print_bench_stats_as_csv(name);
 
     // cleanup
     switch(type){
@@ -451,103 +548,9 @@ void notnets_bench_enqueue_dequeue(QUEUE_TYPE type, int mem_size){
     }
     shm_detach(run1.shmaddr);
     shm_remove(shmid);
+    save_bench_stats_as_csv(name);
+    record_usage_with_run_name(name);
 }
-
-
-
-void notnets_bench_enqueue_dequeue(){
-    // create shm and attach to it
-    key_t key = 1;
-    int shm_size = 16024; // make adjustable 
-    reset_run_stats(&run1);
-
-
-    pthread_t producer;
-    pthread_t consumer;
-
-    int shmid = shm_create(key, shm_size, create_flag);
-
-    while (shmid == -1) {
-        shmid = shm_create(key, shm_size, create_flag);
-    }
-
-    run1.shmaddr = shm_attach(shmid);
-
-
-    // create queue
-    queue_create(run1.shmaddr, shm_size, MESSAGE_SIZE);
-    //producer thread
-    pthread_create(&producer, NULL, producer_push, NULL);
-    pthread_create(&consumer, NULL, consumer_pop, NULL);
-
-    run1.start_flag = true;
-    sleep(EXECUTION_SEC);
-    //Signal stop
-    run1.stop_flag = true;
-
-    pthread_join(producer,NULL);  
-    pthread_join(consumer,NULL);    
-  
-    // run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
-    run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
-    run1.total.tv_nsec = run1.end.tv_nsec - run1.start.tv_nsec;
-    bench_report_stats((char*)"batch-notnets/spsc");
-
-    // cleanup
-    shm_detach(run1.shmaddr);
-    shm_remove(shmid);
-
-
-}
-
-
-void notnets_bench_enqueue_dequeue_umwait(){
-    // create shm and attach to it
-    key_t key = 1;
-    int shm_size = 16024; // make adjustable 
-
-    pthread_t producer;
-    pthread_t consumer;
-
-    int shmid = shm_create(key, shm_size, create_flag);
-
-    while (shmid == -1) {
-        shmid = shm_create(key, shm_size, create_flag);
-    }
-
-    run1.shmaddr = shm_attach(shmid);
-
-    run1.max_queue_depth = 0;
-    run1.start_flag = false;
-    run1.stop_flag = false;
-
-
-    // create queue
-    queue_create_umwait(run1.shmaddr, shm_size, MESSAGE_SIZE);
-    //producer thread
-    pthread_create(&producer, NULL, producer_push_umwait, NULL);
-    pthread_create(&consumer, NULL, consumer_pop_umwait, NULL);
-
-    run1.start_flag = true;
-    sleep(EXECUTION_SEC);
-    //Signal stop
-    run1.stop_flag = true;
-
-    pthread_join(producer,NULL);  
-    pthread_join(consumer,NULL);    
-  
-    // run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
-    run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
-    run1.total.tv_nsec = run1.end.tv_nsec - run1.start.tv_nsec;
-    bench_report_stats((char*)"batch-notnets/spsc-umwait");
-
-    // cleanup
-    shm_detach(run1.shmaddr);
-    shm_remove(shmid);
-
-
-}
-
 
 void notnets_bench_enqueue_dequeue_interval(){
     // create shm and attach to it
@@ -589,7 +592,7 @@ void notnets_bench_enqueue_dequeue_interval(){
     pthread_join(consumer,NULL);    
   
 
-    bench_report_stats((char*)"iterative-notnets/spsc");
+    print_bench_stats((char*)"iterative-notnets/spsc");
 
     // cleanup
     shm_detach(run1.shmaddr);
@@ -598,23 +601,25 @@ void notnets_bench_enqueue_dequeue_interval(){
 
 }
 
-void bench_run_all(QUEUE_TYPE type, int value){
-    notnets_bench_enqueue_dequeue(type, value);
-    record_usage();
+void bench_run_all(QUEUE_TYPE type, int value, char* name){
+    notnets_bench_enqueue_dequeue(type, value, name);
 }
-
 
 int main(int argc, char *argv[]) {
     QUEUE_TYPE mode = POLL;  // Default mode
     int value = 1624;      // Default value
+    char* name = (char*)"POLL";
 
     if (argc > 1) {
         if (strcmp(argv[1], "POLL") == 0) {
             mode = POLL;
+            name = (char*)"POLL";
         } else if (strcmp(argv[1], "UMWAIT") == 0) {
             mode = UMWAIT;
+            name = (char*)"UMWAIT";
         } else if (strcmp(argv[1], "SEM") == 0) {
             mode = SEM;
+            name =(char*)"SEM";
         } else {
             fprintf(stderr, "Invalid mode. Using default (SEM).\n");
         }
@@ -624,7 +629,7 @@ int main(int argc, char *argv[]) {
         value = atoi(argv[2]);  // Convert second argument to int
     }
 
-    bench_run_all(mode, value);
+    bench_run_all(mode, value, name);
     return 0;
 }
 
