@@ -230,17 +230,17 @@ void pinThread(int cpu) {
 }
 #else
 void pinThread(int cpu) {
-  if (cpu < 0) {
-    return;
-  }
-  cpu_set_t cpuset;
-  CPU_ZERO(&cpuset);
-  CPU_SET(cpu, &cpuset);
-  if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) ==
-      -1) {
-    perror("pthread_setaffinity_no");
-    exit(1);
-  }
+//   if (cpu < 0) {
+//     return;
+//   }
+//   cpu_set_t cpuset;
+//   CPU_ZERO(&cpuset);
+//   CPU_SET(cpu, &cpuset);
+//   if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) ==
+//       -1) {
+//     perror("pthread_setaffinity_no");
+//     exit(1);
+//   }
 }
 #endif
 
@@ -530,7 +530,6 @@ void notnets_bench_enqueue_dequeue(QUEUE_TYPE type, int mem_size, char* name){
   
     run1.total.tv_sec = run1.end.tv_sec - run1.start.tv_sec;
     run1.total.tv_nsec = run1.end.tv_nsec - run1.start.tv_nsec;
-    print_bench_stats_as_csv(name);
 
     // cleanup
     switch(type){
@@ -548,6 +547,8 @@ void notnets_bench_enqueue_dequeue(QUEUE_TYPE type, int mem_size, char* name){
     }
     shm_detach(run1.shmaddr);
     shm_remove(shmid);
+    
+    // print_bench_stats_as_csv(name);
     save_bench_stats_as_csv(name);
     record_usage_with_run_name(name);
 }
