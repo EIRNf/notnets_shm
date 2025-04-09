@@ -140,7 +140,7 @@ void* pthread_connect_client(void* arg){
 
     while(!run_flag);
 
-    clock_gettime(CLOCK_MONOTONIC, &args->start);
+    clock_gettime(CLOCK_BOOTTIME, &args->start);
     queue_ctx* c_qp = client_open(name,
                                 (char*)"test_server_addr",
                                  sizeof(int),
@@ -152,7 +152,7 @@ void* pthread_connect_client(void* arg){
                              POLL);
         }
     
-    clock_gettime(CLOCK_MONOTONIC, &args->end);
+    clock_gettime(CLOCK_BOOTTIME, &args->end);
 
     // No connection was achieved :()
     if (c_qp == NULL){

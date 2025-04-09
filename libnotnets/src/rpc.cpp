@@ -444,20 +444,26 @@ void manage_pool(server_context* handler) {
  * @return server_context* If NULL, coord memory region was not
  * created successfully
  */
-server_context* register_server(char* source_addr) {
-    coord_header* ch = coord_create(source_addr);
+server_context* register_server(char* source_addr, lock_type lock_type) {
 
+
+    coord_header* ch = coord_create(source_addr, lock_type);
+
+    
     server_context* sc = (server_context*) malloc(sizeof(server_context));
 
+
+
     // coord_header, at the end of the day, is just a shm region
-    sc->coord_shmaddr = (void*) ch;
+    sc->coord_shmaddr =  ch;
+    sc->unique_thread_id = 0;
 
     if (pthread_mutex_init(&sc->manage_pool_mutex, NULL) == -1) {
         perror("error create manage pool mutex");
     }
 
     sc->manage_pool_state = RUNNING_NO_SHUTDOWN;
-    atomic_thread_fence(memory_order_release);
+    atomic_thread_fence(memory_order_seq_cst);
 
 
     // start manage pool runner thread
@@ -494,13 +500,34 @@ server_context* register_server(char* source_addr) {
  * @return queue_pair
  */
 queue_ctx* accept(server_context* handler) {
-    // printf("SERVER: ACCEPT:\n");
-    coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
+    coord_header* ch = handler->coord_shmaddr;
     int slot = ch->accept_slot;
     // bool attach;
 
-    pthread_mutex_lock(&ch->mutex);
+    lock_type lock_type = ch->lock_type;
+
+
+    // try to reserve a slot, if not available wait and try again
+    if (lock_type == PTHREAD) {
+        pthread_mutex_lock(&ch->lock.pthread);
+    } else if (lock_type == BAKERY) {
+
+        if (handler->unique_thread_id == 0) {
+            handler->unique_thread_id = get_process_id(&ch->lock.bakery);
+        }
+        lock(&ch->lock.bakery, handler->unique_thread_id);
+    } else if (lock_type == BURNS_AND_LYNCH) {
+        if (handler->unique_thread_id == 0) {
+            handler->unique_thread_id = get_process_id(&ch->lock.burns_and_lynch);
+        }
+        lock(&ch->lock.burns_and_lynch, handler->unique_thread_id);
+    } else if (lock_type == PTHREAD_SPIN)
+    {
+        pthread_spin_lock(&ch->lock.pthread_spin);
+        
+    }
+    
     for (int i = 0; i < SLOT_NUM; ++i, slot = (slot + 1) % SLOT_NUM) {
         // if this slot is scheduled to be detached, or is not reserved,
         // don't accept it
@@ -514,7 +541,17 @@ queue_ctx* accept(server_context* handler) {
             ch->accept_slot = (slot + 1) % SLOT_NUM;
 
 
-            pthread_mutex_unlock(&ch->mutex);
+            if (lock_type == PTHREAD) {
+                pthread_mutex_unlock(&ch->lock.pthread);
+            } else if (lock_type == BAKERY) {
+                unlock(&ch->lock.bakery, handler->unique_thread_id);
+            } else if (lock_type == BURNS_AND_LYNCH) {
+                unlock(&ch->lock.burns_and_lynch, handler->unique_thread_id);
+            } else if (lock_type == PTHREAD_SPIN)
+            {
+                pthread_spin_unlock(&ch->lock.pthread_spin);
+            }
+
             //Server must take the Client's requested queue queue_type
             queue_ctx* q_ctx= select_queue_ctx(ch->slots[slot].queue_type);
             q_ctx->queues = _create_server_queue_pair(ch, slot);
@@ -525,8 +562,16 @@ queue_ctx* accept(server_context* handler) {
         // if over here, then slot has been reserved, but has not been allocated
         // queues yet, so we move on to next slot
     }
-    pthread_mutex_unlock(&ch->mutex);
-
+    if (lock_type == PTHREAD) {
+        pthread_mutex_unlock(&ch->lock.pthread);
+    } else if (lock_type == BAKERY) {
+        unlock(&ch->lock.bakery, handler->unique_thread_id);
+    } else if (lock_type == BURNS_AND_LYNCH) {
+        unlock(&ch->lock.burns_and_lynch, handler->unique_thread_id);
+    } else if (lock_type == PTHREAD_SPIN)
+    {
+        pthread_spin_unlock(&ch->lock.pthread_spin);
+    }
     return NULL;
 }
 
