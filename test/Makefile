@@ -24,8 +24,9 @@ ifeq ($(UNAME), Linux)
 LDFLAGS += \
 	-Wl,-rpath,$(THISDIR)/../libnotnets/bin \
 	-lnotnets \
-    -lpthread \
+    -lpthread -lm \
 	-lgtest  -lgtest_main\
+	
 
 endif
 

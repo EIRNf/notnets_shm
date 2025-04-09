@@ -319,6 +319,10 @@ shm_pair _hash_shm_allocator(int message_size, int client_id) {
     // set up shm regions as queues
     void* request_addr = shm_attach(request_shmid);
     void* response_addr = shm_attach(response_shmid);
+
+    shm_cxl_bind(request_addr, QUEUE_SIZE);
+    shm_cxl_bind(response_addr, QUEUE_SIZE);
+
     queue_create(request_addr, QUEUE_SIZE, message_size);
     queue_create(response_addr, QUEUE_SIZE, message_size);
 

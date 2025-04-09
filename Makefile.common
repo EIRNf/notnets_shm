@@ -11,7 +11,7 @@ INSTALL_PREFIX= /usr/local
 
 CPPFLAGS  += 
 INCLUDES  +=
-LDFLAGS   += -lpthread  -lstdc++ 
+LDFLAGS   += -lpthread  -lstdc++ -lnuma 
 
 OBJDIR  = $(THISDIR)/obj
 BINDIR  = $(THISDIR)/bin
