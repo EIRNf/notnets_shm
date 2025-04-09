@@ -17,9 +17,11 @@
 #include <sys/resource.h>
 #include <sys/time.h>
 
+#include <numaif.h>
+
 // #define NUM_ITEMS 10000000
 #define MESSAGE_SIZE 4 //Int
-#define EXECUTION_SEC 20
+#define EXECUTION_SEC 60
 
 typedef struct run_stats {
     void* shmaddr;
@@ -486,7 +488,18 @@ void notnets_bench_enqueue_dequeue(QUEUE_TYPE type, int mem_size, char* name){
     while (shmid == -1) {
         shmid = shm_create(key, shm_size, create_flag);
     }
+
     run1.shmaddr = shm_attach(shmid);
+
+    //Add CXL memory node 
+    unsigned long nodemask = 1UL << 1;
+    int mode = MPOL_BIND;      
+    unsigned long maxnode = sizeof(nodemask) * 8;
+    if (mbind(run1.shmaddr, shm_size, mode, &nodemask, maxnode, 0) != 0) {
+        perror("mbind");
+    }
+    
+
 
     switch(type){
         case POLL:
@@ -608,7 +621,7 @@ void bench_run_all(QUEUE_TYPE type, int value, char* name){
 
 int main(int argc, char *argv[]) {
     QUEUE_TYPE mode = POLL;  // Default mode
-    int value = 1624;      // Default value
+    int value = 1200000000;      // Default value
     char* name = (char*)"POLL";
 
     if (argc > 1) {
