@@ -702,17 +702,10 @@ queue_ctx* select_queue_ctx(QUEUE_TYPE t)
   my_ctx->queue_type = t;
   switch(t){
     case POLL:
-        // fn->client_send = client_send_poll;
-        // fn->client_receive = client_receive_poll;
-        // fn->server_send = server_send_poll;
-        // fn->server_receive = server_receive_poll;
-
-
-        fn->client_send = client_send_umwait;
-        fn->client_receive = client_receive_umwait;
-        fn->server_send = server_send_umwait;
-        fn->server_receive = server_receive_umwait;
-
+        fn->client_send = client_send_poll;
+        fn->client_receive = client_receive_poll;
+        fn->server_send = server_send_poll;
+        fn->server_receive = server_receive_poll;
         break;
     case BOOST:
         fn->client_send = client_send_boost;
