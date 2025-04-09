@@ -3,7 +3,7 @@ A library to handle message passing over shared memory.
 
 ## Requirements
 - clang 16 or above
-- g++ 11 or above
+- g++ 12 or above
 - boost lib
     - sudo apt-get install libboost-all-dev
 - gtest lib

@@ -5,6 +5,7 @@
 #include "queue.h"
 #include "boost_queue.h"
 #include "sem_queue.h"
+#include "queue_umwait.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -318,6 +319,10 @@ shm_pair _hash_shm_allocator(int message_size, int client_id) {
     // set up shm regions as queues
     void* request_addr = shm_attach(request_shmid);
     void* response_addr = shm_attach(response_shmid);
+
+    shm_cxl_bind(request_addr, QUEUE_SIZE);
+    shm_cxl_bind(response_addr, QUEUE_SIZE);
+
     queue_create(request_addr, QUEUE_SIZE, message_size);
     queue_create(response_addr, QUEUE_SIZE, message_size);
 
@@ -439,20 +444,26 @@ void manage_pool(server_context* handler) {
  * @return server_context* If NULL, coord memory region was not
  * created successfully
  */
-server_context* register_server(char* source_addr) {
-    coord_header* ch = coord_create(source_addr);
+server_context* register_server(char* source_addr, lock_type lock_type) {
 
+
+    coord_header* ch = coord_create(source_addr, lock_type);
+
+    
     server_context* sc = (server_context*) malloc(sizeof(server_context));
 
+
+
     // coord_header, at the end of the day, is just a shm region
-    sc->coord_shmaddr = (void*) ch;
+    sc->coord_shmaddr =  ch;
+    sc->unique_thread_id = 0;
 
     if (pthread_mutex_init(&sc->manage_pool_mutex, NULL) == -1) {
         perror("error create manage pool mutex");
     }
 
     sc->manage_pool_state = RUNNING_NO_SHUTDOWN;
-    atomic_thread_fence(memory_order_release);
+    atomic_thread_fence(memory_order_seq_cst);
 
 
     // start manage pool runner thread
@@ -489,13 +500,34 @@ server_context* register_server(char* source_addr) {
  * @return queue_pair
  */
 queue_ctx* accept(server_context* handler) {
-    // printf("SERVER: ACCEPT:\n");
-    coord_header* ch = (coord_header*) handler->coord_shmaddr;
 
+    coord_header* ch = handler->coord_shmaddr;
     int slot = ch->accept_slot;
     // bool attach;
 
-    pthread_mutex_lock(&ch->mutex);
+    lock_type lock_type = ch->lock_type;
+
+
+    // try to reserve a slot, if not available wait and try again
+    if (lock_type == PTHREAD) {
+        pthread_mutex_lock(&ch->lock.pthread);
+    } else if (lock_type == BAKERY) {
+
+        if (handler->unique_thread_id == 0) {
+            handler->unique_thread_id = get_process_id(&ch->lock.bakery);
+        }
+        lock(&ch->lock.bakery, handler->unique_thread_id);
+    } else if (lock_type == BURNS_AND_LYNCH) {
+        if (handler->unique_thread_id == 0) {
+            handler->unique_thread_id = get_process_id(&ch->lock.burns_and_lynch);
+        }
+        lock(&ch->lock.burns_and_lynch, handler->unique_thread_id);
+    } else if (lock_type == PTHREAD_SPIN)
+    {
+        pthread_spin_lock(&ch->lock.pthread_spin);
+        
+    }
+    
     for (int i = 0; i < SLOT_NUM; ++i, slot = (slot + 1) % SLOT_NUM) {
         // if this slot is scheduled to be detached, or is not reserved,
         // don't accept it
@@ -509,7 +541,17 @@ queue_ctx* accept(server_context* handler) {
             ch->accept_slot = (slot + 1) % SLOT_NUM;
 
 
-            pthread_mutex_unlock(&ch->mutex);
+            if (lock_type == PTHREAD) {
+                pthread_mutex_unlock(&ch->lock.pthread);
+            } else if (lock_type == BAKERY) {
+                unlock(&ch->lock.bakery, handler->unique_thread_id);
+            } else if (lock_type == BURNS_AND_LYNCH) {
+                unlock(&ch->lock.burns_and_lynch, handler->unique_thread_id);
+            } else if (lock_type == PTHREAD_SPIN)
+            {
+                pthread_spin_unlock(&ch->lock.pthread_spin);
+            }
+
             //Server must take the Client's requested queue queue_type
             queue_ctx* q_ctx= select_queue_ctx(ch->slots[slot].queue_type);
             q_ctx->queues = _create_server_queue_pair(ch, slot);
@@ -520,8 +562,16 @@ queue_ctx* accept(server_context* handler) {
         // if over here, then slot has been reserved, but has not been allocated
         // queues yet, so we move on to next slot
     }
-    pthread_mutex_unlock(&ch->mutex);
-
+    if (lock_type == PTHREAD) {
+        pthread_mutex_unlock(&ch->lock.pthread);
+    } else if (lock_type == BAKERY) {
+        unlock(&ch->lock.bakery, handler->unique_thread_id);
+    } else if (lock_type == BURNS_AND_LYNCH) {
+        unlock(&ch->lock.burns_and_lynch, handler->unique_thread_id);
+    } else if (lock_type == PTHREAD_SPIN)
+    {
+        pthread_spin_unlock(&ch->lock.pthread_spin);
+    }
     return NULL;
 }
 
@@ -599,6 +649,19 @@ size_t server_receive_poll(queue_pair* client, void* buf, size_t size){
     return pop(client->request_shmaddr, buf, &size);
 }
 
+int client_send_umwait(queue_pair* conn, const void* buf, size_t size){
+    return umwait_push(conn->request_shmaddr, buf, size);
+}
+size_t client_receive_umwait(queue_pair* conn, void* buf, size_t size){
+    return umwait_pop(conn->response_shmaddr, buf, &size);
+}
+int server_send_umwait(queue_pair* client, const void *buf, size_t size){
+    return umwait_push(client->response_shmaddr, buf, size);
+}
+size_t server_receive_umwait(queue_pair* client, void* buf, size_t size){
+    return umwait_pop(client->request_shmaddr, buf, &size);
+}
+
 int client_send_boost(queue_pair* conn, const void* buf, size_t size){
     return boost_push(conn->request_shmaddr, buf, size, conn->offset);
 }
@@ -639,10 +702,17 @@ queue_ctx* select_queue_ctx(QUEUE_TYPE t)
   my_ctx->queue_type = t;
   switch(t){
     case POLL:
-        fn->client_send = client_send_poll;
-        fn->client_receive = client_receive_poll;
-        fn->server_send = server_send_poll;
-        fn->server_receive = server_receive_poll;
+        // fn->client_send = client_send_poll;
+        // fn->client_receive = client_receive_poll;
+        // fn->server_send = server_send_poll;
+        // fn->server_receive = server_receive_poll;
+
+
+        fn->client_send = client_send_umwait;
+        fn->client_receive = client_receive_umwait;
+        fn->server_send = server_send_umwait;
+        fn->server_receive = server_receive_umwait;
+
         break;
     case BOOST:
         fn->client_send = client_send_boost;
@@ -655,6 +725,12 @@ queue_ctx* select_queue_ctx(QUEUE_TYPE t)
         fn->client_receive= client_receive_sem;
         fn->server_send = server_send_sem;
         fn->server_receive = server_receive_sem;
+        break;
+    case UMWAIT:
+        fn->client_send = client_send_umwait;
+        fn->client_receive = client_receive_umwait;
+        fn->server_send = server_send_umwait;
+        fn->server_receive = server_receive_umwait;
         break;
     default:
         fn->client_send = client_send_poll;

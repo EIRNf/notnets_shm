@@ -10,6 +10,35 @@
 
 #include "bench_utils.h"
 
+void print_rusage(struct rusage *usage) {
+    printf("User CPU time used: %ld.%06ld seconds\n", 
+           usage->ru_utime.tv_sec, usage->ru_utime.tv_usec);
+    printf("System CPU time used: %ld.%06ld seconds\n", 
+           usage->ru_stime.tv_sec, usage->ru_stime.tv_usec);
+    printf("Maximum resident set size: %ld KB\n", usage->ru_maxrss);
+    printf("Integral shared memory size: %ld KB\n", usage->ru_ixrss);
+    printf("Integral unshared data size: %ld KB\n", usage->ru_idrss);
+    printf("Integral unshared stack size: %ld KB\n", usage->ru_isrss);
+    printf("Page reclaims (soft page faults): %ld\n", usage->ru_minflt);
+    printf("Page faults (hard page faults): %ld\n", usage->ru_majflt);
+    printf("Swaps: %ld\n", usage->ru_nswap);
+    printf("Block input operations: %ld\n", usage->ru_inblock);
+    printf("Block output operations: %ld\n", usage->ru_oublock);
+    printf("IPC messages sent: %ld\n", usage->ru_msgsnd);
+    printf("IPC messages received: %ld\n", usage->ru_msgrcv);
+    printf("Signals received: %ld\n", usage->ru_nsignals);
+    printf("Voluntary context switches: %ld\n", usage->ru_nvcsw);
+    printf("Involuntary context switches: %ld\n", usage->ru_nivcsw);
+}
+
+void record_usage() {
+    struct rusage usage;
+    if (getrusage(RUSAGE_SELF, &usage) == 0) {
+        print_rusage(&usage);
+    } else {
+        perror("getrusage failed");
+    }
+}
 
 
 void print_num_clients(){
@@ -111,7 +140,7 @@ void* pthread_connect_client(void* arg){
 
     while(!run_flag);
 
-    clock_gettime(CLOCK_MONOTONIC, &args->start);
+    clock_gettime(CLOCK_BOOTTIME, &args->start);
     queue_ctx* c_qp = client_open(name,
                                 (char*)"test_server_addr",
                                  sizeof(int),
@@ -123,7 +152,7 @@ void* pthread_connect_client(void* arg){
                              POLL);
         }
     
-    clock_gettime(CLOCK_MONOTONIC, &args->end);
+    clock_gettime(CLOCK_BOOTTIME, &args->end);
 
     // No connection was achieved :()
     if (c_qp == NULL){

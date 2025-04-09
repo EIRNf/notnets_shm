@@ -53,4 +53,6 @@ int shm_detach(void* shmaddr);
  */
 int shm_remove(int shmid);
 
+void shm_cxl_bind(void* shmaddr, int size);
+
 #endif

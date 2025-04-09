@@ -11,7 +11,7 @@ INSTALL_PREFIX= /usr/local
 
 CPPFLAGS  += 
 INCLUDES  +=
-LDFLAGS   += -lpthread
+LDFLAGS   += -lpthread  -lstdc++ -lnuma 
 
 OBJDIR  = $(THISDIR)/obj
 BINDIR  = $(THISDIR)/bin
@@ -19,8 +19,8 @@ SRCDIR  = $(THISDIR)/src
 INCDIR  = $(THISDIR)/include
 
 ## Implicit Section: change the following only when necessary.
-CXX      = clang++ 
-CXXFLAGS = -g -O2 -fPIC -Wall  -std=c++2b -static-libstdc++
+CXX      = clang-18
+CXXFLAGS = -g -O2 -fPIC -Wall  -std=c++23
 SRCDIRS  = $(shell find $(SRCDIR) -type d)
 INCFLAGS = -I $(INCDIR) $(INCLUDES)
 
@@ -31,7 +31,7 @@ OBJS    = $(patsubst $(SRCDIR)/%,$(OBJDIR)/%,$(SOURCES:.cpp=.o))
 DEPS    = $(OBJS:.o=.d)
 
 ## Define some useful variables.
-CDP = clang++
+CDP = clang-18
 DEP_OPT = -MM -MP
 DEPEND  = $(CDP) $(CPPFLAGS) $(CXXFLAGS) $(INCFLAGS) $(DEP_OPT)
 COMPILE = $(CXX) $(CPPFLAGS) $(CXXFLAGS) $(INCFLAGS) 
