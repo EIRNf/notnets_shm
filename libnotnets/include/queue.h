@@ -13,9 +13,6 @@
 typedef struct spsc_queue_header {
     atomic_int head;
     atomic_int tail;
-
-    long nano_sleep_time_step;
-
     size_t message_size;
     int message_offset;
     int queue_size;
