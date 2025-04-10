@@ -12,7 +12,7 @@ INCLUDES = \
 
 LDFLAGS = \
 	-L $(THISDIR)/../libnotnets/bin \
-	-lnotnets \
+	-lnotnets -lnuma \
 
 
 ifeq ($(UNAME), Linux)

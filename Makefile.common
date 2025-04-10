@@ -11,7 +11,7 @@ INSTALL_PREFIX= /usr/local
 
 CPPFLAGS  += 
 INCLUDES  +=
-LDFLAGS   += -lpthread -lstdc++
+LDFLAGS   += -lpthread  -lstdc++ -lnuma 
 
 OBJDIR  = $(THISDIR)/obj
 BINDIR  = $(THISDIR)/bin
@@ -20,7 +20,7 @@ INCDIR  = $(THISDIR)/include
 
 ## Implicit Section: change the following only when necessary.
 CXX      = clang-18
-CXXFLAGS = -ggdb -O0 -fPIC -Wall  -std=c++2b 
+CXXFLAGS = -g -O2 -fPIC -Wall  -std=c++23
 SRCDIRS  = $(shell find $(SRCDIR) -type d)
 INCFLAGS = -I $(INCDIR) $(INCLUDES)
 

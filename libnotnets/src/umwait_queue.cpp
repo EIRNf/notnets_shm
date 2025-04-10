@@ -81,7 +81,7 @@ int umwait_push(void* shmaddr, const void* buf, size_t buf_size) {
 
     do {
         _umonitor(&header->tail);
-        _umwait(1,0);
+        _umwait(0,0);
     }while(next_writer_head == atomic_load_explicit(&header->tail, memory_order_acquire));
 
     // _umonitor(&header->tail);
@@ -123,7 +123,7 @@ size_t umwait_pop(void* shmaddr, void* buf, size_t* buf_size) { //TODO: MAKE PAR
 
     do {
         _umonitor(&header->head);
-        _umwait(1,0);
+        _umwait(0,0);
     }while(reader_tail == atomic_load_explicit(&header->head, memory_order_acquire));
 
     // while (reader_tail == atomic_load_explicit(&header->head, memory_order_acquire)){
