@@ -156,7 +156,7 @@ def generate_graphs(merged_data):
 	ax.legend(['ns/op'], loc='upper left', bbox_to_anchor=(0.18, 1))
 	ax2.legend(['User CPU time (sec)', 'System CPU time (sec)'], loc='upper right')
 
-	plt.savefig("queue_latency.svg")
+	plt.savefig("queue_latency.png")
 
 
 # def main():

@@ -198,10 +198,11 @@ void* server_tcp_handler(void* socket){
 void  single_rtt_test(){
     fprintf(stdout, "\ntcp-socket/single-rtt/\n");
 
-
     int sockfd, connfd; 
     socklen_t len;
     struct sockaddr_in servaddr, cli; 
+
+    
 
     // socket create and verification 
     sockfd = socket(AF_INET, SOCK_STREAM, 0); 
@@ -211,19 +212,27 @@ void  single_rtt_test(){
     } 
     bzero(&servaddr, sizeof(servaddr)); 
 
+    int reset = 0;
+    setsockopt(sockfd,SOL_SOCKET,SO_REUSEPORT,&reset,sizeof(int));
+    setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&reset,sizeof(int));
+
     // assign IP, PORT 
     servaddr.sin_family = AF_INET; 
     servaddr.sin_addr.s_addr =  htonl(INADDR_ANY); 
     servaddr.sin_port = htons(PORT); 
+
+    // if (getsockname(sockfd, (struct sockaddr *)&servaddr, &len) < 0){
+    //     printf("failed to get hostname with errno");
+    //     exit(1);
+    // }
+
     // Binding newly created socket to given IP and verification 
     if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) { 
         printf("socket bind failed...\n"); 
         exit(0); 
     }
     
-   
-    // int reset = 1;
-    // setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&reset,sizeof(int));
+    
 
     // Now server is ready to listen and verification 
     if ((listen(sockfd, 1)) != 0) { 
@@ -255,12 +264,16 @@ void  single_rtt_test(){
     pthread_join(client,NULL);  
     pthread_join(server,NULL);  
 
-    fprintf(stdout, "Num Clients: %d \n", 1);
-    report_single_rtt_stats(args);
     shutdown(connfd,SHUT_RDWR);
-    // close(sockfd);
-    free(args);
+    close(sockfd);
     run_flag = false;
+
+
+    report_single_rtt_stats(args);    
+    save_single_rtt_stats_as_csv("TCP", args);
+    record_usage_with_run_name("TCP");
+    free(args);
+
 }
 
 void single_tcp_connection_test(){
@@ -580,7 +593,7 @@ void rtt_during_tcp_connection_test(){
 
 int main(){ //Annoying to rerun due to time wait socket reuse
     single_rtt_test();
-    record_usage();
+    // record_usage();
 
     // single_tcp_connection_test();
     // connection_tcp_stress_test();

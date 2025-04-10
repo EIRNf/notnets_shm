@@ -35,6 +35,56 @@ void print_rusage(struct rusage *usage) {
     printf("Involuntary context switches: %ld\n", usage->ru_nivcsw);
 }
 
+void save_rusage_as_csv(struct rusage *usage, const char* name) {
+
+    char* file_name;
+    asprintf(&file_name, "%s_rusage.csv", name);
+
+    // Open a file to write the CSV data
+    FILE *fp = fopen(file_name, "w");
+    if (fp == NULL) {
+        perror("Failed to open file");
+        return;
+    }
+
+    // Write the CSV header
+    fprintf(fp, "user_CPU_time(sec),system_CPU_time(sec),max_RSS(KB),shm_size (KB),unshared_data_size(KB),unshared_stack_size(KB),page_reclaims,page_faults,swaps,block_input_ops,block_output_ops, IPC_messages_sent,IPC_messages_received,signals_received,voluntary_context_switches,involuntary_context_switches\n");
+
+    // Write the rusage data in CSV format
+    fprintf(fp, "%ld.%06ld,%ld.%06ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld,%ld\n",
+            usage->ru_utime.tv_sec, usage->ru_utime.tv_usec,
+            usage->ru_stime.tv_sec, usage->ru_stime.tv_usec,
+            usage->ru_maxrss,
+            usage->ru_ixrss,
+            usage->ru_idrss,
+            usage->ru_isrss,
+            usage->ru_minflt,
+            usage->ru_majflt,
+            usage->ru_nswap,
+            usage->ru_inblock,
+            usage->ru_oublock,
+            usage->ru_msgsnd,
+            usage->ru_msgrcv,
+            usage->ru_nsignals,
+            usage->ru_nvcsw,
+            usage->ru_nivcsw);
+
+    // Close the file
+    fclose(fp);
+    // free(file_name);
+}
+
+
+void record_usage_with_run_name(const char* name) {
+    struct rusage usage;
+    if (getrusage(RUSAGE_SELF, &usage) == 0) {
+        save_rusage_as_csv(&usage, name);
+    } else {
+        perror("getrusage failed");
+    }
+}
+
+
 void record_usage() {
     struct rusage usage;
     if (getrusage(RUSAGE_SELF, &usage) == 0) {
@@ -71,6 +121,53 @@ void print_ops_ms(long average_ns){
 int cmpfunc(const void * a, const void * b) {
    return ( *(int*)a - *(int*)b );
 }
+
+void save_single_rtt_stats_as_csv(char* name,struct connection_args *args) {
+    char* file_name;
+    asprintf(&file_name, "%s_bench.csv", name);
+
+    // Open a file to write the CSV data
+    FILE *fp = fopen(file_name, "w");
+    if (fp == NULL) {
+        perror("Failed to open file");
+        return;
+    }
+
+
+        // Write the CSV header
+    fprintf(fp, "Name,ItemsConsumed,ns/op,ops/ms\n");
+
+
+    //nanosecond ns 1.0e-09
+    //microsecond us 1.0e-06
+    //millisecond ms 1.0e-03
+    struct timespec start = args->start;
+    struct timespec end = args->end;
+
+    double total_sec  = end.tv_sec - start.tv_sec;
+    double total_nsec = end.tv_nsec - start.tv_nsec;
+
+
+    // Calculate the total time in microseconds and milliseconds
+    double total_us = total_sec * 1.0e+06;
+    total_us += total_nsec / 1.0e+03;
+
+    double total_ms = total_sec * 1.0e+03;
+    total_ms += total_nsec / 1.0e+06;
+
+
+    fprintf(fp, "%s,%d,%f,%f\n",
+            name,
+            NUM_ITEMS,
+            (total_us * 1.0e+03)/NUM_ITEMS,
+            NUM_ITEMS/(total_ms));
+
+
+    // Close the file
+    fclose(fp);
+    // free(file_name);
+}
+
 
 void report_single_rtt_stats(struct connection_args *args) {
     //nanosecond ns 1.0e-09

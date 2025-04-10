@@ -58,6 +58,9 @@ void* pthread_measure_connect_and_rtt(void* arg);
 void* pthread_measure_connect_and_rtt_and_disconnect(void* arg);
 
 void report_single_rtt_stats(struct connection_args *args);
+void save_rusage_as_csv(struct rusage *usage, const char* name);
+void record_usage_with_run_name(const char* name);
+void save_single_rtt_stats_as_csv(char* name,struct connection_args *args);
 
 void report_connection_stats(struct connection_args *args);
 

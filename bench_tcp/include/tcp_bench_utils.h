@@ -4,7 +4,7 @@
 #define SA struct sockaddr
 
 #define MAX 80
-#define PORT 8080
+#define PORT 8081
 
 #define NUM_ITEMS 1000000
 #define MESSAGE_SIZE 4 //Int
@@ -37,6 +37,10 @@ void print_avg_ops_ms(long average_ns);
 void print_ops_ms(long average_ns);
 
 int cmpfunc(const void * a, const void * b);
+
+void save_rusage_as_csv(struct rusage *usage, const char* name);
+void record_usage_with_run_name(const char* name);
+void save_single_rtt_stats_as_csv(char* name,struct connection_args *args);
 
 void report_single_rtt_stats(struct connection_args *args);
 

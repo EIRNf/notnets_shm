@@ -15,7 +15,7 @@
 atomic_bool run_flag = false; //control execution
 
 //Evaluate queue latency after connection has already been made
-void single_rtt_test(QUEUE_TYPE type){ 
+void single_rtt_test(QUEUE_TYPE type, char* name){ 
     fprintf(stdout, "\nnotnets/%s/\n", __func__);
     // pthread_t producer;
     pthread_t consumer;
@@ -41,15 +41,14 @@ void single_rtt_test(QUEUE_TYPE type){
     //Actual measuring
     run_flag = true;
     pthread_client_rtt_post_connect(c_qp, args);
-
     pthread_join(consumer,NULL);    
-
-    fprintf(stdout, "Num Items: %d  \n", NUM_ITEMS);
-    fprintf(stdout, "Message Size: %d  \n", MESSAGE_SIZE);
-    report_single_rtt_stats(args);
-    free(args);
-    shutdown(sc);
     run_flag = false;
+
+    shutdown(sc);
+    save_single_rtt_stats_as_csv(name, args);
+    record_usage_with_run_name(name);
+    free(args);
+
 }
 
 // Evaluate how long a single non contested connection takes in notnets
@@ -762,8 +761,8 @@ void bench_run_all_bulk(void){
 }
 
 
-void bench_run_all(QUEUE_TYPE type, int value){
-    single_rtt_test(type);
+void bench_run_all(QUEUE_TYPE type, int value, char* name){
+    single_rtt_test(type, name);
     record_usage();
 }
 
@@ -771,14 +770,22 @@ void bench_run_all(QUEUE_TYPE type, int value){
 int main(int argc, char *argv[]) {
     QUEUE_TYPE mode = POLL;  // Default mode
     int value = 1624;      // Default value
+    char* name = (char*)"POLL";
+
 
     if (argc > 1) {
         if (strcmp(argv[1], "POLL") == 0) {
             mode = POLL;
+            name = (char*)"POLL";
+
         } else if (strcmp(argv[1], "UMWAIT") == 0) {
             mode = UMWAIT;
+            name = (char*)"UMWAIT";
+
         } else if (strcmp(argv[1], "SEM") == 0) {
             mode = SEM;
+            name =(char*)"SEM";
+
         } else {
             fprintf(stderr, "Invalid mode. Using default (SEM).\n");
         }
@@ -788,7 +795,7 @@ int main(int argc, char *argv[]) {
         value = atoi(argv[2]);  // Convert second argument to int
     }
 
-    bench_run_all(mode, value);
+    bench_run_all(mode, value,name);
     return 0;
 }
 
