@@ -23,7 +23,9 @@ typedef enum QUEUE_TYPE
   POLL,
   BOOST,
   SEM,
-  UMWAIT
+  UMWAIT,
+  ADAPTIVE_POLL,
+  HYBRID_MEAN_POLL
 } QUEUE_TYPE;
 
 typedef struct reserve_pair {

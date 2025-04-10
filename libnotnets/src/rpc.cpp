@@ -5,6 +5,7 @@
 #include "queue.h"
 #include "boost_queue.h"
 #include "sem_queue.h"
+#include "adaptive_queue.h"
 #include "queue_umwait.h"
 
 #include <errno.h>
@@ -297,12 +298,7 @@ shm_pair _fake_shm_allocator(int message_size, int client_id) {
 
 
 shm_pair _hash_shm_allocator(int message_size, int client_id) {
-    // printf("ALLOCATOR:\n");
     shm_pair shms = {};
-    
-    // int key1 = hash((unsigned char*)&client_id);
-    // int temp = client_id + 1;
-    // int key2 = hash((unsigned char*)&temp);
 
     int key1 = client_id;
     int key2 = client_id+1;
@@ -335,6 +331,42 @@ shm_pair _hash_shm_allocator(int message_size, int client_id) {
 
     return shms;
 }
+
+shm_pair _hash_adaptive_shm_allocator(int message_size, int client_id) {
+    shm_pair shms = {};
+
+    int key1 = client_id;
+    int key2 = client_id+1;
+
+    int request_shmid = shm_create(key1,
+                                   QUEUE_SIZE,
+                                   create_flag);
+    int response_shmid = shm_create(key2,
+                                    QUEUE_SIZE,
+                                    create_flag);
+    notnets_shm_info request_shm = {key1, request_shmid};
+    notnets_shm_info response_shm = {key2, response_shmid};
+
+    // set up shm regions as queues
+    void* request_addr = shm_attach(request_shmid);
+    void* response_addr = shm_attach(response_shmid);
+
+    shm_cxl_bind(request_addr, QUEUE_SIZE);
+    shm_cxl_bind(response_addr, QUEUE_SIZE);
+
+    adaptive_queue_create(request_addr, QUEUE_SIZE, message_size);
+    adaptive_queue_create(response_addr, QUEUE_SIZE, message_size);
+
+    // don't want to stay attached to the queue pairs
+    shm_detach(request_addr);
+    shm_detach(response_addr);
+
+    shms.request_shm = request_shm;
+    shms.response_shm = response_shm;
+
+    return shms;
+}
+
 
 shm_pair _rand_shm_allocator(int message_size, int client_id) {
     // printf("ALLOCATOR:\n");
@@ -425,6 +457,15 @@ void manage_pool(server_context* handler) {
                 break;
             case SEM:
                 service_slot(ch, i, &_hash_sem_shm_allocator);
+                break;
+            case ADAPTIVE_POLL:
+                service_slot(ch, i, &_hash_adaptive_shm_allocator);
+                break;
+            // case HYBRID_MEAN_POLL:
+            //     service_slot(ch, i, &_hash_hybrid_shm_allocator);
+            //     break;
+            case UMWAIT:
+                service_slot(ch, i, &_hash_shm_allocator);
                 break;
             default:
                 service_slot(ch, i, &_hash_shm_allocator);
@@ -649,6 +690,19 @@ size_t server_receive_poll(queue_pair* client, void* buf, size_t size){
     return pop(client->request_shmaddr, buf, &size);
 }
 
+int client_send_adaptive_poll(queue_pair* conn, const void* buf, size_t size){
+    return adaptive_push(conn->request_shmaddr, buf, size);
+}
+size_t client_receive_adaptive_poll(queue_pair* conn, void* buf, size_t size){
+    return adaptive_pop(conn->response_shmaddr, buf, &size);
+}
+int server_send_adaptive_poll(queue_pair* client, const void *buf, size_t size){
+    return adaptive_push(client->response_shmaddr, buf, size);
+}
+size_t server_receive_adaptive_poll(queue_pair* client, void* buf, size_t size){
+    return adaptive_pop(client->request_shmaddr, buf, &size);
+}
+
 int client_send_umwait(queue_pair* conn, const void* buf, size_t size){
     return umwait_push(conn->request_shmaddr, buf, size);
 }
@@ -724,6 +778,12 @@ queue_ctx* select_queue_ctx(QUEUE_TYPE t)
         fn->client_receive = client_receive_umwait;
         fn->server_send = server_send_umwait;
         fn->server_receive = server_receive_umwait;
+        break;
+    case ADAPTIVE_POLL:
+        fn->client_send = client_send_adaptive_poll;
+        fn->client_receive = client_receive_adaptive_poll;
+        fn->server_send = server_send_adaptive_poll;
+        fn->server_receive = server_receive_adaptive_poll;
         break;
     default:
         fn->client_send = client_send_poll;
