@@ -89,8 +89,8 @@ int sem_wait(int semid, int sem_num){
     sb.sem_flg = 0;
 
     int ret = semop(semid, &sb, 1);
-    if (ret == -1 ){
-        int errnum = errno;
+    if (ret == -1 ){ //TODO: Figure out max value issue
+        // int errnum = errno;
         // fprintf(stderr, "Sem_Wait: Value of errno: %d\n", errno);
         // fprintf(stderr, "Error: %s\n", strerror( errnum ));
         // printf("semid: %d\n", semid);
@@ -110,8 +110,8 @@ int sem_post(int semid, int sem_num){
     sb.sem_flg = 0;
 
     int ret = semop(semid, &sb, 1);
-    if (ret == -1 ){
-        int errnum = errno;
+    if (ret == -1 ){ //TODO: Figure out max value issue
+        // int errnum = errno;
         // fprintf(stderr, "Sem_Post: Value of errno: %d\n", errno);
         // fprintf(stderr, "Error: %s\n", strerror( errnum ));
         // printf("semid: %d\n", semid);

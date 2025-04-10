@@ -8,7 +8,7 @@
 #include <stdatomic.h>
 
 
-#define THREAD_COUNT  100
+#define THREAD_COUNT  1000
 
 typedef struct lamport_fast_lock {
     //User atomic to ensure unique assignment of process IDs
