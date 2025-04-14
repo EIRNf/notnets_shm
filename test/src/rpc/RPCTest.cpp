@@ -20,7 +20,7 @@ int cmpfunc(const void * a, const void * b) {
 }
 
 atomic_bool run_flag = false; //control execution
-QUEUE_TYPE test_queue = POLL;
+QUEUE_TYPE test_queue = SEM;
 
 class RPCTest : public ::testing::Test
 {

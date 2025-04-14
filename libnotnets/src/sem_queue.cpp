@@ -206,6 +206,9 @@ ssize_t queue_create(void* shmaddr, key_t key_seed, size_t shm_size, size_t mess
         exit(1);
     }
 
+    // Always add size_t to message size to store message length
+    message_size += sizeof(size_t);
+
     // Calculate size of array
     int num_elements = (shm_size - sizeof(sem_spsc_queue_header)) / message_size;
     int leftover_bytes = (shm_size - sizeof(sem_spsc_queue_header)) % message_size;
@@ -265,17 +268,27 @@ bool is_empty(sem_spsc_queue_header *header) {
     return  atomic_load(&header->head) == atomic_load(&header->tail);
 }
 
-void enqueue(sem_spsc_queue_header* header, const void* buf, size_t buf_size) {
-    void* array_start = get_message_array(header);
-
+int enqueue(sem_spsc_queue_header* header, const void* buf, size_t buf_size) {
     int message_size = header->message_size;
 
-    memcpy((char*) array_start + header->head * message_size, buf, buf_size);
+    int const writer_head = atomic_load_explicit(&header->head, memory_order_relaxed);
+    int next_writer_head = writer_head + 1;
+    if (next_writer_head == header->queue_size){ //Wrap around
+        next_writer_head = 0;
+    }    
+
+    void* array_start = get_message_array(header);
+    char* slot_position = (char*) array_start + writer_head * message_size;
+
+    memcpy(slot_position , &buf_size, sizeof(size_t));
+    memcpy(slot_position + sizeof(size_t), buf, buf_size);
     
     header->current_count++;
     header->total_count++;
 
-    atomic_store(&header->head,succ(atomic_load(&header->head), header->queue_size));
+    atomic_store(&header->head,next_writer_head);
+
+    return buf_size;
 }
 
 
@@ -299,9 +312,8 @@ int sem_push(void* shmaddr, const void* buf, size_t buf_size) {
         sem_wait(header->sem_lock, 0);
     }
     
-    enqueue(header, buf, buf_size); 
+    ret = enqueue(header, buf, buf_size); 
     sem_post(header->sem_lock, 0);
-
     if (was_empty){
         sem_post(header->sem_empty, 0); //increment, permit sem_pop to dequeue
     }
@@ -313,33 +325,52 @@ int sem_push(void* shmaddr, const void* buf, size_t buf_size) {
 
 
 size_t dequeue(sem_spsc_queue_header* header, void* buf, size_t* buf_size) {
+    size_t read_data = 0;
+
     void* array_start = get_message_array(header);
+    int const reader_tail =  atomic_load_explicit(&header->tail, memory_order_relaxed);
+    int next_reader_tail = reader_tail + 1;
+    if (next_reader_tail == header->queue_size){ //Wrap around
+        next_reader_tail = 0;
+    }
+    char* slot_position = (char*) array_start + reader_tail * header->message_size;
+    size_t message_length;
 
     if(*buf_size > header->message_size+1){
         printf("not supposed to happen");
     }
 
-    // handle offset math
-    if (*buf_size + header->message_offset > header->message_size) {
-        *buf_size = header->message_size - header->message_offset;
+    // Get size of written message
+    memcpy(&message_length, slot_position, sizeof(size_t));
+    // message_length = *slot_position; 
+
+    // handle offset math for full read
+    if (*buf_size + header->message_offset > message_length) {
+        read_data = message_length - header->message_offset;
+    }
+    // handle offset math for partial read
+    if (*buf_size + header->message_offset <= message_length) {
+        read_data = *buf_size;
     }
 
     memcpy(
         buf,
-        (char*) array_start + header->tail * header->message_size + header->message_offset,
-        *buf_size
+        slot_position + sizeof(size_t) + header->message_offset,
+        read_data
     );
 
-    header->message_offset += *buf_size;
-    if ((size_t) header->message_offset == header->message_size) {
+    header->message_offset += read_data;
 
-        atomic_store(&header->tail,succ(atomic_load(&header->tail), header->queue_size));
-
-        header->current_count--;
+    if ((size_t) header->message_offset == message_length) {
         header->message_offset = 0;
     }
+    else {
+        next_reader_tail = reader_tail;
+    }
 
-    return header->message_offset;
+    atomic_store_explicit(&header->tail, next_reader_tail, memory_order_release);
+
+    return read_data;
 
 }
 

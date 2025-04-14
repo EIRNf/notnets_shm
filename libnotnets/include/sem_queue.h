@@ -67,7 +67,7 @@ bool is_full(sem_spsc_queue_header *header);
  * @param buf pointer to buffer we want to enqueue
  * @param buf_size size of the buf in bytes
   */
-void enqueue(sem_spsc_queue_header* header, const void* buf, size_t buf_size);
+int enqueue(sem_spsc_queue_header* header, const void* buf, size_t buf_size);
 
 int sem_push(void* shmaddr, const void* buf, size_t buf_size);
 
