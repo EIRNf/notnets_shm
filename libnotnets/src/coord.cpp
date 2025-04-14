@@ -1,6 +1,4 @@
 
-#define SLOT_NUM 40
-#define QUEUE_SIZE 16777216 // 16MB
 
 #include "coord.h"
 #include "queue.h"
@@ -108,10 +106,25 @@ void coord_detach(coord_header* header){
 // Returns reserved slot to check back against, if -1 failed to get a slot
 int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TYPE queue_type){
 
+    lock_type lock_type = header->lock_type;
+
+    int unique_thread_id = 0;
     // try to reserve a slot, if not available wait and try again
-    pthread_mutex_lock(&header->mutex);
+    if (lock_type == PTHREAD) {
+        pthread_mutex_lock(&header->lock.pthread);
+    } else if (lock_type == BAKERY) {
+        unique_thread_id = get_process_id(&header->lock.bakery);
+        lock(&header->lock.bakery, unique_thread_id);
+    } else if (lock_type == BURNS_AND_LYNCH) {
+        unique_thread_id = get_process_id(&header->lock.burns_and_lynch);
+        lock(&header->lock.burns_and_lynch, unique_thread_id);
+    } else if (lock_type == PTHREAD_SPIN)
+    {
+        pthread_spin_lock(&header->lock.pthread_spin);
+    }
+    
     for(int i = 0; i < SLOT_NUM; i++){
-        if (header->available_slots[i].client_reserved == false){
+        if (atomic_load(&header->available_slots[i].client_reserved)== false){
             // printf("CLIENT: Pre-Requesting:\n");
             // print_coord_header(header);
             header->slots[i].client_id = client_id;
@@ -120,17 +133,39 @@ int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TY
             header->slots[i].queue_type = queue_type;
             atomic_store(&header->slots[i].client_attached,false);
             atomic_store(&header->slots[i].server_attached,false);
-            header->slots[i].shm_created = false;
-            atomic_thread_fence(memory_order_seq_cst);
-            header->available_slots[i].client_reserved = true;
+            atomic_store(&header->slots[i].shm_created,false);
+            atomic_store(&header->available_slots[i].client_reserved,true);
+            // atomic_thread_fence(memory_order_seq_cst);
+
 
             // printf("CLIENT: Post-Requesting:\n");
             // print_coord_header(header);
-            pthread_mutex_unlock(&header->mutex);
+
+            if (lock_type == PTHREAD) {
+                pthread_mutex_unlock(&header->lock.pthread);
+            } else if (lock_type == BAKERY) {
+                unlock(&header->lock.bakery, unique_thread_id);
+            } else if (lock_type == BURNS_AND_LYNCH) {
+                unlock(&header->lock.burns_and_lynch, unique_thread_id);
+            } else if (lock_type == PTHREAD_SPIN)
+            {
+                pthread_spin_unlock(&header->lock.pthread_spin);
+            }
+
             return i;
         }
     }
-    pthread_mutex_unlock(&header->mutex);
+
+    if (lock_type == PTHREAD) {
+        pthread_mutex_unlock(&header->lock.pthread);
+    } else if (lock_type == BAKERY) {
+        unlock(&header->lock.bakery, unique_thread_id);
+    } else if (lock_type == BURNS_AND_LYNCH) {
+        unlock(&header->lock.burns_and_lynch, unique_thread_id);
+    } else if (lock_type == PTHREAD_SPIN)
+    {
+        pthread_spin_unlock(&header->lock.pthread_spin);
+    }
     return -1;
 }
 
@@ -186,7 +221,7 @@ bool set_server_attach_state(coord_header* header, int slot, bool state){
 }
 
 // Server
-coord_header* coord_create(char* coord_address){
+coord_header* coord_create(char* coord_address, lock_type lock_type){
     //Create shm region
     int key = (int) hash((unsigned char*) coord_address);
     int size = sizeof(coord_header);
@@ -200,18 +235,32 @@ coord_header* coord_create(char* coord_address){
     header->accept_slot = 0;
 
     for(int i = 0; i < SLOT_NUM; i++){
-        header->available_slots[i].client_reserved = false;
+        atomic_store(&header->available_slots[i].client_reserved, false);
     }
 
-    // initialize mutual exclusion mechanism and store handle
-    pthread_mutexattr_t attr;
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
+    header->lock_type = lock_type;
 
-    // instantiate the mutex
-    if (pthread_mutex_init(&header->mutex, &attr) == -1) {
-        perror("error creating mutex");
+    // initialize mutual exclusion mechanism and store handle
+    if (header->lock_type == PTHREAD) {
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
+        
+        // instantiate the mutex
+        if (pthread_mutex_init(&header->lock.pthread, &attr) == -1) {
+            perror("error creating mutex");
+        }
+    } else if (header->lock_type == BAKERY) {
+        init_bakery_lock(&header->lock.bakery);
+    } else if (header->lock_type == BURNS_AND_LYNCH) {
+        init_burns_and_lynch_lock(&header->lock.burns_and_lynch);
+    } else if (header->lock_type == PTHREAD_SPIN) {
+        // instantiate the mutex
+        if (pthread_spin_init(&header->lock.pthread_spin, PTHREAD_PROCESS_SHARED)== -1) {
+            perror("error creating mutex");
+        }
+
     }
 
     return header;
@@ -225,15 +274,14 @@ int service_slot(coord_header* header,
 
     if (header->available_slots[slot].client_reserved &&
             !header->slots[slot].shm_created) {
+
         // printf("SERVER: Pre-Servicing:\n");
         // print_coord_header(header);
 
         // call allocation Function
         shm_pair shms = (*allocation)(header->slots[slot].message_size,header->slots[slot].client_id);
-
         header->slots[slot].shms = shms;
         atomic_thread_fence(memory_order_seq_cst);
-
         atomic_store(&header->slots[slot].shm_created, true);
 
         // printf("SERVER: Post-Servicing:\n");
