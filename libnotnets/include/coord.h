@@ -3,7 +3,7 @@
 
 #define SLOT_NUM 1000
 // #define QUEUE_SIZE 16777216 // 16MB
-#define QUEUE_SIZE 128 // 16MB
+#define QUEUE_SIZE 256 // TODO: Improve checks for minimal size required. 
 
 
 #include <unistd.h>
@@ -29,7 +29,7 @@ typedef enum QUEUE_TYPE
 } QUEUE_TYPE;
 
 typedef struct reserve_pair {
-    bool client_reserved;
+    atomic_bool client_reserved;
 } reserve_pair;
 
 typedef struct notnets_shm_info {

@@ -124,7 +124,7 @@ int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TY
     }
     
     for(int i = 0; i < SLOT_NUM; i++){
-        if (header->available_slots[i].client_reserved == false){
+        if (atomic_load(&header->available_slots[i].client_reserved)== false){
             // printf("CLIENT: Pre-Requesting:\n");
             // print_coord_header(header);
             header->slots[i].client_id = client_id;
@@ -134,7 +134,7 @@ int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TY
             atomic_store(&header->slots[i].client_attached,false);
             atomic_store(&header->slots[i].server_attached,false);
             atomic_store(&header->slots[i].shm_created,false);
-            header->available_slots[i].client_reserved = true;
+            atomic_store(&header->available_slots[i].client_reserved,true);
             // atomic_thread_fence(memory_order_seq_cst);
 
 
@@ -235,7 +235,7 @@ coord_header* coord_create(char* coord_address, lock_type lock_type){
     header->accept_slot = 0;
 
     for(int i = 0; i < SLOT_NUM; i++){
-        header->available_slots[i].client_reserved = false;
+        atomic_store(&header->available_slots[i].client_reserved, false);
     }
 
     header->lock_type = lock_type;
@@ -274,15 +274,14 @@ int service_slot(coord_header* header,
 
     if (header->available_slots[slot].client_reserved &&
             !header->slots[slot].shm_created) {
+
         // printf("SERVER: Pre-Servicing:\n");
         // print_coord_header(header);
 
         // call allocation Function
         shm_pair shms = (*allocation)(header->slots[slot].message_size,header->slots[slot].client_id);
         header->slots[slot].shms = shms;
-        
         atomic_thread_fence(memory_order_seq_cst);
-
         atomic_store(&header->slots[slot].shm_created, true);
 
         // printf("SERVER: Post-Servicing:\n");
