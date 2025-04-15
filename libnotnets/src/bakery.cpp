@@ -1,7 +1,7 @@
 #include "bakery.h"
 
 
-void lock(bakery_lock *bl ,int thread)
+void lock_bakery(bakery_lock *bl ,int thread)
 {
     // atomic_store(&bl->choosing[thread], 1);
     atomic_store_explicit(&bl->choosing[thread], 1, memory_order_seq_cst);
@@ -76,7 +76,7 @@ void lock(bakery_lock *bl ,int thread)
 //     }
 // }
 
-void unlock(bakery_lock *bl , int thread)
+void unlock_bakery(bakery_lock *bl , int thread)
 {
     atomic_store(&bl->tickets[thread], 0);
 }
@@ -99,7 +99,7 @@ bakery_lock* init_bakery_lock(void* shmaddr)
     return bl;
 }
 
-int get_process_id(bakery_lock *bl)
+int get_process_id_bakery(bakery_lock *bl)
 {
     return bl->process_counter++;
 }

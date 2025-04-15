@@ -2,7 +2,7 @@
 
 
 // await b is an abbreviation for while ¬b do skip: 
-void lock(lamport_fast_lock *lfl, int thread)
+void lock_lamport(lamport_fast_lock *lfl, int thread)
 {
 start:
     atomic_store(&lfl->b[thread], true);
@@ -13,7 +13,7 @@ start:
         atomic_store(&lfl->b[thread], false);
         while (atomic_load(&lfl->y) != 0){
             // sched_yield();
-            printf("Waiting for y to be 0\n");
+            // printf("Waiting for y to be 0\n");
         } //Await y to be 0
         goto start;
     }
@@ -26,14 +26,14 @@ start:
         {   
             while (atomic_load(&lfl->b[j])){
                 // sched_yield();
-                printf("Waiting for b[j] to be false\n");
+                // printf("Waiting for b[j] to be false\n");
             } //Await to be ~b[j]
         }
         if (atomic_load(&lfl->y) != thread)
         {
             while (atomic_load(&lfl->y) != 0){
                 // sched_yield();
-                printf("Waiting for y to be 0\n");
+                // printf("Waiting for y to be 0\n");
             } //Await y to be 0
             goto start;
         }
@@ -41,7 +41,7 @@ start:
 
 }
 
-void unlock(lamport_fast_lock *lfl , int thread){
+void unlock_lamport(lamport_fast_lock *lfl , int thread){
     atomic_store(&lfl->y, 0);
     atomic_store(&lfl->b[thread], false);
 }
@@ -60,7 +60,7 @@ lamport_fast_lock* init_lamport_fast_lock(void* shmaddr){
 }
 
 
-int get_process_id(lamport_fast_lock *lfl){ //Dangerous
+int get_process_id_lamport(lamport_fast_lock *lfl){ //Dangerous
     return    atomic_fetch_add(&lfl->process_counter, 1);
 ;
 }

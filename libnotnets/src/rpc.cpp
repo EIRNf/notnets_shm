@@ -43,9 +43,11 @@ int client_send_rpc(queue_ctx* conn, const void* buf, size_t size);
 size_t client_receive_buf(queue_ctx* conn, void* buf, size_t size);
 int client_close(char* source_addr, char* destination_addr);
 
+
 // SERVER
+server_context* register_server_pthread(char* source_addr);
+server_context* register_server(char* source_addr, lock_type lock_type);
 void manage_pool(server_context* handler);
-server_context* register_server(char* source_addr);
 queue_ctx* accept(server_context* handler);
 int server_send_rpc(queue_ctx* client, const void *buf, size_t size);
 size_t server_receive_buf(queue_ctx* client, void* buf, size_t size);
@@ -475,6 +477,11 @@ void manage_pool(server_context* handler) {
     }
 }
 
+server_context* register_server_pthread(char* source_addr){
+    return register_server(source_addr, PTHREAD);
+}
+
+
 /**
  * @brief Server will instantiate necessary coord memory regions.
  * Once instantiate server can begin servicing client requests.
@@ -492,8 +499,6 @@ server_context* register_server(char* source_addr, lock_type lock_type) {
 
     
     server_context* sc = (server_context*) malloc(sizeof(server_context));
-
-
 
     // coord_header, at the end of the day, is just a shm region
     sc->coord_shmaddr =  ch;
@@ -555,14 +560,14 @@ queue_ctx* accept(server_context* handler) {
     } else if (lock_type == BAKERY) {
 
         if (handler->unique_thread_id == 0) {
-            handler->unique_thread_id = get_process_id(&ch->lock.bakery);
+            handler->unique_thread_id = get_process_id_bakery(&ch->lock.bakery);
         }
-        lock(&ch->lock.bakery, handler->unique_thread_id);
+        lock_bakery(&ch->lock.bakery, handler->unique_thread_id);
     } else if (lock_type == BURNS_AND_LYNCH) {
         if (handler->unique_thread_id == 0) {
-            handler->unique_thread_id = get_process_id(&ch->lock.burns_and_lynch);
+            handler->unique_thread_id = get_process_id_burns_and_lynch(&ch->lock.burns_and_lynch);
         }
-        lock(&ch->lock.burns_and_lynch, handler->unique_thread_id);
+        lock_burns_and_lynch(&ch->lock.burns_and_lynch, handler->unique_thread_id);
     } else if (lock_type == PTHREAD_SPIN)
     {
         pthread_spin_lock(&ch->lock.pthread_spin);
@@ -585,9 +590,9 @@ queue_ctx* accept(server_context* handler) {
             if (lock_type == PTHREAD) {
                 pthread_mutex_unlock(&ch->lock.pthread);
             } else if (lock_type == BAKERY) {
-                unlock(&ch->lock.bakery, handler->unique_thread_id);
+                unlock_bakery(&ch->lock.bakery, handler->unique_thread_id);
             } else if (lock_type == BURNS_AND_LYNCH) {
-                unlock(&ch->lock.burns_and_lynch, handler->unique_thread_id);
+                unlock_burns_and_lynch(&ch->lock.burns_and_lynch, handler->unique_thread_id);
             } else if (lock_type == PTHREAD_SPIN)
             {
                 pthread_spin_unlock(&ch->lock.pthread_spin);
@@ -606,9 +611,9 @@ queue_ctx* accept(server_context* handler) {
     if (lock_type == PTHREAD) {
         pthread_mutex_unlock(&ch->lock.pthread);
     } else if (lock_type == BAKERY) {
-        unlock(&ch->lock.bakery, handler->unique_thread_id);
+        unlock_bakery(&ch->lock.bakery, handler->unique_thread_id);
     } else if (lock_type == BURNS_AND_LYNCH) {
-        unlock(&ch->lock.burns_and_lynch, handler->unique_thread_id);
+        unlock_burns_and_lynch(&ch->lock.burns_and_lynch, handler->unique_thread_id);
     } else if (lock_type == PTHREAD_SPIN)
     {
         pthread_spin_unlock(&ch->lock.pthread_spin);

@@ -336,9 +336,9 @@ size_t dequeue(sem_spsc_queue_header* header, void* buf, size_t* buf_size) {
     char* slot_position = (char*) array_start + reader_tail * header->message_size;
     size_t message_length;
 
-    if(*buf_size > header->message_size+1){
-        printf("not supposed to happen");
-    }
+    // if(*buf_size > header->message_size+1){
+    //     printf("not supposed to happen");
+    // }
 
     // Get size of written message
     memcpy(&message_length, slot_position, sizeof(size_t));

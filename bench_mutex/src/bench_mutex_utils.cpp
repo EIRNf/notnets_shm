@@ -51,11 +51,11 @@ void* pthread_connect_client(void* arg){
     int unique_thread_id = 0;
 
     if (args->lock_type == BAKERY) {
-        unique_thread_id = get_process_id(&args->lock->bakery);
+        unique_thread_id = get_process_id_bakery(&args->lock->bakery);
     } else if (args->lock_type == BURNS_AND_LYNCH) {
-        unique_thread_id = get_process_id(&args->lock->burns_and_lynch);
+        unique_thread_id = get_process_id_burns_and_lynch(&args->lock->burns_and_lynch);
     } else if (args->lock_type == LAMPORT_FAST_LOCK) {
-        unique_thread_id = get_process_id(&args->lock->lamport_fast);
+        unique_thread_id = get_process_id_lamport(&args->lock->lamport_fast);
     }
 
     while(!run_flag);
@@ -67,28 +67,28 @@ void* pthread_connect_client(void* arg){
     if (args->lock_type  == PTHREAD) {
         pthread_mutex_lock(&args->lock->pthread);
     } else if (args->lock_type == BAKERY) {
-        lock(&args->lock->bakery, unique_thread_id);
+        lock_bakery(&args->lock->bakery, unique_thread_id);
     } else if (args->lock_type == BURNS_AND_LYNCH) {
-        lock(&args->lock->burns_and_lynch, unique_thread_id);
+        lock_burns_and_lynch(&args->lock->burns_and_lynch, unique_thread_id);
     } else if (args->lock->pthread_spin == PTHREAD_SPIN)
     {
         pthread_spin_lock(&args->lock->pthread_spin);
     }else if (args->lock_type == LAMPORT_FAST_LOCK) {
-        lock(&args->lock->lamport_fast, unique_thread_id);
+        lock_lamport(&args->lock->lamport_fast, unique_thread_id);
     }
 
     if (args->lock_type  == PTHREAD) {
         pthread_mutex_unlock(&args->lock->pthread);
     } else if (args->lock_type == BAKERY) {
-        unlock(&args->lock->bakery, unique_thread_id);
+        unlock_bakery(&args->lock->bakery, unique_thread_id);
     } else if (args->lock_type == BURNS_AND_LYNCH) {
-        unlock(&args->lock->burns_and_lynch, unique_thread_id);
+        unlock_burns_and_lynch(&args->lock->burns_and_lynch, unique_thread_id);
     } else if (args->lock->pthread_spin == PTHREAD_SPIN)
     {
         pthread_spin_unlock(&args->lock->pthread_spin);
     }
     else if (args->lock_type == LAMPORT_FAST_LOCK) {
-        unlock(&args->lock->lamport_fast, unique_thread_id);
+        unlock_lamport(&args->lock->lamport_fast, unique_thread_id);
     }
     }
     clock_gettime(CLOCK_BOOTTIME, &args->end);

@@ -113,11 +113,11 @@ int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TY
     if (lock_type == PTHREAD) {
         pthread_mutex_lock(&header->lock.pthread);
     } else if (lock_type == BAKERY) {
-        unique_thread_id = get_process_id(&header->lock.bakery);
-        lock(&header->lock.bakery, unique_thread_id);
+        unique_thread_id = get_process_id_bakery(&header->lock.bakery);
+        lock_bakery(&header->lock.bakery, unique_thread_id);
     } else if (lock_type == BURNS_AND_LYNCH) {
-        unique_thread_id = get_process_id(&header->lock.burns_and_lynch);
-        lock(&header->lock.burns_and_lynch, unique_thread_id);
+        unique_thread_id = get_process_id_burns_and_lynch(&header->lock.burns_and_lynch);
+        lock_burns_and_lynch(&header->lock.burns_and_lynch, unique_thread_id);
     } else if (lock_type == PTHREAD_SPIN)
     {
         pthread_spin_lock(&header->lock.pthread_spin);
@@ -144,9 +144,9 @@ int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TY
             if (lock_type == PTHREAD) {
                 pthread_mutex_unlock(&header->lock.pthread);
             } else if (lock_type == BAKERY) {
-                unlock(&header->lock.bakery, unique_thread_id);
+                unlock_bakery(&header->lock.bakery, unique_thread_id);
             } else if (lock_type == BURNS_AND_LYNCH) {
-                unlock(&header->lock.burns_and_lynch, unique_thread_id);
+                unlock_burns_and_lynch(&header->lock.burns_and_lynch, unique_thread_id);
             } else if (lock_type == PTHREAD_SPIN)
             {
                 pthread_spin_unlock(&header->lock.pthread_spin);
@@ -159,9 +159,9 @@ int request_slot(coord_header* header, int client_id, int message_size, QUEUE_TY
     if (lock_type == PTHREAD) {
         pthread_mutex_unlock(&header->lock.pthread);
     } else if (lock_type == BAKERY) {
-        unlock(&header->lock.bakery, unique_thread_id);
+        unlock_bakery(&header->lock.bakery, unique_thread_id);
     } else if (lock_type == BURNS_AND_LYNCH) {
-        unlock(&header->lock.burns_and_lynch, unique_thread_id);
+        unlock_burns_and_lynch(&header->lock.burns_and_lynch, unique_thread_id);
     } else if (lock_type == PTHREAD_SPIN)
     {
         pthread_spin_unlock(&header->lock.pthread_spin);

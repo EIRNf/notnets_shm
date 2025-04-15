@@ -49,12 +49,12 @@ void* shm_attach(int shmid){
 
 void shm_cxl_bind(void* shmaddr, int shm_size){
     //Add CXL memory node 
-    unsigned long nodemask = 1UL << 1;
-    int mode = MPOL_BIND;      
-    unsigned long maxnode = sizeof(nodemask) * 8;
-    if (mbind(shmaddr, shm_size, mode, &nodemask, maxnode, 0) != 0) {
-        perror("mbind");
-    }
+    // unsigned long nodemask = 1UL << 1;
+    // int mode = MPOL_BIND;      
+    // unsigned long maxnode = sizeof(nodemask) * 8;
+    // if (mbind(shmaddr, shm_size, mode, &nodemask, maxnode, 0) != 0) {
+    //     perror("mbind");
+    // }
 }
 
 

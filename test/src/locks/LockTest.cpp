@@ -52,9 +52,9 @@ void bakery_use_resource(bakery_test_wrapper *btw , int thread)
 
 void bakery_thread_body(bakery_test_wrapper *btw , int thread)
 {
-    lock(btw->bl, thread);
+    lock_bakery(btw->bl, thread);
     bakery_use_resource(btw, thread);
-    unlock(btw->bl, thread);
+    unlock_bakery(btw->bl, thread);
 }
 
 TEST_F(LockTest, BakeryLock)  
@@ -68,7 +68,7 @@ TEST_F(LockTest, BakeryLock)
     std::vector<std::thread> threads;
 
     for (int i = 0; i < THREAD_COUNT; ++i) {
-        int id = get_process_id(bl);
+        int id = get_process_id_bakery(bl);
         threads.emplace_back(bakery_thread_body,btw, id);
     }
 
@@ -115,9 +115,9 @@ void burns_lynch_use_resource(burns_and_lynch_test_wrapper *bltw , int thread)
 
 void burns_lynch_thread_body(burns_and_lynch_test_wrapper *bltw , int thread)
 {
-    lock(bltw->bll, thread);
+    lock_burns_and_lynch(bltw->bll, thread);
     burns_lynch_use_resource(bltw, thread);
-    unlock(bltw->bll, thread);
+    unlock_burns_and_lynch(bltw->bll, thread);
 }
 
 
@@ -133,7 +133,7 @@ TEST_F(LockTest, BurnsAndLynchLock)
     std::vector<std::thread> threads;
 
     for (int i = 0; i < THREAD_COUNT; ++i) {
-        int id = get_process_id(bltw->bll);
+        int id = get_process_id_burns_and_lynch(bltw->bll);
         threads.emplace_back(burns_lynch_thread_body,bltw, id);
     }
 

@@ -1,11 +1,12 @@
 #ifndef __BURNS_AND_LYNCH_H
 #define __BURNS_AND_LYNCH_H
 
-#include <chrono>
-#include <iostream>
-#include <mutex>
-#include <thread>
-#include <vector>
+// #include <chrono>
+// #include <iostream>
+// #include <mutex>
+// #include <thread>
+// #include <vector>
+#include <stdlib.h>
 #include <stdatomic.h>
 
 #define THREAD_COUNT  1000
@@ -24,12 +25,12 @@ typedef struct burns_and_lynch_lock {
 
 } burns_and_lynch_lock;
 
-void lock(burns_and_lynch_lock *bl ,int thread);
+void lock_burns_and_lynch(burns_and_lynch_lock *bl ,int thread);
 
-void unlock(burns_and_lynch_lock *bl , int thread);
+void unlock_burns_and_lynch(burns_and_lynch_lock *bl , int thread);
 
 burns_and_lynch_lock* init_burns_and_lynch_lock(void* shmaddr);
 
-int get_process_id(burns_and_lynch_lock *bl);
+int get_process_id_burns_and_lynch(burns_and_lynch_lock *bl);
 
 #endif 

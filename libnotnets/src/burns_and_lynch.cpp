@@ -1,6 +1,6 @@
 #include "burns_and_lynch.h"
 
-void lock(burns_and_lynch_lock *bl ,int thread)
+void lock_burns_and_lynch(burns_and_lynch_lock *bl ,int thread)
 {
     while (true){
         //STEP 1
@@ -48,7 +48,7 @@ step_7:
     }
 }
 
-void unlock(burns_and_lynch_lock *bl , int thread)
+void unlock_burns_and_lynch(burns_and_lynch_lock *bl , int thread)
 {
     atomic_store(&bl->F[thread], false);
 }
@@ -71,7 +71,7 @@ burns_and_lynch_lock* create_burns_and_lynch_lock()
     return bl;
 }
 
-int get_process_id(burns_and_lynch_lock *bl)
+int get_process_id_burns_and_lynch(burns_and_lynch_lock *bl)
 {
     return bl->process_counter++;
 }

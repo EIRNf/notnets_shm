@@ -1,10 +1,11 @@
 #ifndef __BAKERY_H
 #define __BAKERY_H
-#include <chrono>
-#include <iostream>
-#include <mutex>
-#include <thread>
-#include <vector>
+// #include <chrono>
+// #include <iostream>
+// #include <mutex>
+// #include <thread>
+// #include <vector>
+#include <stdlib.h>
 #include <stdatomic.h>
 
 
@@ -22,12 +23,12 @@ typedef struct bakery_lock {
 } bakery_lock;
 
 
-void lock(bakery_lock *bl ,int thread);
+void lock_bakery(bakery_lock *bl ,int thread);
 
-void unlock(bakery_lock *bl , int thread);
+void unlock_bakery(bakery_lock *bl , int thread);
 
 bakery_lock* init_bakery_lock(void* shmaddr);
 
-int get_process_id(bakery_lock *bl);
+int get_process_id_bakery(bakery_lock *bl);
 
 #endif 

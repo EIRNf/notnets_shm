@@ -2,8 +2,8 @@
 #define __COORD_H
 
 #define SLOT_NUM 1000
-// #define QUEUE_SIZE 16777216 // 16MB
-#define QUEUE_SIZE 256 // TODO: Improve checks for minimal size required. 
+#define QUEUE_SIZE 16777216 // 16MB
+// #define QUEUE_SIZE 256 // TODO: Improve checks for minimal size required. 
 
 
 #include <unistd.h>

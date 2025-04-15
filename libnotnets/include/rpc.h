@@ -1,6 +1,9 @@
 #ifndef __RPC_H
 #define __RPC_H
 
+#include "bakery.h"
+#include "burns_and_lynch.h"
+#include "lamport_fast.h"
 #include "coord.h"
 
 #include <errno.h>
@@ -10,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+
 
 #define SIMPLE_KEY 17
 
@@ -71,7 +75,7 @@ typedef struct server_context {
     // 1 = manage pool thread running and server has not indicated shutdown
     // 2 = manage pool thread running and server has indicated shutdown
     u_int manage_pool_state;
-    pthread_mutex_t manage_pool_mutex;
+    pthread_mutex_t manage_pool_mutex; //TODO; Support Multiple mutexes
 } server_context;
 
 //NOTE ON ERROR HANDLING
@@ -106,6 +110,8 @@ int client_close(char* source_addr, char* destination_addr);
 // SERVER
 void manage_pool(server_context* handler);
 server_context* register_server(char* source_addr, lock_type lock_type);
+server_context* register_server_pthread(char* source_addr);
+
 queue_ctx* accept(server_context* handler);
 int server_send_rpc(queue_ctx* client, const void *buf, size_t size);
 size_t server_receive_buf(queue_ctx* client, void* buf, size_t size);
@@ -211,6 +217,9 @@ shm_pair _rand_shm_allocator(int message_size, int client_id);
  */
 void manage_pool(server_context* handler);
 
+
+server_context* register_server_pthread(char* source_addr);
+
 /**
  * @brief Server will instantiate necessary coord memory regions.
  * Once instantiate server can begin servicing client requests.
@@ -221,7 +230,7 @@ void manage_pool(server_context* handler);
  * @return server_context* If NULL, coord memory region was not
  * created successfully
  */
-server_context* register_server(char* source_addr);
+server_context* register_server(char* source_addr, lock_type lock_type);
 
 /**
  * @brief
