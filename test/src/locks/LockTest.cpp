@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 
+#include <thread>
 #include "bakery.h"
 #include "burns_and_lynch.h"
 
