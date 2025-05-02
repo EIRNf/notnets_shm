@@ -269,15 +269,15 @@ int client_close(char* source_addr, char* destination_addr) {
 //SERVER
 shm_pair _fake_shm_allocator(int message_size, int client_id) {
     shm_pair shms = {};
-
-
     (void) client_id;
 
+    int queue_mem_size = (QUEUE_DEPTH * message_size) + sizeof(spsc_queue_header);
+
     int request_shmid = shm_create(SIMPLE_KEY,
-                                   QUEUE_SIZE,
+                                    queue_mem_size,
                                    create_flag);
     int response_shmid = shm_create(SIMPLE_KEY + 1,
-                                    QUEUE_SIZE,
+                                    queue_mem_size,
                                     create_flag);
     notnets_shm_info request_shm = {SIMPLE_KEY, request_shmid};
     notnets_shm_info response_shm = {SIMPLE_KEY + 1, response_shmid};
@@ -285,8 +285,8 @@ shm_pair _fake_shm_allocator(int message_size, int client_id) {
     // set up shm regions as queues
     void* request_addr = shm_attach(request_shmid);
     void* response_addr = shm_attach(response_shmid);
-    queue_create(request_addr, QUEUE_SIZE, message_size);
-    queue_create(response_addr, QUEUE_SIZE, message_size);
+    queue_create(request_addr, queue_mem_size, message_size);
+    queue_create(response_addr, queue_mem_size, message_size);
     // don't want to stay attached to the queue pairs
     shm_detach(request_addr);
     shm_detach(response_addr);
@@ -302,14 +302,17 @@ shm_pair _fake_shm_allocator(int message_size, int client_id) {
 shm_pair _hash_shm_allocator(int message_size, int client_id) {
     shm_pair shms = {};
 
+    int queue_mem_size = (QUEUE_DEPTH * message_size) + sizeof(spsc_queue_header);
+
+
     int key1 = client_id;
     int key2 = client_id+1;
 
     int request_shmid = shm_create(key1,
-                                   QUEUE_SIZE,
+        queue_mem_size,
                                    create_flag);
     int response_shmid = shm_create(key2,
-                                    QUEUE_SIZE,
+        queue_mem_size,
                                     create_flag);
     notnets_shm_info request_shm = {key1, request_shmid};
     notnets_shm_info response_shm = {key2, response_shmid};
@@ -318,11 +321,11 @@ shm_pair _hash_shm_allocator(int message_size, int client_id) {
     void* request_addr = shm_attach(request_shmid);
     void* response_addr = shm_attach(response_shmid);
 
-    shm_cxl_bind(request_addr, QUEUE_SIZE);
-    shm_cxl_bind(response_addr, QUEUE_SIZE);
+    shm_cxl_bind(request_addr, queue_mem_size);
+    shm_cxl_bind(response_addr, queue_mem_size);
 
-    queue_create(request_addr, QUEUE_SIZE, message_size);
-    queue_create(response_addr, QUEUE_SIZE, message_size);
+    queue_create(request_addr, queue_mem_size, message_size);
+    queue_create(response_addr, queue_mem_size, message_size);
 
     // don't want to stay attached to the queue pairs
     shm_detach(request_addr);
@@ -337,14 +340,17 @@ shm_pair _hash_shm_allocator(int message_size, int client_id) {
 shm_pair _hash_adaptive_shm_allocator(int message_size, int client_id) {
     shm_pair shms = {};
 
+    int queue_mem_size = (QUEUE_DEPTH * message_size) + sizeof(spsc_adaptive_queue_header);
+
+
     int key1 = client_id;
     int key2 = client_id+1;
 
     int request_shmid = shm_create(key1,
-                                   QUEUE_SIZE,
+        queue_mem_size,
                                    create_flag);
     int response_shmid = shm_create(key2,
-                                    QUEUE_SIZE,
+        queue_mem_size,
                                     create_flag);
     notnets_shm_info request_shm = {key1, request_shmid};
     notnets_shm_info response_shm = {key2, response_shmid};
@@ -353,11 +359,11 @@ shm_pair _hash_adaptive_shm_allocator(int message_size, int client_id) {
     void* request_addr = shm_attach(request_shmid);
     void* response_addr = shm_attach(response_shmid);
 
-    shm_cxl_bind(request_addr, QUEUE_SIZE);
-    shm_cxl_bind(response_addr, QUEUE_SIZE);
+    shm_cxl_bind(request_addr, queue_mem_size);
+    shm_cxl_bind(response_addr, queue_mem_size);
 
-    adaptive_queue_create(request_addr, QUEUE_SIZE, message_size);
-    adaptive_queue_create(response_addr, QUEUE_SIZE, message_size);
+    adaptive_queue_create(request_addr, queue_mem_size, message_size);
+    adaptive_queue_create(response_addr, queue_mem_size, message_size);
 
     // don't want to stay attached to the queue pairs
     shm_detach(request_addr);
@@ -373,6 +379,7 @@ shm_pair _hash_adaptive_shm_allocator(int message_size, int client_id) {
 shm_pair _rand_shm_allocator(int message_size, int client_id) {
     // printf("ALLOCATOR:\n");
 
+    int queue_mem_size = (QUEUE_DEPTH * message_size) + sizeof(spsc_queue_header);
 
     (void) client_id;
     srand(time(0));
@@ -383,10 +390,10 @@ shm_pair _rand_shm_allocator(int message_size, int client_id) {
     int key2 = rand();
 
     int request_shmid = shm_create(key1,
-                                   QUEUE_SIZE,
+        queue_mem_size,
                                    create_flag);
     int response_shmid = shm_create(key2,
-                                    QUEUE_SIZE,
+        queue_mem_size,
                                     create_flag);
     notnets_shm_info request_shm = {key1, request_shmid};
     notnets_shm_info response_shm = {key2, response_shmid};
@@ -394,8 +401,8 @@ shm_pair _rand_shm_allocator(int message_size, int client_id) {
     // set up shm regions as queues
     void* request_addr = shm_attach(request_shmid);
     void* response_addr = shm_attach(response_shmid);
-    queue_create(request_addr, QUEUE_SIZE, message_size);
-    queue_create(response_addr, QUEUE_SIZE, message_size);
+    queue_create(request_addr, queue_mem_size, message_size);
+    queue_create(response_addr, queue_mem_size, message_size);
     // don't want to stay attached to the queue pairs
     shm_detach(request_addr);
     shm_detach(response_addr);

@@ -322,7 +322,7 @@ void clear_slot(coord_header* header, int slot){
 
 void coord_shutdown(coord_header* header) {
     for (int i = 0; i < SLOT_NUM; ++i) {
-            header->slots[i].detach = true;
+        header->slots[i].detach = true;
     }
 }
 

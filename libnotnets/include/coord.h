@@ -3,6 +3,8 @@
 
 #define SLOT_NUM 1000
 #define QUEUE_SIZE 16777216 // 16MB
+#define QUEUE_DEPTH 512 // 16MB
+
 // #define QUEUE_SIZE 256 // TODO: Improve checks for minimal size required. 
 
 

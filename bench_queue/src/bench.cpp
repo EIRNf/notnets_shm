@@ -621,7 +621,7 @@ void bench_run_all(QUEUE_TYPE type, int value, char* name){
 
 int main(int argc, char *argv[]) {
     QUEUE_TYPE mode = POLL;  // Default mode
-    int value = 1200000000;      // Default value
+    int value = 2048;      // Default value
     char* name = (char*)"POLL";
 
     if (argc > 1) {

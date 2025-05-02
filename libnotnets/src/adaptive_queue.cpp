@@ -12,6 +12,16 @@
 #include <sys/prctl.h>
 
 
+long measure_sleep_resolution() {
+    struct timespec nano_sleep, start, end;
+    nano_sleep.tv_sec = 0;
+    nano_sleep.tv_nsec = 1 ;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    clock_nanosleep(CLOCK_MONOTONIC, 0, &nano_sleep, NULL);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    return (end.tv_nsec - start.tv_nsec);
+  }
+
 spsc_adaptive_queue_header* get_adaptive_queue_header(void* shmaddr) {
     spsc_adaptive_queue_header* header = (spsc_adaptive_queue_header*) shmaddr;
     return header;
@@ -45,7 +55,10 @@ ssize_t adaptive_queue_create(void* shmaddr, size_t shm_size, size_t message_siz
     header_ptr->total_count = 0;
     header_ptr->stop_consumer_polling = false;
     header_ptr->stop_producer_polling = false;
-    header_ptr->nano_sleep_time_step = 1; // 0.001 microseconds
+    // header_ptr->nano_sleep_time_step =  measure_sleep_resolution()  / 10; // Estimate best polling interval by measuring sleep / 10 to account for priority scheduling 
+    header_ptr->nano_sleep_time_step =  1000; // 1us
+
+    
     atomic_thread_fence(memory_order_seq_cst);
 
     return shm_size - leftover_bytes;
@@ -83,6 +96,7 @@ int adaptive_push(void* shmaddr, const void* buf, size_t buf_size) {
         sleep = {0, sleep_time};
         clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep, NULL);
         sleep_time =  (sleep_time *  1.05) + header->nano_sleep_time_step;
+
         
         // sched_yield();
     }
