@@ -51,14 +51,16 @@ shm_pair _hash_sem_shm_allocator(int message_size, int client_id) {
     // int temp = client_id + 1;
     // int key2 = hash((unsigned char*)&temp);
 
+    int queue_mem_size = (QUEUE_DEPTH * message_size) + sizeof(sem_spsc_queue_header);
+
     int key1 = client_id/2;
     int key2 = client_id/3;
 
     int request_shmid = shm_create(key1,
-                                   QUEUE_SIZE,
+        queue_mem_size,
                                    create_flag);
     int response_shmid = shm_create(key2,
-                                    QUEUE_SIZE,
+        queue_mem_size,
                                     create_flag);
     notnets_shm_info request_shm = {key1, request_shmid};
     notnets_shm_info response_shm = {key2, response_shmid};
@@ -67,8 +69,8 @@ shm_pair _hash_sem_shm_allocator(int message_size, int client_id) {
     void* request_addr = shm_attach(request_shmid);
     void* response_addr = shm_attach(response_shmid);
 
-    queue_create(request_addr, key1, QUEUE_SIZE, message_size);
-    queue_create(response_addr, key2, QUEUE_SIZE, message_size);
+    queue_create(request_addr, key1, queue_mem_size, message_size);
+    queue_create(response_addr, key2, queue_mem_size, message_size);
 
     // don't want to stay attached to the queue pairs
     shm_detach(request_addr);
@@ -83,18 +85,15 @@ shm_pair _hash_sem_shm_allocator(int message_size, int client_id) {
 
 int sem_wait(int semid, int sem_num){
     struct sembuf sb;
-
-    sb.sem_num = sem_num;
+    sb.sem_num = 0;
     sb.sem_op = -1; //Block the calling process until the value of the semaphore is greater than or equal to the absolute value of sem_op.
     sb.sem_flg = 0;
 
     int ret = semop(semid, &sb, 1);
     if (ret == -1 ){ //TODO: Figure out max value issue
-        // int errnum = errno;
-        // fprintf(stderr, "Sem_Wait: Value of errno: %d\n", errno);
-        // fprintf(stderr, "Error: %s\n", strerror( errnum ));
-        // printf("semid: %d\n", semid);
-        // printf("sem_num: %d\n", semid);
+        int errnum = errno;
+        fprintf(stderr, "sem_wait failed: errno=%d (%s)\n", errnum, strerror(errnum));
+        fprintf(stderr, "semid=%d, sem_num=%d\n", semid, sem_num);
 
     }
      
@@ -105,17 +104,17 @@ int sem_wait(int semid, int sem_num){
 int sem_post(int semid, int sem_num){
     struct sembuf sb;
 
-    sb.sem_num = sem_num;
+    sb.sem_num = 0;
     sb.sem_op = 1; //Increment and permit those waiting on the semaphore to enter critical section
     sb.sem_flg = 0;
 
     int ret = semop(semid, &sb, 1);
     if (ret == -1 ){ //TODO: Figure out max value issue
-        // int errnum = errno;
-        // fprintf(stderr, "Sem_Post: Value of errno: %d\n", errno);
-        // fprintf(stderr, "Error: %s\n", strerror( errnum ));
-        // printf("semid: %d\n", semid);
-        // printf("sem_num: %d\n", sem_num);
+        int errnum = errno;
+        fprintf(stderr, "Sem_Post: Value of errno: %d\n", errno);
+        fprintf(stderr, "Error: %s\n", strerror( errnum ));
+        printf("semid: %d\n", semid);
+        printf("sem_num: %d\n", sem_num);
     }
     //Carry our semaphore operation
     return ret;
@@ -232,10 +231,8 @@ ssize_t queue_create(void* shmaddr, key_t key_seed, size_t shm_size, size_t mess
             perror("initsem");
             exit(1);
     }
-    // Increment full_sem
-    // for(int i = 0; i < header_ptr->queue_size ; i++){//subtle, as the semaphores get initialized to one, this must be incremented only header_ptr->queue_size - 1 times
-        // sem_post(header_ptr->sem_full,0); 
-    // }
+    // decrement full_sem
+    sem_wait(header_ptr->sem_full, 0);
 
 
     key_t sem_empty_key = abs(key_seed)/20;
@@ -245,7 +242,10 @@ ssize_t queue_create(void* shmaddr, key_t key_seed, size_t shm_size, size_t mess
             exit(1);
     }
     //decrement semaphore as it will start off empty.
-    sem_wait(header_ptr->sem_empty, 0);
+
+    for(int i = 0; i < header_ptr->queue_size ; i++){//subtle, as the semaphores get initialized to one, this must be incremented only header_ptr->queue_size - 1 times
+        sem_post(header_ptr->sem_empty,0); 
+    }
 
 
     key_t lock_key = abs(key_seed)/200;
@@ -299,24 +299,33 @@ int sem_push(void* shmaddr, const void* buf, size_t buf_size) {
         return -1; 
     }
 
-    sem_wait(header->sem_lock, 0);
-    bool was_empty = is_empty(header);
+    // sem_wait(header->sem_lock, 0);
+    // bool was_empty = is_empty(header);
 
-    if (is_full(header)){
-        sem_post(header->sem_lock, 0);
+    // if (is_full(header)){
+    //     sem_post(header->sem_lock, 0);
 
-        while (is_full(header)){
-            sem_wait(header->sem_full, 0); //wait on full
-        }
+    //     while (is_full(header)){
+    //         sem_wait(header->sem_full, 0); //wait on full
+    //     }
         
-        sem_wait(header->sem_lock, 0);
-    }
+    //     sem_wait(header->sem_lock, 0);
+    // }
     
-    ret = enqueue(header, buf, buf_size); 
-    sem_post(header->sem_lock, 0);
-    if (was_empty){
-        sem_post(header->sem_empty, 0); //increment, permit sem_pop to dequeue
-    }
+    // ret = enqueue(header, buf, buf_size); 
+    // sem_post(header->sem_lock, 0);
+    // if (was_empty){
+    //     sem_post(header->sem_empty, 0); //increment, permit sem_pop to dequeue
+    // }
+    
+    sem_wait(header->sem_empty, 0);  // Wait for space
+    sem_wait(header->sem_lock, 0);  // Lock critical section
+
+    ret = enqueue(header, buf, buf_size);
+
+    sem_post(header->sem_lock, 0);  // Unlock
+    sem_post(header->sem_full, 0); // Signal item available
+
 
     return ret;
 }
@@ -363,41 +372,46 @@ size_t dequeue(sem_spsc_queue_header* header, void* buf, size_t* buf_size) {
 
     if ((size_t) header->message_offset == message_length) {
         header->message_offset = 0;
+        atomic_store_explicit(&header->tail, next_reader_tail, memory_order_release);
     }
     else {
-        next_reader_tail = reader_tail;
+        atomic_store_explicit(&header->tail, reader_tail, memory_order_release);
     }
 
-    atomic_store_explicit(&header->tail, next_reader_tail, memory_order_release);
-
     return read_data;
-
 }
 
 
 size_t sem_pop(void* shmaddr, void* buf, size_t* buf_size) {
     sem_spsc_queue_header* header = get_sem_queue_header(shmaddr);
-    size_t ret = 0;
 
     if (header->stop_consumer_polling) {
         return 0;
     }
 
-    sem_wait(header->sem_lock, 0);
-    bool was_full= is_full(header);
-    if(is_empty(header)){
-        sem_post(header->sem_lock,0);
-        while (is_empty(header)){
-            sem_wait(header->sem_empty,0); // This doesnt work cause sem and tail fall out of sync
-        }
-        sem_wait(header->sem_lock,0);
-    }
+    // sem_wait(header->sem_lock, 0);
+    // bool was_full= is_full(header);
+    // if(is_empty(header)){
+    //     sem_post(header->sem_lock,0);
+    //     while (is_empty(header)){
+    //         sem_wait(header->sem_empty,0); // This doesnt work cause sem and tail fall out of sync
+    //     }
+    //     sem_wait(header->sem_lock,0);
+    // }
    
-    ret = dequeue(header, buf, buf_size);
-    sem_post(header->sem_lock, 0);
-    if(was_full){
-        sem_post(header->sem_full,0); //If queue was full, then increment semaphore to notify push that it is no longer full
-    }
+    // ret = dequeue(header, buf, buf_size);
+    // sem_post(header->sem_lock, 0);
+    // if(was_full){
+    //     sem_post(header->sem_full,0); //If queue was full, then increment semaphore to notify push that it is no longer full
+    // }
+    sem_wait(header->sem_full, 0); // Wait for item
+    sem_wait(header->sem_lock, 0);  // Lock
+
+    size_t ret = dequeue(header, buf, buf_size);
+
+    sem_post(header->sem_lock, 0);  // Unlock
+    sem_post(header->sem_empty, 0);  // Signal space available
+
 
     return ret;
 }
